@@ -1,7 +1,7 @@
 --[[
-    Universal Script / Settings / Universal Page - Roblox UI
-    Top bar: title on left, X button + Settings icon on right
-    Universal Page: "Fly" option with toggle button on the right
+    Universal Script - Clean UI
+    No fly, just the interface
+    X button is red uppercase X
 --]]
 
 task.wait(0.5)
@@ -9,14 +9,7 @@ task.wait(0.5)
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
-
--- Fly variables
-local flying = false
-local flyBodyVelocity = nil
-local flyBodyGyro = nil
-local flySpeed = 50
 
 -- Create ScreenGui
 local screenGui = Instance.new("ScreenGui")
@@ -54,7 +47,7 @@ uiStroke.Color = Color3.fromRGB(70, 70, 80)
 uiStroke.Thickness = 1.2
 uiStroke.Parent = mainFrame
 
--- ================= TOP BAR =================
+-- TOP BAR
 local topBar = Instance.new("Frame")
 topBar.Name = "TopBar"
 topBar.Size = UDim2.new(1, 0, 0, 44)
@@ -66,7 +59,6 @@ local topCorner = Instance.new("UICorner")
 topCorner.CornerRadius = UDim.new(0, 12)
 topCorner.Parent = topBar
 
--- Left side: Back Arrow (hidden by default)
 local backButton = Instance.new("TextButton")
 backButton.Name = "BackButton"
 backButton.Size = UDim2.new(0, 34, 0, 34)
@@ -84,7 +76,6 @@ local backCorner = Instance.new("UICorner")
 backCorner.CornerRadius = UDim.new(1, 0)
 backCorner.Parent = backButton
 
--- Title Text (white)
 local titleLabel = Instance.new("TextLabel")
 titleLabel.Name = "TitleLabel"
 titleLabel.Size = UDim2.new(0.5, 0, 1, 0)
@@ -95,10 +86,8 @@ titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 titleLabel.TextSize = 18
 titleLabel.TextXAlignment = Enum.TextXAlignment.Left
 titleLabel.Font = Enum.Font.GothamBold
-titleLabel.TextStrokeTransparency = 0.5
 titleLabel.Parent = topBar
 
--- Right side button container
 local buttonContainer = Instance.new("Frame")
 buttonContainer.Name = "ButtonContainer"
 buttonContainer.Size = UDim2.new(0, 85, 1, 0)
@@ -106,15 +95,15 @@ buttonContainer.Position = UDim2.new(1, -95, 0, 0)
 buttonContainer.BackgroundTransparency = 1
 buttonContainer.Parent = topBar
 
--- X button (close)
+-- X button (RED, uppercase X)
 local closeButton = Instance.new("TextButton")
 closeButton.Name = "CloseButton"
 closeButton.Size = UDim2.new(0, 34, 0, 34)
 closeButton.Position = UDim2.new(0, 6, 0.5, -17)
-closeButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
-closeButton.Text = "✕"
-closeButton.TextColor3 = Color3.fromRGB(230, 230, 230)
-closeButton.TextSize = 22
+closeButton.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
+closeButton.Text = "X"
+closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeButton.TextSize = 20
 closeButton.Font = Enum.Font.SourceSansBold
 closeButton.AutoButtonColor = false
 closeButton.Parent = buttonContainer
@@ -123,7 +112,6 @@ local closeCorner = Instance.new("UICorner")
 closeCorner.CornerRadius = UDim.new(1, 0)
 closeCorner.Parent = closeButton
 
--- Settings icon button
 local settingsButton = Instance.new("TextButton")
 settingsButton.Name = "SettingsButton"
 settingsButton.Size = UDim2.new(0, 34, 0, 34)
@@ -140,127 +128,34 @@ local settingsCorner = Instance.new("UICorner")
 settingsCorner.CornerRadius = UDim.new(1, 0)
 settingsCorner.Parent = settingsButton
 
--- Hover effects
 closeButton.MouseEnter:Connect(function()
-    TweenService:Create(closeButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(200, 65, 65), TextColor3 = Color3.fromRGB(255, 255, 255)}):Play()
+    TweenService:Create(closeButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(220, 50, 50)}):Play()
 end)
 closeButton.MouseLeave:Connect(function()
-    TweenService:Create(closeButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), TextColor3 = Color3.fromRGB(230, 230, 230)}):Play()
+    TweenService:Create(closeButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(180, 40, 40)}):Play()
 end)
 
 settingsButton.MouseEnter:Connect(function()
-    TweenService:Create(settingsButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(85, 85, 110), TextColor3 = Color3.fromRGB(255, 255, 255)}):Play()
+    TweenService:Create(settingsButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(85, 85, 110)}):Play()
 end)
 settingsButton.MouseLeave:Connect(function()
-    TweenService:Create(settingsButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), TextColor3 = Color3.fromRGB(230, 230, 230)}):Play()
+    TweenService:Create(settingsButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65)}):Play()
 end)
 
 backButton.MouseEnter:Connect(function()
-    TweenService:Create(backButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(85, 85, 110), TextColor3 = Color3.fromRGB(255, 255, 255)}):Play()
+    TweenService:Create(backButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(85, 85, 110)}):Play()
 end)
 backButton.MouseLeave:Connect(function()
-    TweenService:Create(backButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), TextColor3 = Color3.fromRGB(230, 230, 230)}):Play()
+    TweenService:Create(backButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65)}):Play()
 end)
 
--- Close function
 closeButton.MouseButton1Click:Connect(function()
-    -- Stop fly if active
-    if flying then
-        local char = LocalPlayer.Character
-        if char then
-            if flyBodyVelocity then flyBodyVelocity:Destroy() end
-            if flyBodyGyro then flyBodyGyro:Destroy() end
-        end
-    end
-    TweenService:Create(mainFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {BackgroundTransparency = 1}):Play()
+    TweenService:Create(mainFrame, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
     task.wait(0.2)
     screenGui:Destroy()
 end)
 
--- ============ FLY FUNCTION ============
-local function startFly()
-    local char = LocalPlayer.Character
-    if not char then return end
-    local humanoid = char:FindFirstChild("Humanoid")
-    if not humanoid then return end
-    
-    -- Clean up existing fly instances
-    if flyBodyVelocity then flyBodyVelocity:Destroy() end
-    if flyBodyGyro then flyBodyGyro:Destroy() end
-    
-    humanoid.PlatformStand = true
-    
-    flyBodyVelocity = Instance.new("BodyVelocity")
-    flyBodyVelocity.MaxForce = Vector3.new(1, 1, 1) * 100000
-    flyBodyVelocity.Parent = char
-    
-    flyBodyGyro = Instance.new("BodyGyro")
-    flyBodyGyro.MaxTorque = Vector3.new(1, 1, 1) * 100000
-    flyBodyGyro.Parent = char
-    
-    flying = true
-    
-    -- Fly movement loop
-    local flyConnection
-    flyConnection = RunService.RenderStepped:Connect(function()
-        if not flying or not char or not char.Parent then
-            if flyConnection then flyConnection:Disconnect() end
-            return
-        end
-        local camera = workspace.CurrentCamera
-        local moveDirection = Vector3.new()
-        
-        if UserInputService:IsKeyDown(Enum.KeyCode.W) then
-            moveDirection = moveDirection + camera.CFrame.LookVector
-        end
-        if UserInputService:IsKeyDown(Enum.KeyCode.S) then
-            moveDirection = moveDirection - camera.CFrame.LookVector
-        end
-        if UserInputService:IsKeyDown(Enum.KeyCode.A) then
-            moveDirection = moveDirection - camera.CFrame.RightVector
-        end
-        if UserInputService:IsKeyDown(Enum.KeyCode.D) then
-            moveDirection = moveDirection + camera.CFrame.RightVector
-        end
-        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-            moveDirection = moveDirection + Vector3.new(0, 1, 0)
-        end
-        if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
-            moveDirection = moveDirection - Vector3.new(0, 1, 0)
-        end
-        
-        if moveDirection.Magnitude > 0 then
-            moveDirection = moveDirection.Unit
-        end
-        
-        flyBodyVelocity.Velocity = moveDirection * flySpeed
-        flyBodyGyro.CFrame = camera.CFrame
-    end)
-    
-    _G.flyConnection = flyConnection
-end
-
-local function stopFly()
-    flying = false
-    local char = LocalPlayer.Character
-    if char then
-        local humanoid = char:FindFirstChild("Humanoid")
-        if humanoid then
-            humanoid.PlatformStand = false
-        end
-        if flyBodyVelocity then flyBodyVelocity:Destroy() end
-        if flyBodyGyro then flyBodyGyro:Destroy() end
-        flyBodyVelocity = nil
-        flyBodyGyro = nil
-    end
-    if _G.flyConnection then
-        _G.flyConnection:Disconnect()
-        _G.flyConnection = nil
-    end
-end
-
--- ============ CONTENT FRAMES ============
--- Main content frame
+-- CONTENT FRAMES
 local mainContent = Instance.new("Frame")
 mainContent.Name = "MainContent"
 mainContent.Size = UDim2.new(1, -24, 1, -64)
@@ -269,7 +164,6 @@ mainContent.BackgroundTransparency = 1
 mainContent.Visible = true
 mainContent.Parent = mainFrame
 
--- Open Universal Script button (in main UI)
 local openUniversalButton = Instance.new("TextButton")
 openUniversalButton.Name = "OpenUniversalButton"
 openUniversalButton.Size = UDim2.new(1, -20, 0, 48)
@@ -293,7 +187,7 @@ openUniversalButton.MouseLeave:Connect(function()
     TweenService:Create(openUniversalButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65)}):Play()
 end)
 
--- Universal Page content frame
+-- Universal Page (empty)
 local universalContent = Instance.new("Frame")
 universalContent.Name = "UniversalContent"
 universalContent.Size = UDim2.new(1, -24, 1, -64)
@@ -302,70 +196,7 @@ universalContent.BackgroundTransparency = 1
 universalContent.Visible = false
 universalContent.Parent = mainFrame
 
--- Fly Option Row (gray background)
-local flyRow = Instance.new("Frame")
-flyRow.Name = "FlyRow"
-flyRow.Size = UDim2.new(1, -20, 0, 50)
-flyRow.Position = UDim2.new(0, 10, 0, 10)
-flyRow.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
-flyRow.BorderSizePixel = 0
-flyRow.Parent = universalContent
-
-local flyRowCorner = Instance.new("UICorner")
-flyRowCorner.CornerRadius = UDim.new(0, 8)
-flyRowCorner.Parent = flyRow
-
--- Fly label
-local flyLabel = Instance.new("TextLabel")
-flyLabel.Size = UDim2.new(0.7, 0, 1, 0)
-flyLabel.Position = UDim2.new(0, 15, 0, 0)
-flyLabel.BackgroundTransparency = 1
-flyLabel.Text = "Fly"
-flyLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-flyLabel.TextSize = 16
-flyLabel.TextXAlignment = Enum.TextXAlignment.Left
-flyLabel.Font = Enum.Font.GothamBold
-flyLabel.Parent = flyRow
-
--- Fly toggle button
-local flyToggle = Instance.new("TextButton")
-flyToggle.Name = "FlyToggle"
-flyToggle.Size = UDim2.new(0, 70, 0, 36)
-flyToggle.Position = UDim2.new(1, -85, 0.5, -18)
-flyToggle.BackgroundColor3 = Color3.fromRGB(70, 70, 80)
-flyToggle.Text = "OFF"
-flyToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-flyToggle.TextSize = 14
-flyToggle.Font = Enum.Font.GothamBold
-flyToggle.AutoButtonColor = false
-flyToggle.Parent = flyRow
-
-local flyToggleCorner = Instance.new("UICorner")
-flyToggleCorner.CornerRadius = UDim.new(1, 0)
-flyToggleCorner.Parent = flyToggle
-
-local flyState = false
-flyToggle.MouseButton1Click:Connect(function()
-    flyState = not flyState
-    if flyState then
-        flyToggle.Text = "ON"
-        flyToggle.BackgroundColor3 = Color3.fromRGB(0, 150, 70)
-        startFly()
-    else
-        flyToggle.Text = "OFF"
-        flyToggle.BackgroundColor3 = Color3.fromRGB(70, 70, 80)
-        stopFly()
-    end
-end)
-
-flyToggle.MouseEnter:Connect(function()
-    TweenService:Create(flyToggle, TweenInfo.new(0.1), {BackgroundColor3 = flyState and Color3.fromRGB(0, 170, 80) or Color3.fromRGB(90, 90, 105)}):Play()
-end)
-flyToggle.MouseLeave:Connect(function()
-    TweenService:Create(flyToggle, TweenInfo.new(0.1), {BackgroundColor3 = flyState and Color3.fromRGB(0, 150, 70) or Color3.fromRGB(70, 70, 80)}):Play()
-end)
-
--- Settings content frame
+-- Settings Page
 local settingsContent = Instance.new("Frame")
 settingsContent.Name = "SettingsContent"
 settingsContent.Size = UDim2.new(1, -24, 1, -64)
@@ -374,7 +205,6 @@ settingsContent.BackgroundTransparency = 1
 settingsContent.Visible = false
 settingsContent.Parent = mainFrame
 
--- Action Button (in settings)
 local actionButton = Instance.new("TextButton")
 actionButton.Name = "ActionButton"
 actionButton.Size = UDim2.new(1, -20, 0, 48)
@@ -408,56 +238,44 @@ actionButton.MouseButton1Click:Connect(function()
     end)
 end)
 
--- ============ UI STATE MANAGEMENT ============
+-- UI STATE
 local currentState = "main"
 
 local function switchToMainUI()
     currentState = "main"
     titleLabel.Text = "Universal Script"
-    titleLabel.Position = UDim2.new(0, 58, 0, 0)
     backButton.Visible = false
     mainContent.Visible = true
     universalContent.Visible = false
     settingsContent.Visible = false
-    closeButton.Visible = true
-    settingsButton.Visible = true
 end
 
 local function switchToUniversalUI()
     currentState = "universal"
     titleLabel.Text = "Universal"
-    titleLabel.Position = UDim2.new(0, 58, 0, 0)
     backButton.Visible = true
     mainContent.Visible = false
     universalContent.Visible = true
     settingsContent.Visible = false
-    closeButton.Visible = true
-    settingsButton.Visible = true
 end
 
 local function switchToSettingsUI()
     currentState = "settings"
     titleLabel.Text = "Settings"
-    titleLabel.Position = UDim2.new(0, 58, 0, 0)
     backButton.Visible = true
     mainContent.Visible = false
     universalContent.Visible = false
     settingsContent.Visible = true
-    closeButton.Visible = true
-    settingsButton.Visible = true
 end
 
--- Back button
 backButton.MouseButton1Click:Connect(function()
     switchToMainUI()
 end)
 
--- Open Universal Script button
 openUniversalButton.MouseButton1Click:Connect(function()
     switchToUniversalUI()
 end)
 
--- Settings button
 settingsButton.MouseButton1Click:Connect(function()
     if currentState == "settings" then
         switchToMainUI()
@@ -466,7 +284,7 @@ settingsButton.MouseButton1Click:Connect(function()
     end
 end)
 
--- ============ DRAGGING LOGIC ============
+-- DRAGGING
 local dragging = false
 local dragStart, startPos
 
@@ -490,8 +308,7 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- Animation
 mainFrame.BackgroundTransparency = 0.35
-TweenService:Create(mainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {BackgroundTransparency = 0}):Play()
+TweenService:Create(mainFrame, TweenInfo.new(0.3), {BackgroundTransparency = 0}):Play()
 
-print("Universal Script UI Loaded | Fly toggle added in Universal page")
+print("Universal Script UI Loaded | Fly removed | X button is red uppercase X")
