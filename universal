@@ -1,0 +1,351 @@
+--[[
+    Universal Script / Settings / Universal Page - Roblox UI
+    Top bar: title on left, X button + Settings icon on right
+    Main UI: "Open Universal Script" button below top bar
+    Clicking it opens Universal Page with back arrow + changes title to "Universal"
+    Back arrow returns to main UI
+--]]
+
+task.wait(0.5)
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local LocalPlayer = Players.LocalPlayer
+
+-- Create ScreenGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "UniversalScriptGUI"
+screenGui.ResetOnSpawn = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+pcall(function()
+    screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+end)
+if not screenGui.Parent then
+    pcall(function()
+        screenGui.Parent = game:GetService("CoreGui")
+    end)
+end
+
+-- Main Frame
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 420, 0, 340)
+mainFrame.Position = UDim2.new(0.5, -210, 0.5, -170)
+mainFrame.BackgroundColor3 = Color3.fromRGB(28, 28, 32)
+mainFrame.BackgroundTransparency = 0
+mainFrame.BorderSizePixel = 0
+mainFrame.ClipsDescendants = true
+mainFrame.Visible = true
+mainFrame.Parent = screenGui
+
+local uiCorner = Instance.new("UICorner")
+uiCorner.CornerRadius = UDim.new(0, 12)
+uiCorner.Parent = mainFrame
+
+local uiStroke = Instance.new("UIStroke")
+uiStroke.Color = Color3.fromRGB(70, 70, 80)
+uiStroke.Thickness = 1.2
+uiStroke.Parent = mainFrame
+
+-- ================= TOP BAR =================
+local topBar = Instance.new("Frame")
+topBar.Name = "TopBar"
+topBar.Size = UDim2.new(1, 0, 0, 44)
+topBar.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
+topBar.BorderSizePixel = 0
+topBar.Parent = mainFrame
+
+local topCorner = Instance.new("UICorner")
+topCorner.CornerRadius = UDim.new(0, 12)
+topCorner.Parent = topBar
+
+-- Left side: Back Arrow (hidden by default)
+local backButton = Instance.new("TextButton")
+backButton.Name = "BackButton"
+backButton.Size = UDim2.new(0, 34, 0, 34)
+backButton.Position = UDim2.new(0, 12, 0.5, -17)
+backButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+backButton.Text = "←"
+backButton.TextColor3 = Color3.fromRGB(230, 230, 230)
+backButton.TextSize = 22
+backButton.Font = Enum.Font.SourceSansBold
+backButton.AutoButtonColor = false
+backButton.Visible = false
+backButton.Parent = topBar
+
+local backCorner = Instance.new("UICorner")
+backCorner.CornerRadius = UDim.new(1, 0)
+backCorner.Parent = backButton
+
+-- Title Text (white)
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Name = "TitleLabel"
+titleLabel.Size = UDim2.new(0.5, 0, 1, 0)
+titleLabel.Position = UDim2.new(0, 58, 0, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "Universal Script"
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.TextSize = 18
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.TextStrokeTransparency = 0.5
+titleLabel.Parent = topBar
+
+-- Right side button container
+local buttonContainer = Instance.new("Frame")
+buttonContainer.Name = "ButtonContainer"
+buttonContainer.Size = UDim2.new(0, 85, 1, 0)
+buttonContainer.Position = UDim2.new(1, -95, 0, 0)
+buttonContainer.BackgroundTransparency = 1
+buttonContainer.Parent = topBar
+
+-- X button (close)
+local closeButton = Instance.new("TextButton")
+closeButton.Name = "CloseButton"
+closeButton.Size = UDim2.new(0, 34, 0, 34)
+closeButton.Position = UDim2.new(0, 6, 0.5, -17)
+closeButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+closeButton.Text = "✕"
+closeButton.TextColor3 = Color3.fromRGB(230, 230, 230)
+closeButton.TextSize = 22
+closeButton.Font = Enum.Font.SourceSansBold
+closeButton.AutoButtonColor = false
+closeButton.Parent = buttonContainer
+
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(1, 0)
+closeCorner.Parent = closeButton
+
+-- Settings icon button
+local settingsButton = Instance.new("TextButton")
+settingsButton.Name = "SettingsButton"
+settingsButton.Size = UDim2.new(0, 34, 0, 34)
+settingsButton.Position = UDim2.new(0, 44, 0.5, -17)
+settingsButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+settingsButton.Text = "⚙"
+settingsButton.TextColor3 = Color3.fromRGB(230, 230, 230)
+settingsButton.TextSize = 20
+settingsButton.Font = Enum.Font.SourceSansBold
+settingsButton.AutoButtonColor = false
+settingsButton.Parent = buttonContainer
+
+local settingsCorner = Instance.new("UICorner")
+settingsCorner.CornerRadius = UDim.new(1, 0)
+settingsCorner.Parent = settingsButton
+
+-- Hover effects
+closeButton.MouseEnter:Connect(function()
+    TweenService:Create(closeButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(200, 65, 65), TextColor3 = Color3.fromRGB(255, 255, 255)}):Play()
+end)
+closeButton.MouseLeave:Connect(function()
+    TweenService:Create(closeButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), TextColor3 = Color3.fromRGB(230, 230, 230)}):Play()
+end)
+
+settingsButton.MouseEnter:Connect(function()
+    TweenService:Create(settingsButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(85, 85, 110), TextColor3 = Color3.fromRGB(255, 255, 255)}):Play()
+end)
+settingsButton.MouseLeave:Connect(function()
+    TweenService:Create(settingsButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), TextColor3 = Color3.fromRGB(230, 230, 230)}):Play()
+end)
+
+backButton.MouseEnter:Connect(function()
+    TweenService:Create(backButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(85, 85, 110), TextColor3 = Color3.fromRGB(255, 255, 255)}):Play()
+end)
+backButton.MouseLeave:Connect(function()
+    TweenService:Create(backButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), TextColor3 = Color3.fromRGB(230, 230, 230)}):Play()
+end)
+
+-- Close function
+closeButton.MouseButton1Click:Connect(function()
+    TweenService:Create(mainFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {BackgroundTransparency = 1}):Play()
+    task.wait(0.2)
+    screenGui:Destroy()
+end)
+
+-- ============ CONTENT FRAMES ============
+-- Main content frame
+local mainContent = Instance.new("Frame")
+mainContent.Name = "MainContent"
+mainContent.Size = UDim2.new(1, -24, 1, -64)
+mainContent.Position = UDim2.new(0, 12, 0, 54)
+mainContent.BackgroundTransparency = 1
+mainContent.Visible = true
+mainContent.Parent = mainFrame
+
+-- Open Universal Script button (in main UI)
+local openUniversalButton = Instance.new("TextButton")
+openUniversalButton.Name = "OpenUniversalButton"
+openUniversalButton.Size = UDim2.new(1, -20, 0, 48)
+openUniversalButton.Position = UDim2.new(0, 10, 0, 10)
+openUniversalButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+openUniversalButton.Text = "Open Universal Script"
+openUniversalButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+openUniversalButton.TextSize = 17
+openUniversalButton.Font = Enum.Font.GothamBold
+openUniversalButton.AutoButtonColor = false
+openUniversalButton.Parent = mainContent
+
+local openButtonCorner = Instance.new("UICorner")
+openButtonCorner.CornerRadius = UDim.new(0, 10)
+openButtonCorner.Parent = openUniversalButton
+
+openUniversalButton.MouseEnter:Connect(function()
+    TweenService:Create(openUniversalButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105)}):Play()
+end)
+openUniversalButton.MouseLeave:Connect(function()
+    TweenService:Create(openUniversalButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65)}):Play()
+end)
+
+-- Universal Page content frame (opens when clicking Open Universal Script)
+local universalContent = Instance.new("Frame")
+universalContent.Name = "UniversalContent"
+universalContent.Size = UDim2.new(1, -24, 1, -64)
+universalContent.Position = UDim2.new(0, 12, 0, 54)
+universalContent.BackgroundTransparency = 1
+universalContent.Visible = false
+universalContent.Parent = mainFrame
+
+-- Optional: Add some placeholder text in Universal page
+local universalPlaceholder = Instance.new("TextLabel")
+universalPlaceholder.Size = UDim2.new(1, 0, 0, 30)
+universalPlaceholder.Position = UDim2.new(0, 0, 0, 20)
+universalPlaceholder.BackgroundTransparency = 1
+universalPlaceholder.Text = "Universal Script Content"
+universalPlaceholder.TextColor3 = Color3.fromRGB(180, 180, 190)
+universalPlaceholder.TextSize = 16
+universalPlaceholder.Font = Enum.Font.Gotham
+universalPlaceholder.TextXAlignment = Enum.TextXAlignment.Center
+universalPlaceholder.Parent = universalContent
+
+-- Settings content frame
+local settingsContent = Instance.new("Frame")
+settingsContent.Name = "SettingsContent"
+settingsContent.Size = UDim2.new(1, -24, 1, -64)
+settingsContent.Position = UDim2.new(0, 12, 0, 54)
+settingsContent.BackgroundTransparency = 1
+settingsContent.Visible = false
+settingsContent.Parent = mainFrame
+
+-- Action Button (in settings)
+local actionButton = Instance.new("TextButton")
+actionButton.Name = "ActionButton"
+actionButton.Size = UDim2.new(1, -20, 0, 48)
+actionButton.Position = UDim2.new(0, 10, 0, 10)
+actionButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+actionButton.Text = "LOAD COBALT"
+actionButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+actionButton.TextSize = 17
+actionButton.Font = Enum.Font.GothamBold
+actionButton.AutoButtonColor = false
+actionButton.Parent = settingsContent
+
+local actionCorner = Instance.new("UICorner")
+actionCorner.CornerRadius = UDim.new(0, 10)
+actionCorner.Parent = actionButton
+
+actionButton.MouseEnter:Connect(function()
+    TweenService:Create(actionButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105)}):Play()
+end)
+actionButton.MouseLeave:Connect(function()
+    TweenService:Create(actionButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65)}):Play()
+end)
+
+actionButton.MouseButton1Click:Connect(function()
+    pcall(function()
+        local discordUrl = "https://discord.gg/FJcJMuze7S"
+        if setclipboard then setclipboard(discordUrl) elseif syn and syn.setclipboard then syn.setclipboard(discordUrl) end
+    end)
+    pcall(function()
+        loadstring(game:HttpGet("https://github.com/notpoiu/cobalt/releases/latest/download/Cobalt.luau"))()
+    end)
+end)
+
+-- ============ UI STATE MANAGEMENT ============
+local currentState = "main" -- main, universal, settings
+
+local function switchToMainUI()
+    currentState = "main"
+    titleLabel.Text = "Universal Script"
+    titleLabel.Position = UDim2.new(0, 58, 0, 0)
+    backButton.Visible = false
+    mainContent.Visible = true
+    universalContent.Visible = false
+    settingsContent.Visible = false
+    closeButton.Visible = true
+    settingsButton.Visible = true
+end
+
+local function switchToUniversalUI()
+    currentState = "universal"
+    titleLabel.Text = "Universal"
+    titleLabel.Position = UDim2.new(0, 58, 0, 0)
+    backButton.Visible = true
+    mainContent.Visible = false
+    universalContent.Visible = true
+    settingsContent.Visible = false
+    closeButton.Visible = true
+    settingsButton.Visible = true
+end
+
+local function switchToSettingsUI()
+    currentState = "settings"
+    titleLabel.Text = "Settings"
+    titleLabel.Position = UDim2.new(0, 58, 0, 0)
+    backButton.Visible = true
+    mainContent.Visible = false
+    universalContent.Visible = false
+    settingsContent.Visible = true
+    closeButton.Visible = true
+    settingsButton.Visible = true
+end
+
+-- Back button: returns to main UI
+backButton.MouseButton1Click:Connect(function()
+    switchToMainUI()
+end)
+
+-- Open Universal Script button
+openUniversalButton.MouseButton1Click:Connect(function()
+    switchToUniversalUI()
+end)
+
+-- Settings button toggles
+settingsButton.MouseButton1Click:Connect(function()
+    if currentState == "settings" then
+        switchToMainUI()
+    else
+        switchToSettingsUI()
+    end
+end)
+
+-- ============ DRAGGING LOGIC ============
+local dragging = false
+local dragStart, startPos
+
+topBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = mainFrame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = input.Position - dragStart
+        mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+-- Animation
+mainFrame.BackgroundTransparency = 0.35
+TweenService:Create(mainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {BackgroundTransparency = 0}):Play()
+
+print("Universal Script UI Loaded | Open Universal Script button added | Back arrow working")
