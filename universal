@@ -149,7 +149,7 @@ closeButton.MouseButton1Click:Connect(function()
     screenGui:Destroy()
 end)
 
--- ==================== CREATE ALL CONTENT FRAMES FIRST ====================
+-- ==================== CREATE ALL CONTENT FRAMES ====================
 
 -- Main Content
 local mainContent = Instance.new("Frame")
@@ -180,7 +180,7 @@ universalPlaceholder.Font = Enum.Font.Gotham
 universalPlaceholder.TextXAlignment = Enum.TextXAlignment.Center
 universalPlaceholder.Parent = universalContent
 
--- Brainrot Page (MUST BE CREATED BEFORE THE BUTTON THAT OPENS IT)
+-- Brainrot Page
 local brainrotContent = Instance.new("Frame")
 brainrotContent.Name = "BrainrotContent"
 brainrotContent.Size = UDim2.new(1, -24, 1, -64)
@@ -189,7 +189,6 @@ brainrotContent.BackgroundTransparency = 1
 brainrotContent.Visible = false
 brainrotContent.Parent = mainFrame
 
--- Farm button inside Brainrot page
 local farmButton = Instance.new("TextButton")
 farmButton.Name = "FarmButton"
 farmButton.Size = UDim2.new(1, -20, 0, 55)
@@ -217,8 +216,16 @@ farmButton.MouseButton1Click:Connect(function()
     pcall(function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/meow86403-bit/skibidi-/refs/heads/main/brainrotscript.lua"))()
     end)
-    print("Brainrot script executed!")
 end)
+
+-- Breathe Fire Page (empty)
+local breatheContent = Instance.new("Frame")
+breatheContent.Name = "BreatheContent"
+breatheContent.Size = UDim2.new(1, -24, 1, -64)
+breatheContent.Position = UDim2.new(0, 12, 0, 54)
+breatheContent.BackgroundTransparency = 1
+breatheContent.Visible = false
+breatheContent.Parent = mainFrame
 
 -- Settings Page
 local settingsContent = Instance.new("Frame")
@@ -303,6 +310,7 @@ local function switchToMainUI()
     mainContent.Visible = true
     universalContent.Visible = false
     brainrotContent.Visible = false
+    breatheContent.Visible = false
     settingsContent.Visible = false
 end
 
@@ -313,17 +321,29 @@ local function switchToUniversalUI()
     mainContent.Visible = false
     universalContent.Visible = true
     brainrotContent.Visible = false
+    breatheContent.Visible = false
     settingsContent.Visible = false
 end
 
 local function switchToBrainrotUI()
-    print("Switching to Brainrot UI") -- Debug print
     currentState = "brainrot"
     titleLabel.Text = "Brainrot"
     backButton.Visible = true
     mainContent.Visible = false
     universalContent.Visible = false
     brainrotContent.Visible = true
+    breatheContent.Visible = false
+    settingsContent.Visible = false
+end
+
+local function switchToBreatheUI()
+    currentState = "breathe"
+    titleLabel.Text = "breathe fire for brainrots script"
+    backButton.Visible = true
+    mainContent.Visible = false
+    universalContent.Visible = false
+    brainrotContent.Visible = false
+    breatheContent.Visible = true
     settingsContent.Visible = false
 end
 
@@ -334,6 +354,7 @@ local function switchToSettingsUI()
     mainContent.Visible = false
     universalContent.Visible = false
     brainrotContent.Visible = false
+    breatheContent.Visible = false
     settingsContent.Visible = true
 end
 
@@ -365,7 +386,6 @@ openUniversalButton.MouseButton1Click:Connect(function()
     switchToUniversalUI()
 end)
 
--- Button 2: Open scream for brainrots script
 local brainrotMenuButton = Instance.new("TextButton")
 brainrotMenuButton.Name = "BrainrotMenuButton"
 brainrotMenuButton.Size = UDim2.new(1, -20, 0, 48)
@@ -390,11 +410,36 @@ brainrotMenuButton.MouseLeave:Connect(function()
 end)
 
 brainrotMenuButton.MouseButton1Click:Connect(function()
-    print("Brainrot menu button clicked!") -- Debug print
     switchToBrainrotUI()
 end)
 
--- Settings button (already defined above, just add click handler if not already)
+local breatheMenuButton = Instance.new("TextButton")
+breatheMenuButton.Name = "BreatheMenuButton"
+breatheMenuButton.Size = UDim2.new(1, -20, 0, 48)
+breatheMenuButton.Position = UDim2.new(0, 10, 0, 126)
+breatheMenuButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+breatheMenuButton.Text = "Open breathe fire for brainrots script"
+breatheMenuButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+breatheMenuButton.TextSize = 16
+breatheMenuButton.Font = Enum.Font.GothamBold
+breatheMenuButton.AutoButtonColor = false
+breatheMenuButton.Parent = mainContent
+
+local breatheMenuCorner = Instance.new("UICorner")
+breatheMenuCorner.CornerRadius = UDim.new(0, 10)
+breatheMenuCorner.Parent = breatheMenuButton
+
+breatheMenuButton.MouseEnter:Connect(function()
+    TweenService:Create(breatheMenuButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105)}):Play()
+end)
+breatheMenuButton.MouseLeave:Connect(function()
+    TweenService:Create(breatheMenuButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65)}):Play()
+end)
+
+breatheMenuButton.MouseButton1Click:Connect(function()
+    switchToBreatheUI()
+end)
+
 settingsButton.MouseButton1Click:Connect(function()
     if currentState == "settings" then
         switchToMainUI()
@@ -403,7 +448,6 @@ settingsButton.MouseButton1Click:Connect(function()
     end
 end)
 
--- Back button handler
 backButton.MouseButton1Click:Connect(function()
     switchToMainUI()
 end)
@@ -432,8 +476,7 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
-
 mainFrame.BackgroundTransparency = 0.35
 TweenService:Create(mainFrame, TweenInfo.new(0.3), {BackgroundTransparency = 0}):Play()
 
-print("Universal Script UI Loaded")
+print("Universal Script UI Loaded | Breathe Fire page is completely empty")
