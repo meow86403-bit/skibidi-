@@ -1,3 +1,3 @@
-# skibidi-
+READ ME
 
-This is used for overflow
+Use this loadstring if you are very cool and very gay
