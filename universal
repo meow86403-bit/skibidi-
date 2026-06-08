@@ -41,7 +41,7 @@ uiStroke.Color = Color3.fromRGB(70, 70, 80)
 uiStroke.Thickness = 1.2
 uiStroke.Parent = mainFrame
 
--- TOP BAR
+-- Top Bar
 local topBar = Instance.new("Frame")
 topBar.Name = "TopBar"
 topBar.Size = UDim2.new(1, 0, 0, 44)
@@ -72,55 +72,31 @@ backCorner.Parent = backButton
 
 local titleLabel = Instance.new("TextLabel")
 titleLabel.Name = "TitleLabel"
-titleLabel.Size = UDim2.new(0.5, 0, 1, 0)
-titleLabel.Position = UDim2.new(0, 58, 0, 0)
+titleLabel.Size = UDim2.new(0, 200, 1, 0)
+titleLabel.Position = UDim2.new(0.5, -100, 0, 0)
 titleLabel.BackgroundTransparency = 1
 titleLabel.Text = "Universal Script"
 titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 titleLabel.TextSize = 18
-titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.TextXAlignment = Enum.TextXAlignment.Center
 titleLabel.Font = Enum.Font.GothamBold
 titleLabel.Parent = topBar
 
-local buttonContainer = Instance.new("Frame")
-buttonContainer.Name = "ButtonContainer"
-buttonContainer.Size = UDim2.new(0, 85, 1, 0)
-buttonContainer.Position = UDim2.new(1, -95, 0, 0)
-buttonContainer.BackgroundTransparency = 1
-buttonContainer.Parent = topBar
-
--- X button (RED, uppercase X)
 local closeButton = Instance.new("TextButton")
 closeButton.Name = "CloseButton"
 closeButton.Size = UDim2.new(0, 34, 0, 34)
-closeButton.Position = UDim2.new(0, 6, 0.5, -17)
+closeButton.Position = UDim2.new(1, -46, 0.5, -17)
 closeButton.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
 closeButton.Text = "X"
 closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 closeButton.TextSize = 20
 closeButton.Font = Enum.Font.SourceSansBold
 closeButton.AutoButtonColor = false
-closeButton.Parent = buttonContainer
+closeButton.Parent = topBar
 
 local closeCorner = Instance.new("UICorner")
 closeCorner.CornerRadius = UDim.new(1, 0)
 closeCorner.Parent = closeButton
-
-local settingsButton = Instance.new("TextButton")
-settingsButton.Name = "SettingsButton"
-settingsButton.Size = UDim2.new(0, 34, 0, 34)
-settingsButton.Position = UDim2.new(0, 44, 0.5, -17)
-settingsButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
-settingsButton.Text = "⚙"
-settingsButton.TextColor3 = Color3.fromRGB(230, 230, 230)
-settingsButton.TextSize = 20
-settingsButton.Font = Enum.Font.SourceSansBold
-settingsButton.AutoButtonColor = false
-settingsButton.Parent = buttonContainer
-
-local settingsCorner = Instance.new("UICorner")
-settingsCorner.CornerRadius = UDim.new(1, 0)
-settingsCorner.Parent = settingsButton
 
 closeButton.MouseEnter:Connect(function()
     TweenService:Create(closeButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(220, 50, 50)}):Play()
@@ -129,38 +105,341 @@ closeButton.MouseLeave:Connect(function()
     TweenService:Create(closeButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(180, 40, 40)}):Play()
 end)
 
-settingsButton.MouseEnter:Connect(function()
-    TweenService:Create(settingsButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(85, 85, 110)}):Play()
-end)
-settingsButton.MouseLeave:Connect(function()
-    TweenService:Create(settingsButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65)}):Play()
-end)
-
-backButton.MouseEnter:Connect(function()
-    TweenService:Create(backButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(85, 85, 110)}):Play()
-end)
-backButton.MouseLeave:Connect(function()
-    TweenService:Create(backButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65)}):Play()
-end)
-
 closeButton.MouseButton1Click:Connect(function()
     TweenService:Create(mainFrame, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
     task.wait(0.2)
     screenGui:Destroy()
 end)
 
--- ==================== CREATE ALL CONTENT FRAMES ====================
+-- Pill Tabs
+local tabBar = Instance.new("Frame")
+tabBar.Name = "TabBar"
+tabBar.Size = UDim2.new(1, -24, 0, 40)
+tabBar.Position = UDim2.new(0, 12, 0, 54)
+tabBar.BackgroundTransparency = 1
+tabBar.Parent = mainFrame
+
+local mainTab = Instance.new("TextButton")
+mainTab.Name = "MainTab"
+mainTab.Size = UDim2.new(0, 85, 0, 36)
+mainTab.Position = UDim2.new(0.5, -135, 0, 2)
+mainTab.BackgroundColor3 = Color3.fromRGB(0, 150, 200)
+mainTab.Text = "Main"
+mainTab.TextColor3 = Color3.fromRGB(255, 255, 255)
+mainTab.TextSize = 16
+mainTab.Font = Enum.Font.GothamBold
+mainTab.AutoButtonColor = false
+mainTab.Parent = tabBar
+
+local mainTabCorner = Instance.new("UICorner")
+mainTabCorner.CornerRadius = UDim.new(1, 0)
+mainTabCorner.Parent = mainTab
+
+local gamesTab = Instance.new("TextButton")
+gamesTab.Name = "GamesTab"
+gamesTab.Size = UDim2.new(0, 85, 0, 36)
+gamesTab.Position = UDim2.new(0.5, -45, 0, 2)
+gamesTab.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+gamesTab.Text = "Games"
+gamesTab.TextColor3 = Color3.fromRGB(255, 255, 255)
+gamesTab.TextSize = 16
+gamesTab.Font = Enum.Font.GothamBold
+gamesTab.AutoButtonColor = false
+gamesTab.Parent = tabBar
+
+local gamesTabCorner = Instance.new("UICorner")
+gamesTabCorner.CornerRadius = UDim.new(1, 0)
+gamesTabCorner.Parent = gamesTab
+
+local settingsTab = Instance.new("TextButton")
+settingsTab.Name = "SettingsTab"
+settingsTab.Size = UDim2.new(0, 85, 0, 36)
+settingsTab.Position = UDim2.new(0.5, 50, 0, 2)
+settingsTab.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+settingsTab.Text = "Settings"
+settingsTab.TextColor3 = Color3.fromRGB(255, 255, 255)
+settingsTab.TextSize = 16
+settingsTab.Font = Enum.Font.GothamBold
+settingsTab.AutoButtonColor = false
+settingsTab.Parent = tabBar
+
+local settingsTabCorner = Instance.new("UICorner")
+settingsTabCorner.CornerRadius = UDim.new(1, 0)
+settingsTabCorner.Parent = settingsTab
+
+-- Hover effects
+mainTab.MouseEnter:Connect(function()
+    if mainTab.BackgroundColor3 ~= Color3.fromRGB(0, 150, 200) then
+        TweenService:Create(mainTab, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105)}):Play()
+    end
+end)
+mainTab.MouseLeave:Connect(function()
+    if mainTab.BackgroundColor3 ~= Color3.fromRGB(0, 150, 200) then
+        TweenService:Create(mainTab, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65)}):Play()
+    end
+end)
+
+gamesTab.MouseEnter:Connect(function()
+    if gamesTab.BackgroundColor3 ~= Color3.fromRGB(0, 150, 200) then
+        TweenService:Create(gamesTab, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105)}):Play()
+    end
+end)
+gamesTab.MouseLeave:Connect(function()
+    if gamesTab.BackgroundColor3 ~= Color3.fromRGB(0, 150, 200) then
+        TweenService:Create(gamesTab, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65)}):Play()
+    end
+end)
+
+settingsTab.MouseEnter:Connect(function()
+    if settingsTab.BackgroundColor3 ~= Color3.fromRGB(0, 150, 200) then
+        TweenService:Create(settingsTab, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105)}):Play()
+    end
+end)
+settingsTab.MouseLeave:Connect(function()
+    if settingsTab.BackgroundColor3 ~= Color3.fromRGB(0, 150, 200) then
+        TweenService:Create(settingsTab, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65)}):Play()
+    end
+end)
 
 -- Main Content
 local mainContent = Instance.new("Frame")
 mainContent.Name = "MainContent"
-mainContent.Size = UDim2.new(1, -24, 1, -64)
-mainContent.Position = UDim2.new(0, 12, 0, 54)
+mainContent.Size = UDim2.new(1, -24, 1, -114)
+mainContent.Position = UDim2.new(0, 12, 0, 104)
 mainContent.BackgroundTransparency = 1
 mainContent.Visible = true
 mainContent.Parent = mainFrame
 
--- Universal Page
+local openUniversalButton = Instance.new("TextButton")
+openUniversalButton.Name = "OpenUniversalButton"
+openUniversalButton.Size = UDim2.new(1, -20, 0, 48)
+openUniversalButton.Position = UDim2.new(0, 10, 0, 10)
+openUniversalButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+openUniversalButton.Text = "Open Universal Script"
+openUniversalButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+openUniversalButton.TextSize = 17
+openUniversalButton.Font = Enum.Font.GothamBold
+openUniversalButton.AutoButtonColor = false
+openUniversalButton.Parent = mainContent
+
+local openButtonCorner = Instance.new("UICorner")
+openButtonCorner.CornerRadius = UDim.new(0, 10)
+openButtonCorner.Parent = openUniversalButton
+
+openUniversalButton.MouseEnter:Connect(function()
+    TweenService:Create(openUniversalButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105)}):Play()
+end)
+openUniversalButton.MouseLeave:Connect(function()
+    TweenService:Create(openUniversalButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65)}):Play()
+end)
+
+-- Games Content
+local gamesContent = Instance.new("Frame")
+gamesContent.Name = "GamesContent"
+gamesContent.Size = UDim2.new(1, -24, 1, -114)
+gamesContent.Position = UDim2.new(0, 12, 0, 104)
+gamesContent.BackgroundTransparency = 1
+gamesContent.Visible = false
+gamesContent.Parent = mainFrame
+
+local brainrotGameButton = Instance.new("TextButton")
+brainrotGameButton.Name = "BrainrotGameButton"
+brainrotGameButton.Size = UDim2.new(1, -20, 0, 48)
+brainrotGameButton.Position = UDim2.new(0, 10, 0, 10)
+brainrotGameButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+brainrotGameButton.Text = "Open scream for brainrots script"
+brainrotGameButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+brainrotGameButton.TextSize = 16
+brainrotGameButton.Font = Enum.Font.GothamBold
+brainrotGameButton.AutoButtonColor = false
+brainrotGameButton.Parent = gamesContent
+
+local brainrotGameCorner = Instance.new("UICorner")
+brainrotGameCorner.CornerRadius = UDim.new(0, 10)
+brainrotGameCorner.Parent = brainrotGameButton
+
+brainrotGameButton.MouseEnter:Connect(function()
+    TweenService:Create(brainrotGameButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105)}):Play()
+end)
+brainrotGameButton.MouseLeave:Connect(function()
+    TweenService:Create(brainrotGameButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65)}):Play()
+end)
+
+local breatheGameButton = Instance.new("TextButton")
+breatheGameButton.Name = "BreatheGameButton"
+breatheGameButton.Size = UDim2.new(1, -20, 0, 48)
+breatheGameButton.Position = UDim2.new(0, 10, 0, 68)
+breatheGameButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+breatheGameButton.Text = "Open breathe fire for brainrots script"
+breatheGameButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+breatheGameButton.TextSize = 16
+breatheGameButton.Font = Enum.Font.GothamBold
+breatheGameButton.AutoButtonColor = false
+breatheGameButton.Parent = gamesContent
+
+local breatheGameCorner = Instance.new("UICorner")
+breatheGameCorner.CornerRadius = UDim.new(0, 10)
+breatheGameCorner.Parent = breatheGameButton
+
+breatheGameButton.MouseEnter:Connect(function()
+    TweenService:Create(breatheGameButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105)}):Play()
+end)
+breatheGameButton.MouseLeave:Connect(function()
+    TweenService:Create(breatheGameButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65)}):Play()
+end)
+
+-- Settings Content
+local settingsContent = Instance.new("Frame")
+settingsContent.Name = "SettingsContent"
+settingsContent.Size = UDim2.new(1, -24, 1, -114)
+settingsContent.Position = UDim2.new(0, 12, 0, 104)
+settingsContent.BackgroundTransparency = 1
+settingsContent.Visible = false
+settingsContent.Parent = mainFrame
+
+-- SOMETHING STUPID (JUMP) TOGGLE
+local stupidRow = Instance.new("Frame")
+stupidRow.Name = "StupidRow"
+stupidRow.Size = UDim2.new(1, -20, 0, 44)
+stupidRow.Position = UDim2.new(0, 10, 0, 10)
+stupidRow.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+stupidRow.BorderSizePixel = 0
+stupidRow.Parent = settingsContent
+
+local stupidCorner = Instance.new("UICorner")
+stupidCorner.CornerRadius = UDim.new(0, 10)
+stupidCorner.Parent = stupidRow
+
+local stupidLabel = Instance.new("TextLabel")
+stupidLabel.Size = UDim2.new(1, -70, 1, 0)
+stupidLabel.Position = UDim2.new(0, 12, 0, 0)
+stupidLabel.BackgroundTransparency = 1
+stupidLabel.Text = "something stupid (jump)"
+stupidLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+stupidLabel.TextSize = 15
+stupidLabel.TextXAlignment = Enum.TextXAlignment.Left
+stupidLabel.Font = Enum.Font.GothamBold
+stupidLabel.Parent = stupidRow
+
+local stupidToggle = Instance.new("TextButton")
+stupidToggle.Name = "StupidToggle"
+stupidToggle.Size = UDim2.new(0, 50, 0, 30)
+stupidToggle.Position = UDim2.new(1, -60, 0.5, -15)
+stupidToggle.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+stupidToggle.Text = "OFF"
+stupidToggle.TextColor3 = Color3.fromRGB(200, 200, 200)
+stupidToggle.TextSize = 14
+stupidToggle.Font = Enum.Font.GothamBold
+stupidToggle.AutoButtonColor = false
+stupidToggle.Parent = stupidRow
+
+local stupidToggleCorner = Instance.new("UICorner")
+stupidToggleCorner.CornerRadius = UDim.new(1, 0)
+stupidToggleCorner.Parent = stupidToggle
+
+local stupidEnabled = false
+stupidToggle.MouseButton1Click:Connect(function()
+    stupidEnabled = not stupidEnabled
+    if stupidEnabled then
+        stupidToggle.BackgroundColor3 = Color3.fromRGB(0, 150, 200)
+        stupidToggle.Text = "ON"
+    else
+        stupidToggle.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+        stupidToggle.Text = "OFF"
+    end
+end)
+
+local function dropPlayerFiveThousand()
+    local char = LocalPlayer.Character
+    if not char then return end
+    local humanoid = char:FindFirstChild("Humanoid")
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not humanoid or not hrp then return end
+    
+    local originalPos = hrp.Position
+    local targetY = originalPos.Y - 5000
+    
+    humanoid.PlatformStand = true
+    local tweenInfo = TweenInfo.new(2, Enum.EasingStyle.Linear, Enum.EasingDirection.Out)
+    local tween = TweenService:Create(hrp, tweenInfo, {Position = Vector3.new(originalPos.X, targetY, originalPos.Z)})
+    tween:Play()
+    tween.Completed:Connect(function()
+        humanoid.PlatformStand = false
+    end)
+end
+
+UserInputService.JumpRequest:Connect(function()
+    if stupidEnabled then
+        task.wait(0.05)
+        dropPlayerFiveThousand()
+    end
+end)
+
+-- LOAD COBALT BUTTON
+local actionButton = Instance.new("TextButton")
+actionButton.Name = "ActionButton"
+actionButton.Size = UDim2.new(1, -20, 0, 48)
+actionButton.Position = UDim2.new(0, 10, 0, 64)
+actionButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+actionButton.Text = "LOAD COBALT"
+actionButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+actionButton.TextSize = 17
+actionButton.Font = Enum.Font.GothamBold
+actionButton.AutoButtonColor = false
+actionButton.Parent = settingsContent
+
+local actionCorner = Instance.new("UICorner")
+actionCorner.CornerRadius = UDim.new(0, 10)
+actionCorner.Parent = actionButton
+
+actionButton.MouseEnter:Connect(function()
+    TweenService:Create(actionButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105)}):Play()
+end)
+actionButton.MouseLeave:Connect(function()
+    TweenService:Create(actionButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65)}):Play()
+end)
+
+actionButton.MouseButton1Click:Connect(function()
+    pcall(function()
+        local discordUrl = "https://discord.gg/FJcJMuze7S"
+        if setclipboard then setclipboard(discordUrl) elseif syn and syn.setclipboard then syn.setclipboard(discordUrl) end
+    end)
+    pcall(function()
+        loadstring(game:HttpGet("https://github.com/notpoiu/cobalt/releases/latest/download/Cobalt.luau"))()
+    end)
+end)
+
+-- OPEN INF YIELD BUTTON
+local infYieldButton = Instance.new("TextButton")
+infYieldButton.Name = "InfYieldButton"
+infYieldButton.Size = UDim2.new(1, -20, 0, 48)
+infYieldButton.Position = UDim2.new(0, 10, 0, 122)
+infYieldButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+infYieldButton.Text = "OPEN INF YIELD"
+infYieldButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+infYieldButton.TextSize = 17
+infYieldButton.Font = Enum.Font.GothamBold
+infYieldButton.AutoButtonColor = false
+infYieldButton.Parent = settingsContent
+
+local infCorner = Instance.new("UICorner")
+infCorner.CornerRadius = UDim.new(0, 10)
+infCorner.Parent = infYieldButton
+
+infYieldButton.MouseEnter:Connect(function()
+    TweenService:Create(infYieldButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105)}):Play()
+end)
+infYieldButton.MouseLeave:Connect(function()
+    TweenService:Create(infYieldButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65)}):Play()
+end)
+
+infYieldButton.MouseButton1Click:Connect(function()
+    pcall(function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
+    end)
+end)
+
+-- Sub-pages
 local universalContent = Instance.new("Frame")
 universalContent.Name = "UniversalContent"
 universalContent.Size = UDim2.new(1, -24, 1, -64)
@@ -180,7 +459,6 @@ universalPlaceholder.Font = Enum.Font.Gotham
 universalPlaceholder.TextXAlignment = Enum.TextXAlignment.Center
 universalPlaceholder.Parent = universalContent
 
--- Brainrot Page
 local brainrotContent = Instance.new("Frame")
 brainrotContent.Name = "BrainrotContent"
 brainrotContent.Size = UDim2.new(1, -24, 1, -64)
@@ -218,7 +496,6 @@ farmButton.MouseButton1Click:Connect(function()
     end)
 end)
 
--- Breathe Fire Page (empty)
 local breatheContent = Instance.new("Frame")
 breatheContent.Name = "BreatheContent"
 breatheContent.Size = UDim2.new(1, -24, 1, -64)
@@ -227,232 +504,137 @@ breatheContent.BackgroundTransparency = 1
 breatheContent.Visible = false
 breatheContent.Parent = mainFrame
 
--- Settings Page
-local settingsContent = Instance.new("Frame")
-settingsContent.Name = "SettingsContent"
-settingsContent.Size = UDim2.new(1, -24, 1, -64)
-settingsContent.Position = UDim2.new(0, 12, 0, 54)
-settingsContent.BackgroundTransparency = 1
-settingsContent.Visible = false
-settingsContent.Parent = mainFrame
+-- UI State Functions
+local currentState = "mainTab"
 
--- LOAD COBALT button
-local actionButton = Instance.new("TextButton")
-actionButton.Name = "ActionButton"
-actionButton.Size = UDim2.new(1, -20, 0, 48)
-actionButton.Position = UDim2.new(0, 10, 0, 10)
-actionButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
-actionButton.Text = "LOAD COBALT"
-actionButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-actionButton.TextSize = 17
-actionButton.Font = Enum.Font.GothamBold
-actionButton.AutoButtonColor = false
-actionButton.Parent = settingsContent
-
-local actionCorner = Instance.new("UICorner")
-actionCorner.CornerRadius = UDim.new(0, 10)
-actionCorner.Parent = actionButton
-
-actionButton.MouseEnter:Connect(function()
-    TweenService:Create(actionButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105)}):Play()
-end)
-actionButton.MouseLeave:Connect(function()
-    TweenService:Create(actionButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65)}):Play()
-end)
-
-actionButton.MouseButton1Click:Connect(function()
-    pcall(function()
-        local discordUrl = "https://discord.gg/FJcJMuze7S"
-        if setclipboard then setclipboard(discordUrl) elseif syn and syn.setclipboard then syn.setclipboard(discordUrl) end
-    end)
-    pcall(function()
-        loadstring(game:HttpGet("https://github.com/notpoiu/cobalt/releases/latest/download/Cobalt.luau"))()
-    end)
-end)
-
--- OPEN INF YIELD button
-local infYieldButton = Instance.new("TextButton")
-infYieldButton.Name = "InfYieldButton"
-infYieldButton.Size = UDim2.new(1, -20, 0, 48)
-infYieldButton.Position = UDim2.new(0, 10, 0, 68)
-infYieldButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
-infYieldButton.Text = "OPEN INF YIELD"
-infYieldButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-infYieldButton.TextSize = 17
-infYieldButton.Font = Enum.Font.GothamBold
-infYieldButton.AutoButtonColor = false
-infYieldButton.Parent = settingsContent
-
-local infCorner = Instance.new("UICorner")
-infCorner.CornerRadius = UDim.new(0, 10)
-infCorner.Parent = infYieldButton
-
-infYieldButton.MouseEnter:Connect(function()
-    TweenService:Create(infYieldButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105)}):Play()
-end)
-infYieldButton.MouseLeave:Connect(function()
-    TweenService:Create(infYieldButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65)}):Play()
-end)
-
-infYieldButton.MouseButton1Click:Connect(function()
-    pcall(function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
-    end)
-end)
-
--- ==================== UI STATE FUNCTIONS ====================
-local currentState = "main"
-
-local function switchToMainUI()
-    currentState = "main"
+local function switchToMainTab()
+    currentState = "mainTab"
     titleLabel.Text = "Universal Script"
     backButton.Visible = false
+    tabBar.Visible = true
+    mainTab.BackgroundColor3 = Color3.fromRGB(0, 150, 200)
+    gamesTab.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+    settingsTab.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
     mainContent.Visible = true
+    gamesContent.Visible = false
+    settingsContent.Visible = false
     universalContent.Visible = false
     brainrotContent.Visible = false
     breatheContent.Visible = false
+end
+
+local function switchToGamesTab()
+    currentState = "gamesTab"
+    titleLabel.Text = "Universal Script"
+    backButton.Visible = false
+    tabBar.Visible = true
+    mainTab.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+    gamesTab.BackgroundColor3 = Color3.fromRGB(0, 150, 200)
+    settingsTab.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+    mainContent.Visible = false
+    gamesContent.Visible = true
     settingsContent.Visible = false
+    universalContent.Visible = false
+    brainrotContent.Visible = false
+    breatheContent.Visible = false
+end
+
+local function switchToSettingsTab()
+    currentState = "settingsTab"
+    titleLabel.Text = "Universal Script"
+    backButton.Visible = false
+    tabBar.Visible = true
+    mainTab.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+    gamesTab.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+    settingsTab.BackgroundColor3 = Color3.fromRGB(0, 150, 200)
+    mainContent.Visible = false
+    gamesContent.Visible = false
+    settingsContent.Visible = true
+    universalContent.Visible = false
+    brainrotContent.Visible = false
+    breatheContent.Visible = false
 end
 
 local function switchToUniversalUI()
     currentState = "universal"
     titleLabel.Text = "Universal"
     backButton.Visible = true
+    tabBar.Visible = false
     mainContent.Visible = false
+    gamesContent.Visible = false
+    settingsContent.Visible = false
     universalContent.Visible = true
     brainrotContent.Visible = false
     breatheContent.Visible = false
-    settingsContent.Visible = false
 end
 
 local function switchToBrainrotUI()
     currentState = "brainrot"
     titleLabel.Text = "Brainrot"
     backButton.Visible = true
+    tabBar.Visible = false
     mainContent.Visible = false
+    gamesContent.Visible = false
+    settingsContent.Visible = false
     universalContent.Visible = false
     brainrotContent.Visible = true
     breatheContent.Visible = false
-    settingsContent.Visible = false
 end
 
 local function switchToBreatheUI()
     currentState = "breathe"
     titleLabel.Text = "breathe fire for brainrots script"
     backButton.Visible = true
+    tabBar.Visible = false
     mainContent.Visible = false
+    gamesContent.Visible = false
+    settingsContent.Visible = false
     universalContent.Visible = false
     brainrotContent.Visible = false
     breatheContent.Visible = true
-    settingsContent.Visible = false
 end
 
-local function switchToSettingsUI()
-    currentState = "settings"
-    titleLabel.Text = "Settings"
-    backButton.Visible = true
-    mainContent.Visible = false
-    universalContent.Visible = false
-    brainrotContent.Visible = false
-    breatheContent.Visible = false
-    settingsContent.Visible = true
-end
-
--- ==================== MAIN MENU BUTTONS ====================
-local openUniversalButton = Instance.new("TextButton")
-openUniversalButton.Name = "OpenUniversalButton"
-openUniversalButton.Size = UDim2.new(1, -20, 0, 48)
-openUniversalButton.Position = UDim2.new(0, 10, 0, 10)
-openUniversalButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
-openUniversalButton.Text = "Open Universal Script"
-openUniversalButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-openUniversalButton.TextSize = 17
-openUniversalButton.Font = Enum.Font.GothamBold
-openUniversalButton.AutoButtonColor = false
-openUniversalButton.Parent = mainContent
-
-local openButtonCorner = Instance.new("UICorner")
-openButtonCorner.CornerRadius = UDim.new(0, 10)
-openButtonCorner.Parent = openUniversalButton
-
-openUniversalButton.MouseEnter:Connect(function()
-    TweenService:Create(openUniversalButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105)}):Play()
-end)
-openUniversalButton.MouseLeave:Connect(function()
-    TweenService:Create(openUniversalButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65)}):Play()
+-- Tab clicks
+mainTab.MouseButton1Click:Connect(function()
+    if currentState == "mainTab" then return end
+    switchToMainTab()
 end)
 
+gamesTab.MouseButton1Click:Connect(function()
+    if currentState == "gamesTab" then return end
+    switchToGamesTab()
+end)
+
+settingsTab.MouseButton1Click:Connect(function()
+    if currentState == "settingsTab" then return end
+    switchToSettingsTab()
+end)
+
+-- Button clicks
 openUniversalButton.MouseButton1Click:Connect(function()
     switchToUniversalUI()
 end)
 
-local brainrotMenuButton = Instance.new("TextButton")
-brainrotMenuButton.Name = "BrainrotMenuButton"
-brainrotMenuButton.Size = UDim2.new(1, -20, 0, 48)
-brainrotMenuButton.Position = UDim2.new(0, 10, 0, 68)
-brainrotMenuButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
-brainrotMenuButton.Text = "Open scream for brainrots script"
-brainrotMenuButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-brainrotMenuButton.TextSize = 16
-brainrotMenuButton.Font = Enum.Font.GothamBold
-brainrotMenuButton.AutoButtonColor = false
-brainrotMenuButton.Parent = mainContent
-
-local brainrotMenuCorner = Instance.new("UICorner")
-brainrotMenuCorner.CornerRadius = UDim.new(0, 10)
-brainrotMenuCorner.Parent = brainrotMenuButton
-
-brainrotMenuButton.MouseEnter:Connect(function()
-    TweenService:Create(brainrotMenuButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105)}):Play()
-end)
-brainrotMenuButton.MouseLeave:Connect(function()
-    TweenService:Create(brainrotMenuButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65)}):Play()
-end)
-
-brainrotMenuButton.MouseButton1Click:Connect(function()
+brainrotGameButton.MouseButton1Click:Connect(function()
     switchToBrainrotUI()
 end)
 
-local breatheMenuButton = Instance.new("TextButton")
-breatheMenuButton.Name = "BreatheMenuButton"
-breatheMenuButton.Size = UDim2.new(1, -20, 0, 48)
-breatheMenuButton.Position = UDim2.new(0, 10, 0, 126)
-breatheMenuButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
-breatheMenuButton.Text = "Open breathe fire for brainrots script"
-breatheMenuButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-breatheMenuButton.TextSize = 16
-breatheMenuButton.Font = Enum.Font.GothamBold
-breatheMenuButton.AutoButtonColor = false
-breatheMenuButton.Parent = mainContent
-
-local breatheMenuCorner = Instance.new("UICorner")
-breatheMenuCorner.CornerRadius = UDim.new(0, 10)
-breatheMenuCorner.Parent = breatheMenuButton
-
-breatheMenuButton.MouseEnter:Connect(function()
-    TweenService:Create(breatheMenuButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105)}):Play()
-end)
-breatheMenuButton.MouseLeave:Connect(function()
-    TweenService:Create(breatheMenuButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65)}):Play()
-end)
-
-breatheMenuButton.MouseButton1Click:Connect(function()
+breatheGameButton.MouseButton1Click:Connect(function()
     switchToBreatheUI()
 end)
 
-settingsButton.MouseButton1Click:Connect(function()
-    if currentState == "settings" then
-        switchToMainUI()
+-- Back button
+backButton.MouseButton1Click:Connect(function()
+    if currentState == "universal" then
+        switchToMainTab()
+    elseif currentState == "brainrot" or currentState == "breathe" then
+        switchToGamesTab()
     else
-        switchToSettingsUI()
+        switchToMainTab()
     end
 end)
 
-backButton.MouseButton1Click:Connect(function()
-    switchToMainUI()
-end)
-
--- DRAGGING
+-- Dragging
 local dragging = false
 local dragStart, startPos
 
@@ -479,4 +661,4 @@ end)
 mainFrame.BackgroundTransparency = 0.35
 TweenService:Create(mainFrame, TweenInfo.new(0.3), {BackgroundTransparency = 0}):Play()
 
-print("Universal Script UI Loaded | Breathe Fire page is completely empty")
+print("Universal Script UI Loaded")
