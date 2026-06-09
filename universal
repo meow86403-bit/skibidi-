@@ -32,6 +32,27 @@ mainFrame.ClipsDescendants = true
 mainFrame.Visible = true
 mainFrame.Parent = screenGui
 
+-- Background Image for Main Frame with better blending
+local mainBgImage = Instance.new("ImageLabel")
+mainBgImage.Name = "BackgroundImage"
+mainBgImage.Size = UDim2.new(1, 0, 1, 0)
+mainBgImage.Position = UDim2.new(0, 0, 0, 0)
+mainBgImage.BackgroundTransparency = 1
+mainBgImage.Image = "rbxassetid://87715720707177"
+mainBgImage.ScaleType = Enum.ScaleType.Crop
+mainBgImage.ImageTransparency = 0.15
+mainBgImage.Parent = mainFrame
+
+-- Dark overlay to make decal blend better with UI elements
+local bgOverlay = Instance.new("Frame")
+bgOverlay.Name = "BgOverlay"
+bgOverlay.Size = UDim2.new(1, 0, 1, 0)
+bgOverlay.Position = UDim2.new(0, 0, 0, 0)
+bgOverlay.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+bgOverlay.BackgroundTransparency = 0.35
+bgOverlay.BorderSizePixel = 0
+bgOverlay.Parent = mainFrame
+
 local uiCorner = Instance.new("UICorner")
 uiCorner.CornerRadius = UDim.new(0, 12)
 uiCorner.Parent = mainFrame
@@ -45,7 +66,8 @@ uiStroke.Parent = mainFrame
 local topBar = Instance.new("Frame")
 topBar.Name = "TopBar"
 topBar.Size = UDim2.new(1, 0, 0, 44)
-topBar.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
+topBar.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+topBar.BackgroundTransparency = 0.08
 topBar.BorderSizePixel = 0
 topBar.Parent = mainFrame
 
@@ -53,11 +75,17 @@ local topCorner = Instance.new("UICorner")
 topCorner.CornerRadius = UDim.new(0, 12)
 topCorner.Parent = topBar
 
+-- Clip top bar corners so background shows through properly
+local topBarClip = Instance.new("UICorner")
+topBarClip.CornerRadius = UDim.new(0, 12)
+topBarClip.Parent = topBar
+
 local backButton = Instance.new("TextButton")
 backButton.Name = "BackButton"
 backButton.Size = UDim2.new(0, 34, 0, 34)
 backButton.Position = UDim2.new(0, 12, 0.5, -17)
 backButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+backButton.BackgroundTransparency = 0.2
 backButton.Text = "←"
 backButton.TextColor3 = Color3.fromRGB(230, 230, 230)
 backButton.TextSize = 22
@@ -87,6 +115,7 @@ closeButton.Name = "CloseButton"
 closeButton.Size = UDim2.new(0, 34, 0, 34)
 closeButton.Position = UDim2.new(1, -46, 0.5, -17)
 closeButton.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
+closeButton.BackgroundTransparency = 0.1
 closeButton.Text = "X"
 closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 closeButton.TextSize = 20
@@ -124,6 +153,7 @@ mainTab.Name = "MainTab"
 mainTab.Size = UDim2.new(0, 85, 0, 36)
 mainTab.Position = UDim2.new(0.5, -135, 0, 2)
 mainTab.BackgroundColor3 = Color3.fromRGB(0, 150, 200)
+mainTab.BackgroundTransparency = 0.15
 mainTab.Text = "Main"
 mainTab.TextColor3 = Color3.fromRGB(255, 255, 255)
 mainTab.TextSize = 16
@@ -140,6 +170,7 @@ gamesTab.Name = "GamesTab"
 gamesTab.Size = UDim2.new(0, 85, 0, 36)
 gamesTab.Position = UDim2.new(0.5, -45, 0, 2)
 gamesTab.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+gamesTab.BackgroundTransparency = 0.3
 gamesTab.Text = "Games"
 gamesTab.TextColor3 = Color3.fromRGB(255, 255, 255)
 gamesTab.TextSize = 16
@@ -156,6 +187,7 @@ settingsTab.Name = "SettingsTab"
 settingsTab.Size = UDim2.new(0, 85, 0, 36)
 settingsTab.Position = UDim2.new(0.5, 50, 0, 2)
 settingsTab.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+settingsTab.BackgroundTransparency = 0.3
 settingsTab.Text = "Settings"
 settingsTab.TextColor3 = Color3.fromRGB(255, 255, 255)
 settingsTab.TextSize = 16
@@ -170,34 +202,34 @@ settingsTabCorner.Parent = settingsTab
 -- Hover effects
 mainTab.MouseEnter:Connect(function()
     if mainTab.BackgroundColor3 ~= Color3.fromRGB(0, 150, 200) then
-        TweenService:Create(mainTab, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105)}):Play()
+        TweenService:Create(mainTab, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.2}):Play()
     end
 end)
 mainTab.MouseLeave:Connect(function()
     if mainTab.BackgroundColor3 ~= Color3.fromRGB(0, 150, 200) then
-        TweenService:Create(mainTab, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65)}):Play()
+        TweenService:Create(mainTab, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.3}):Play()
     end
 end)
 
 gamesTab.MouseEnter:Connect(function()
     if gamesTab.BackgroundColor3 ~= Color3.fromRGB(0, 150, 200) then
-        TweenService:Create(gamesTab, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105)}):Play()
+        TweenService:Create(gamesTab, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.2}):Play()
     end
 end)
 gamesTab.MouseLeave:Connect(function()
     if gamesTab.BackgroundColor3 ~= Color3.fromRGB(0, 150, 200) then
-        TweenService:Create(gamesTab, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65)}):Play()
+        TweenService:Create(gamesTab, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.3}):Play()
     end
 end)
 
 settingsTab.MouseEnter:Connect(function()
     if settingsTab.BackgroundColor3 ~= Color3.fromRGB(0, 150, 200) then
-        TweenService:Create(settingsTab, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105)}):Play()
+        TweenService:Create(settingsTab, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.2}):Play()
     end
 end)
 settingsTab.MouseLeave:Connect(function()
     if settingsTab.BackgroundColor3 ~= Color3.fromRGB(0, 150, 200) then
-        TweenService:Create(settingsTab, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65)}):Play()
+        TweenService:Create(settingsTab, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.3}):Play()
     end
 end)
 
@@ -215,6 +247,7 @@ openUniversalButton.Name = "OpenUniversalButton"
 openUniversalButton.Size = UDim2.new(1, -20, 0, 48)
 openUniversalButton.Position = UDim2.new(0, 10, 0, 10)
 openUniversalButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+openUniversalButton.BackgroundTransparency = 0.2
 openUniversalButton.Text = "Open Universal Script"
 openUniversalButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 openUniversalButton.TextSize = 17
@@ -227,10 +260,10 @@ openButtonCorner.CornerRadius = UDim.new(0, 10)
 openButtonCorner.Parent = openUniversalButton
 
 openUniversalButton.MouseEnter:Connect(function()
-    TweenService:Create(openUniversalButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105)}):Play()
+    TweenService:Create(openUniversalButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
 end)
 openUniversalButton.MouseLeave:Connect(function()
-    TweenService:Create(openUniversalButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65)}):Play()
+    TweenService:Create(openUniversalButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
 end)
 
 -- Games Content
@@ -247,6 +280,7 @@ brainrotGameButton.Name = "BrainrotGameButton"
 brainrotGameButton.Size = UDim2.new(1, -20, 0, 48)
 brainrotGameButton.Position = UDim2.new(0, 10, 0, 10)
 brainrotGameButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+brainrotGameButton.BackgroundTransparency = 0.2
 brainrotGameButton.Text = "Open scream for brainrots script"
 brainrotGameButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 brainrotGameButton.TextSize = 16
@@ -259,10 +293,10 @@ brainrotGameCorner.CornerRadius = UDim.new(0, 10)
 brainrotGameCorner.Parent = brainrotGameButton
 
 brainrotGameButton.MouseEnter:Connect(function()
-    TweenService:Create(brainrotGameButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105)}):Play()
+    TweenService:Create(brainrotGameButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
 end)
 brainrotGameButton.MouseLeave:Connect(function()
-    TweenService:Create(brainrotGameButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65)}):Play()
+    TweenService:Create(brainrotGameButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
 end)
 
 local breatheGameButton = Instance.new("TextButton")
@@ -270,6 +304,7 @@ breatheGameButton.Name = "BreatheGameButton"
 breatheGameButton.Size = UDim2.new(1, -20, 0, 48)
 breatheGameButton.Position = UDim2.new(0, 10, 0, 68)
 breatheGameButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+breatheGameButton.BackgroundTransparency = 0.2
 breatheGameButton.Text = "Open breathe fire for brainrots script"
 breatheGameButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 breatheGameButton.TextSize = 16
@@ -282,10 +317,10 @@ breatheGameCorner.CornerRadius = UDim.new(0, 10)
 breatheGameCorner.Parent = breatheGameButton
 
 breatheGameButton.MouseEnter:Connect(function()
-    TweenService:Create(breatheGameButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105)}):Play()
+    TweenService:Create(breatheGameButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
 end)
 breatheGameButton.MouseLeave:Connect(function()
-    TweenService:Create(breatheGameButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65)}):Play()
+    TweenService:Create(breatheGameButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
 end)
 
 -- Settings Content
@@ -303,6 +338,7 @@ stupidRow.Name = "StupidRow"
 stupidRow.Size = UDim2.new(1, -20, 0, 44)
 stupidRow.Position = UDim2.new(0, 10, 0, 10)
 stupidRow.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+stupidRow.BackgroundTransparency = 0.25
 stupidRow.BorderSizePixel = 0
 stupidRow.Parent = settingsContent
 
@@ -326,6 +362,7 @@ stupidToggle.Name = "StupidToggle"
 stupidToggle.Size = UDim2.new(0, 50, 0, 30)
 stupidToggle.Position = UDim2.new(1, -60, 0.5, -15)
 stupidToggle.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+stupidToggle.BackgroundTransparency = 0.2
 stupidToggle.Text = "OFF"
 stupidToggle.TextColor3 = Color3.fromRGB(200, 200, 200)
 stupidToggle.TextSize = 14
@@ -342,9 +379,11 @@ stupidToggle.MouseButton1Click:Connect(function()
     stupidEnabled = not stupidEnabled
     if stupidEnabled then
         stupidToggle.BackgroundColor3 = Color3.fromRGB(0, 150, 200)
+        stupidToggle.BackgroundTransparency = 0.1
         stupidToggle.Text = "ON"
     else
         stupidToggle.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+        stupidToggle.BackgroundTransparency = 0.2
         stupidToggle.Text = "OFF"
     end
 end)
@@ -381,6 +420,7 @@ actionButton.Name = "ActionButton"
 actionButton.Size = UDim2.new(1, -20, 0, 48)
 actionButton.Position = UDim2.new(0, 10, 0, 64)
 actionButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+actionButton.BackgroundTransparency = 0.2
 actionButton.Text = "LOAD COBALT"
 actionButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 actionButton.TextSize = 17
@@ -393,10 +433,10 @@ actionCorner.CornerRadius = UDim.new(0, 10)
 actionCorner.Parent = actionButton
 
 actionButton.MouseEnter:Connect(function()
-    TweenService:Create(actionButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105)}):Play()
+    TweenService:Create(actionButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
 end)
 actionButton.MouseLeave:Connect(function()
-    TweenService:Create(actionButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65)}):Play()
+    TweenService:Create(actionButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
 end)
 
 actionButton.MouseButton1Click:Connect(function()
@@ -415,6 +455,7 @@ infYieldButton.Name = "InfYieldButton"
 infYieldButton.Size = UDim2.new(1, -20, 0, 48)
 infYieldButton.Position = UDim2.new(0, 10, 0, 122)
 infYieldButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+infYieldButton.BackgroundTransparency = 0.2
 infYieldButton.Text = "OPEN INF YIELD"
 infYieldButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 infYieldButton.TextSize = 17
@@ -427,10 +468,10 @@ infCorner.CornerRadius = UDim.new(0, 10)
 infCorner.Parent = infYieldButton
 
 infYieldButton.MouseEnter:Connect(function()
-    TweenService:Create(infYieldButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105)}):Play()
+    TweenService:Create(infYieldButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
 end)
 infYieldButton.MouseLeave:Connect(function()
-    TweenService:Create(infYieldButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65)}):Play()
+    TweenService:Create(infYieldButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
 end)
 
 infYieldButton.MouseButton1Click:Connect(function()
@@ -453,7 +494,7 @@ universalPlaceholder.Size = UDim2.new(1, 0, 0, 30)
 universalPlaceholder.Position = UDim2.new(0, 0, 0, 20)
 universalPlaceholder.BackgroundTransparency = 1
 universalPlaceholder.Text = "Universal Script Content"
-universalPlaceholder.TextColor3 = Color3.fromRGB(180, 180, 190)
+universalPlaceholder.TextColor3 = Color3.fromRGB(200, 200, 210)
 universalPlaceholder.TextSize = 16
 universalPlaceholder.Font = Enum.Font.Gotham
 universalPlaceholder.TextXAlignment = Enum.TextXAlignment.Center
@@ -472,6 +513,7 @@ farmButton.Name = "FarmButton"
 farmButton.Size = UDim2.new(1, -20, 0, 55)
 farmButton.Position = UDim2.new(0, 10, 0, 20)
 farmButton.BackgroundColor3 = Color3.fromRGB(0, 120, 60)
+farmButton.BackgroundTransparency = 0.1
 farmButton.Text = "Farm"
 farmButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 farmButton.TextSize = 20
@@ -484,10 +526,10 @@ farmCorner.CornerRadius = UDim.new(0, 10)
 farmCorner.Parent = farmButton
 
 farmButton.MouseEnter:Connect(function()
-    TweenService:Create(farmButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(0, 140, 70)}):Play()
+    TweenService:Create(farmButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(0, 140, 70), BackgroundTransparency = 0.05}):Play()
 end)
 farmButton.MouseLeave:Connect(function()
-    TweenService:Create(farmButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(0, 120, 60)}):Play()
+    TweenService:Create(farmButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(0, 120, 60), BackgroundTransparency = 0.1}):Play()
 end)
 
 farmButton.MouseButton1Click:Connect(function()
@@ -513,8 +555,11 @@ local function switchToMainTab()
     backButton.Visible = false
     tabBar.Visible = true
     mainTab.BackgroundColor3 = Color3.fromRGB(0, 150, 200)
+    mainTab.BackgroundTransparency = 0.15
     gamesTab.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+    gamesTab.BackgroundTransparency = 0.3
     settingsTab.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+    settingsTab.BackgroundTransparency = 0.3
     mainContent.Visible = true
     gamesContent.Visible = false
     settingsContent.Visible = false
@@ -529,8 +574,11 @@ local function switchToGamesTab()
     backButton.Visible = false
     tabBar.Visible = true
     mainTab.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+    mainTab.BackgroundTransparency = 0.3
     gamesTab.BackgroundColor3 = Color3.fromRGB(0, 150, 200)
+    gamesTab.BackgroundTransparency = 0.15
     settingsTab.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+    settingsTab.BackgroundTransparency = 0.3
     mainContent.Visible = false
     gamesContent.Visible = true
     settingsContent.Visible = false
@@ -545,8 +593,11 @@ local function switchToSettingsTab()
     backButton.Visible = false
     tabBar.Visible = true
     mainTab.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+    mainTab.BackgroundTransparency = 0.3
     gamesTab.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+    gamesTab.BackgroundTransparency = 0.3
     settingsTab.BackgroundColor3 = Color3.fromRGB(0, 150, 200)
+    settingsTab.BackgroundTransparency = 0.15
     mainContent.Visible = false
     gamesContent.Visible = false
     settingsContent.Visible = true
