@@ -8,7 +8,7 @@ local LocalPlayer = Players.LocalPlayer
 
 -- Fly Mode variables
 local flying = false
-local flySpeed = 50
+local flySpeed = 150
 local bodyVelocity = nil
 local bodyGyro = nil
 
@@ -71,7 +71,7 @@ bgOverlay.Name = "BgOverlay"
 bgOverlay.Size = UDim2.new(1, 0, 1, 0)
 bgOverlay.Position = UDim2.new(0, 0, 0, 0)
 bgOverlay.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
-bgOverlay.BackgroundTransparency = 0.35
+bgOverlay.BackgroundTransparency = 1
 bgOverlay.BorderSizePixel = 0
 bgOverlay.Visible = true
 bgOverlay.Parent = mainFrame
@@ -81,7 +81,7 @@ defaultBg.Name = "DefaultBg"
 defaultBg.Size = UDim2.new(1, 0, 1, 0)
 defaultBg.Position = UDim2.new(0, 0, 0, 0)
 defaultBg.BackgroundColor3 = Color3.fromRGB(28, 28, 32)
-defaultBg.BackgroundTransparency = 0
+defaultBg.BackgroundTransparency = 1
 defaultBg.BorderSizePixel = 0
 defaultBg.Parent = mainFrame
 
@@ -334,6 +334,32 @@ openUniversalButton.MouseLeave:Connect(function()
     TweenService:Create(openUniversalButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
 end)
 
+-- Open Aimbot Button
+local openAimbotButton = Instance.new("TextButton")
+openAimbotButton.Name = "OpenAimbotButton"
+openAimbotButton.Size = UDim2.new(1, -20, 0, 48)
+openAimbotButton.Position = UDim2.new(0, 10, 0, 68)
+openAimbotButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+openAimbotButton.BackgroundTransparency = 0.2
+openAimbotButton.Text = "Open aimbot"
+openAimbotButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+openAimbotButton.TextSize = 17
+openAimbotButton.Font = Enum.Font.GothamBold
+openAimbotButton.AutoButtonColor = false
+openAimbotButton.Parent = mainContent
+disableButtonSounds(openAimbotButton)
+
+local aimbotCorner = Instance.new("UICorner")
+aimbotCorner.CornerRadius = UDim.new(0, 10)
+aimbotCorner.Parent = openAimbotButton
+
+openAimbotButton.MouseEnter:Connect(function()
+    TweenService:Create(openAimbotButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
+end)
+openAimbotButton.MouseLeave:Connect(function()
+    TweenService:Create(openAimbotButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
+end)
+
 -- ESP Content
 local espContent = Instance.new("Frame")
 espContent.Name = "EspContent"
@@ -385,18 +411,6 @@ espIndicatorCircle.Parent = espToggleIndicator
 local espCircleCorner = Instance.new("UICorner")
 espCircleCorner.CornerRadius = UDim.new(1, 0)
 espCircleCorner.Parent = espIndicatorCircle
-
-local espStatusLabel = Instance.new("TextLabel")
-espStatusLabel.Name = "EspStatusLabel"
-espStatusLabel.Size = UDim2.new(1, -20, 0, 30)
-espStatusLabel.Position = UDim2.new(0, 10, 0, 85)
-espStatusLabel.BackgroundTransparency = 1
-espStatusLabel.Text = "ESP Status: Disabled"
-espStatusLabel.TextColor3 = Color3.fromRGB(180, 180, 200)
-espStatusLabel.TextSize = 14
-espStatusLabel.Font = Enum.Font.Gotham
-espStatusLabel.TextXAlignment = Enum.TextXAlignment.Left
-espStatusLabel.Parent = espContent
 
 -- ESP Functions
 local function createESP()
@@ -536,16 +550,12 @@ end
 local function toggleESP()
     if espEnabled then
         stopESP()
-        espStatusLabel.Text = "ESP Status: Disabled"
-        espStatusLabel.TextColor3 = Color3.fromRGB(180, 180, 200)
         espToggleButton.Text = "ESP: OFF"
         espToggleIndicator.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
         espIndicatorCircle.BackgroundColor3 = Color3.fromRGB(200, 70, 70)
         espIndicatorCircle.Position = UDim2.new(0, 3, 0.5, -13)
     else
         startESP()
-        espStatusLabel.Text = "ESP Status: Active"
-        espStatusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
         espToggleButton.Text = "ESP: ON"
         espToggleIndicator.BackgroundColor3 = Color3.fromRGB(70, 150, 70)
         espIndicatorCircle.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
@@ -880,77 +890,6 @@ local flyCircleCorner = Instance.new("UICorner")
 flyCircleCorner.CornerRadius = UDim.new(1, 0)
 flyCircleCorner.Parent = flyIndicatorCircle
 
--- Speed slider
-local speedLabel = Instance.new("TextLabel")
-speedLabel.Name = "SpeedLabel"
-speedLabel.Size = UDim2.new(1, -20, 0, 25)
-speedLabel.Position = UDim2.new(0, 10, 0, 85)
-speedLabel.BackgroundTransparency = 1
-speedLabel.Text = "Speed: 50"
-speedLabel.TextColor3 = Color3.fromRGB(180, 180, 200)
-speedLabel.TextSize = 13
-speedLabel.Font = Enum.Font.Gotham
-speedLabel.TextXAlignment = Enum.TextXAlignment.Left
-speedLabel.Parent = universalContent
-
-local speedSlider = Instance.new("Frame")
-speedSlider.Name = "SpeedSlider"
-speedSlider.Size = UDim2.new(1, -20, 0, 4)
-speedSlider.Position = UDim2.new(0, 10, 0, 115)
-speedSlider.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
-speedSlider.BorderSizePixel = 0
-speedSlider.Parent = universalContent
-
-local sliderFill = Instance.new("Frame")
-sliderFill.Name = "SliderFill"
-sliderFill.Size = UDim2.new(0.5, 0, 1, 0)
-sliderFill.BackgroundColor3 = Color3.fromRGB(0, 150, 200)
-sliderFill.BorderSizePixel = 0
-sliderFill.Parent = speedSlider
-
-local sliderCorner = Instance.new("UICorner")
-sliderCorner.CornerRadius = UDim.new(1, 0)
-sliderCorner.Parent = speedSlider
-
-local sliderButton = Instance.new("TextButton")
-sliderButton.Name = "SliderButton"
-sliderButton.Size = UDim2.new(0, 16, 0, 16)
-sliderButton.Position = UDim2.new(0.5, -8, 0.5, -8)
-sliderButton.BackgroundColor3 = Color3.fromRGB(0, 150, 200)
-sliderButton.BorderSizePixel = 0
-sliderButton.Text = ""
-sliderButton.AutoButtonColor = false
-sliderButton.Parent = speedSlider
-
-local sliderButtonCorner = Instance.new("UICorner")
-sliderButtonCorner.CornerRadius = UDim.new(1, 0)
-sliderButtonCorner.Parent = sliderButton
-
-local draggingSlider = false
-
-sliderButton.MouseButton1Down:Connect(function()
-    draggingSlider = true
-end)
-
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        draggingSlider = false
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if draggingSlider and input.UserInputType == Enum.UserInputType.MouseMovement then
-        local sliderPos = speedSlider.AbsolutePosition.X
-        local sliderWidth = speedSlider.AbsoluteSize.X
-        local mouseX = input.Position.X
-        local percent = math.clamp((mouseX - sliderPos) / sliderWidth, 0, 1)
-        sliderFill.Size = UDim2.new(percent, 0, 1, 0)
-        sliderButton.Position = UDim2.new(percent, -8, 0.5, -8)
-        flySpeed = math.floor(10 + (percent * 290))
-        speedLabel.Text = "Speed: " .. flySpeed
-    end
-end)
-
 -- Fly Mode functions (Ctrl for down)
 local function startFly()
     local char = LocalPlayer.Character
@@ -1082,6 +1021,17 @@ LocalPlayer.CharacterAdded:Connect(function()
     end
 end)
 
+local function cleanupFOV()
+    if fovEnabled then
+        toggleFOV()
+    end
+    if fovCircle then
+        fovCircle:Destroy()
+        fovCircle = nil
+    end
+    RunService:UnbindFromRenderStep("FOVUpdate")
+end
+
 local function cleanupFly()
     if flying then
         stopFly()
@@ -1097,6 +1047,7 @@ end
 closeButton.MouseButton1Click:Connect(function()
     cleanupFly()
     cleanupESP()
+    cleanupFOV()
     TweenService:Create(mainFrame, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
     task.wait(0.2)
     screenGui:Destroy()
@@ -1150,6 +1101,261 @@ breatheContent.BackgroundTransparency = 1
 breatheContent.Visible = false
 breatheContent.Parent = mainFrame
 
+local aimbotContent = Instance.new("Frame")
+aimbotContent.Name = "AimbotContent"
+aimbotContent.Size = UDim2.new(1, -24, 1, -64)
+aimbotContent.Position = UDim2.new(0, 12, 0, 54)
+aimbotContent.BackgroundTransparency = 1
+aimbotContent.Visible = false
+aimbotContent.Parent = mainFrame
+
+-- FOV variables
+local fovEnabled = false
+local fovRadius = 50
+local fovCircle = nil
+local currentLockTarget = nil
+
+-- Create FOV Circle
+local function createFOVCircle()
+    if fovCircle then fovCircle:Destroy() end
+    
+    fovCircle = Instance.new("Frame")
+    fovCircle.Name = "FOVCircle"
+    fovCircle.Size = UDim2.new(0, fovRadius * 2, 0, fovRadius * 2)
+    fovCircle.BackgroundColor3 = Color3.fromRGB(0, 200, 255)
+    fovCircle.BackgroundTransparency = 0.8
+    fovCircle.BorderSizePixel = 2
+    fovCircle.BorderColor3 = Color3.fromRGB(0, 150, 200)
+    fovCircle.Visible = fovEnabled
+    fovCircle.Parent = screenGui
+    
+    local fovCorner = Instance.new("UICorner")
+    fovCorner.CornerRadius = UDim.new(1, 0)
+    fovCorner.Parent = fovCircle
+end
+
+-- FOV Toggle Button
+local fovToggleButton = Instance.new("TextButton")
+fovToggleButton.Name = "FOVToggleButton"
+fovToggleButton.Size = UDim2.new(1, -20, 0, 55)
+fovToggleButton.Position = UDim2.new(0, 10, 0, 20)
+fovToggleButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+fovToggleButton.BackgroundTransparency = 0.2
+fovToggleButton.Text = "FOV: OFF"
+fovToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+fovToggleButton.TextSize = 18
+fovToggleButton.Font = Enum.Font.GothamBold
+fovToggleButton.AutoButtonColor = false
+fovToggleButton.Parent = aimbotContent
+disableButtonSounds(fovToggleButton)
+
+local fovToggleCorner = Instance.new("UICorner")
+fovToggleCorner.CornerRadius = UDim.new(0, 10)
+fovToggleCorner.Parent = fovToggleButton
+
+local fovToggleIndicator = Instance.new("Frame")
+fovToggleIndicator.Name = "FOVToggleIndicator"
+fovToggleIndicator.Size = UDim2.new(0, 40, 0, 30)
+fovToggleIndicator.Position = UDim2.new(1, -55, 0.5, -15)
+fovToggleIndicator.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+fovToggleIndicator.BorderSizePixel = 0
+fovToggleIndicator.Parent = fovToggleButton
+
+local fovIndicatorCorner = Instance.new("UICorner")
+fovIndicatorCorner.CornerRadius = UDim.new(1, 0)
+fovIndicatorCorner.Parent = fovToggleIndicator
+
+local fovIndicatorCircle = Instance.new("Frame")
+fovIndicatorCircle.Name = "FOVIndicatorCircle"
+fovIndicatorCircle.Size = UDim2.new(0, 26, 0, 26)
+fovIndicatorCircle.Position = UDim2.new(0, 3, 0.5, -13)
+fovIndicatorCircle.BackgroundColor3 = Color3.fromRGB(200, 70, 70)
+fovIndicatorCircle.BorderSizePixel = 0
+fovIndicatorCircle.Parent = fovToggleIndicator
+
+local fovCircleCorner = Instance.new("UICorner")
+fovCircleCorner.CornerRadius = UDim.new(1, 0)
+fovCircleCorner.Parent = fovIndicatorCircle
+
+-- Toggle FOV
+local function toggleFOV()
+    fovEnabled = not fovEnabled
+    if fovEnabled then
+        createFOVCircle()
+        fovCircle.Visible = true
+        fovToggleButton.Text = "FOV: ON"
+        fovToggleIndicator.BackgroundColor3 = Color3.fromRGB(70, 150, 70)
+        fovIndicatorCircle.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
+        fovIndicatorCircle.Position = UDim2.new(0, 11, 0.5, -13)
+    else
+        if fovCircle then fovCircle.Visible = false end
+        fovToggleButton.Text = "FOV: OFF"
+        fovToggleIndicator.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+        fovIndicatorCircle.BackgroundColor3 = Color3.fromRGB(200, 70, 70)
+        fovIndicatorCircle.Position = UDim2.new(0, 3, 0.5, -13)
+        currentLockTarget = nil
+    end
+end
+
+fovToggleButton.MouseButton1Click:Connect(function()
+    toggleFOV()
+end)
+
+fovToggleButton.MouseEnter:Connect(function()
+    TweenService:Create(fovToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
+end)
+fovToggleButton.MouseLeave:Connect(function()
+    TweenService:Create(fovToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
+end)
+
+-- FOV Slider Label
+local fovSliderLabel = Instance.new("TextLabel")
+fovSliderLabel.Name = "FOVSliderLabel"
+fovSliderLabel.Size = UDim2.new(1, -20, 0, 25)
+fovSliderLabel.Position = UDim2.new(0, 10, 0, 85)
+fovSliderLabel.BackgroundTransparency = 1
+fovSliderLabel.Text = "FOV Size: 50"
+fovSliderLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+fovSliderLabel.TextSize = 16
+fovSliderLabel.Font = Enum.Font.GothamBold
+fovSliderLabel.TextXAlignment = Enum.TextXAlignment.Left
+fovSliderLabel.Parent = aimbotContent
+
+-- FOV Slider Background
+local fovSliderBg = Instance.new("Frame")
+fovSliderBg.Name = "FOVSliderBg"
+fovSliderBg.Size = UDim2.new(1, -20, 0, 6)
+fovSliderBg.Position = UDim2.new(0, 10, 0, 115)
+fovSliderBg.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+fovSliderBg.BorderSizePixel = 0
+fovSliderBg.Parent = aimbotContent
+
+local fovSliderCorner = Instance.new("UICorner")
+fovSliderCorner.CornerRadius = UDim.new(1, 0)
+fovSliderCorner.Parent = fovSliderBg
+
+-- FOV Slider Fill
+local fovSliderFill = Instance.new("Frame")
+fovSliderFill.Name = "FOVSliderFill"
+fovSliderFill.Size = UDim2.new((fovRadius - 10) / 90, 0, 1, 0)
+fovSliderFill.Position = UDim2.new(0, 0, 0, 0)
+fovSliderFill.BackgroundColor3 = Color3.fromRGB(0, 150, 200)
+fovSliderFill.BorderSizePixel = 0
+fovSliderFill.Parent = fovSliderBg
+
+local fovFillCorner = Instance.new("UICorner")
+fovFillCorner.CornerRadius = UDim.new(1, 0)
+fovFillCorner.Parent = fovSliderFill
+
+-- FOV Slider Button
+local fovSliderButton = Instance.new("TextButton")
+fovSliderButton.Name = "FOVSliderButton"
+fovSliderButton.Size = UDim2.new(0, 16, 0, 20)
+fovSliderButton.Position = UDim2.new((fovRadius - 10) / 90, -8, 0.5, -10)
+fovSliderButton.BackgroundColor3 = Color3.fromRGB(0, 200, 255)
+fovSliderButton.BorderSizePixel = 0
+fovSliderButton.Text = ""
+fovSliderButton.Parent = fovSliderBg
+
+local fovButtonCorner = Instance.new("UICorner")
+fovButtonCorner.CornerRadius = UDim.new(0, 3)
+fovButtonCorner.Parent = fovSliderButton
+
+-- Divider Line
+local dividerLine = Instance.new("Frame")
+dividerLine.Name = "DividerLine"
+dividerLine.Size = UDim2.new(1, -20, 0, 1)
+dividerLine.Position = UDim2.new(0, 10, 0, 135)
+dividerLine.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+dividerLine.BorderSizePixel = 0
+dividerLine.Parent = aimbotContent
+
+-- Slider dragging
+local sliderDragging = false
+
+fovSliderButton.MouseButton1Down:Connect(function()
+    sliderDragging = true
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        sliderDragging = false
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if sliderDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local mouse = game:GetService("Players").LocalPlayer:GetMouse()
+        local sliderBgPos = fovSliderBg.AbsolutePosition.X
+        local sliderBgSize = fovSliderBg.AbsoluteSize.X
+        local mouseX = math.clamp(mouse.X - sliderBgPos, 0, sliderBgSize)
+        local percentage = mouseX / sliderBgSize
+        
+        fovRadius = math.floor(10 + (percentage * 90))
+        fovSliderFill.Size = UDim2.new(percentage, 0, 1, 0)
+        fovSliderButton.Position = UDim2.new(percentage, -8, 0.5, -10)
+        fovSliderLabel.Text = "FOV Size: " .. fovRadius
+        
+        if fovCircle then
+            fovCircle.Size = UDim2.new(0, fovRadius * 2, 0, fovRadius * 2)
+        end
+    end
+end)
+
+-- Get closest player in FOV
+local function getClosestPlayerInFOV()
+    local mouse = game:GetService("Players").LocalPlayer:GetMouse()
+    local closestPlayer = nil
+    local closestDistance = fovRadius
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local char = player.Character
+            local humanoidRootPart = char:FindFirstChild("HumanoidRootPart")
+            if humanoidRootPart then
+                local screenPos = workspace.CurrentCamera:WorldToScreenPoint(humanoidRootPart.Position)
+                local mousePos = Vector2.new(mouse.X, mouse.Y)
+                local distance = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
+                
+                if distance < closestDistance then
+                    closestDistance = distance
+                    closestPlayer = player
+                end
+            end
+        end
+    end
+    
+    return closestPlayer
+end
+
+-- Right click aiming
+UserInputService.InputBegan:Connect(function(input)
+    if fovEnabled and input.UserInputType == Enum.UserInputType.MouseButton2 then
+        currentLockTarget = getClosestPlayerInFOV()
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+        currentLockTarget = nil
+    end
+end)
+
+-- Update FOV circle position and handle aiming
+RunService:BindToRenderStep("FOVUpdate", 1, function()
+    if fovEnabled and fovCircle then
+        local mouse = game:GetService("Players").LocalPlayer:GetMouse()
+        fovCircle.Position = UDim2.new(0, mouse.X - fovRadius, 0, mouse.Y - fovRadius)
+        
+        if currentLockTarget and currentLockTarget.Character then
+            local targetPart = currentLockTarget.Character:FindFirstChild("Head") or currentLockTarget.Character:FindFirstChild("HumanoidRootPart")
+            if targetPart then
+                workspace.CurrentCamera.CFrame = CFrame.new(workspace.CurrentCamera.CFrame.Position, targetPart.Position)
+            end
+        end
+    end
+end)
+
 -- UI State Functions
 local currentState = "mainTab"
 
@@ -1173,6 +1379,7 @@ local function switchToMainTab()
     universalContent.Visible = false
     brainrotContent.Visible = false
     breatheContent.Visible = false
+    aimbotContent.Visible = false
     themesContent.Visible = false
 end
 
@@ -1196,6 +1403,7 @@ local function switchToEspTab()
     universalContent.Visible = false
     brainrotContent.Visible = false
     breatheContent.Visible = false
+    aimbotContent.Visible = false
     themesContent.Visible = false
 end
 
@@ -1219,6 +1427,7 @@ local function switchToGamesTab()
     universalContent.Visible = false
     brainrotContent.Visible = false
     breatheContent.Visible = false
+    aimbotContent.Visible = false
     themesContent.Visible = false
 end
 
@@ -1242,6 +1451,7 @@ local function switchToSettingsTab()
     universalContent.Visible = false
     brainrotContent.Visible = false
     breatheContent.Visible = false
+    aimbotContent.Visible = false
     themesContent.Visible = false
 end
 
@@ -1257,6 +1467,7 @@ local function switchToUniversalUI()
     universalContent.Visible = true
     brainrotContent.Visible = false
     breatheContent.Visible = false
+    aimbotContent.Visible = false
     themesContent.Visible = false
     updateFlyUI()
 end
@@ -1273,6 +1484,7 @@ local function switchToBrainrotUI()
     universalContent.Visible = false
     brainrotContent.Visible = true
     breatheContent.Visible = false
+    aimbotContent.Visible = false
     themesContent.Visible = false
 end
 
@@ -1288,6 +1500,23 @@ local function switchToBreatheUI()
     universalContent.Visible = false
     brainrotContent.Visible = false
     breatheContent.Visible = true
+    aimbotContent.Visible = false
+    themesContent.Visible = false
+end
+
+local function switchToAimbotUI()
+    currentState = "aimbot"
+    titleLabel.Text = "Universal Script"
+    backButton.Visible = true
+    tabBar.Visible = false
+    mainContent.Visible = false
+    espContent.Visible = false
+    gamesContent.Visible = false
+    settingsContent.Visible = false
+    universalContent.Visible = false
+    brainrotContent.Visible = false
+    breatheContent.Visible = false
+    aimbotContent.Visible = true
     themesContent.Visible = false
 end
 
@@ -1303,6 +1532,7 @@ local function switchToThemesUI()
     universalContent.Visible = false
     brainrotContent.Visible = false
     breatheContent.Visible = false
+    aimbotContent.Visible = false
     themesContent.Visible = true
 end
 
@@ -1339,6 +1569,10 @@ breatheGameButton.MouseButton1Click:Connect(function()
     switchToBreatheUI()
 end)
 
+openAimbotButton.MouseButton1Click:Connect(function()
+    switchToAimbotUI()
+end)
+
 themesButton.MouseButton1Click:Connect(function()
     switchToThemesUI()
 end)
@@ -1349,6 +1583,8 @@ backButton.MouseButton1Click:Connect(function()
             toggleFly()
             updateFlyUI()
         end
+        switchToMainTab()
+    elseif currentState == "aimbot" then
         switchToMainTab()
     elseif currentState == "brainrot" or currentState == "breathe" then
         switchToGamesTab()
