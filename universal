@@ -29,6 +29,10 @@ local autoTPPosition = Vector3.new(5130, 699, -2560)
 local autoTPVelocity = nil
 local autoTPGyro = nil
 
+-- Minimize variables
+local isMinimized = false
+local minimizeCircle = nil
+
 -- Disable button click sounds globally
 local function disableButtonSounds(button)
     button.AutoButtonColor = false
@@ -149,6 +153,32 @@ titleLabel.TextXAlignment = Enum.TextXAlignment.Center
 titleLabel.Font = Enum.Font.GothamBold
 titleLabel.Parent = topBar
 
+-- Minimize Button (LEFT of X, with "-" icon)
+local minimizeButton = Instance.new("TextButton")
+minimizeButton.Name = "MinimizeButton"
+minimizeButton.Size = UDim2.new(0, 34, 0, 34)
+minimizeButton.Position = UDim2.new(1, -90, 0.5, -17)
+minimizeButton.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+minimizeButton.BackgroundTransparency = 0.1
+minimizeButton.Text = "—"
+minimizeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+minimizeButton.TextSize = 24
+minimizeButton.Font = Enum.Font.SourceSansBold
+minimizeButton.AutoButtonColor = false
+minimizeButton.Parent = topBar
+disableButtonSounds(minimizeButton)
+
+local minimizeCorner = Instance.new("UICorner")
+minimizeCorner.CornerRadius = UDim.new(1, 0)
+minimizeCorner.Parent = minimizeButton
+
+minimizeButton.MouseEnter:Connect(function()
+    TweenService:Create(minimizeButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.05}):Play()
+end)
+minimizeButton.MouseLeave:Connect(function()
+    TweenService:Create(minimizeButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(60, 60, 70), BackgroundTransparency = 0.1}):Play()
+end)
+
 local closeButton = Instance.new("TextButton")
 closeButton.Name = "CloseButton"
 closeButton.Size = UDim2.new(0, 34, 0, 34)
@@ -174,6 +204,61 @@ closeButton.MouseLeave:Connect(function()
     TweenService:Create(closeButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(180, 40, 40)}):Play()
 end)
 
+-- Minimize Circle creation
+local function createMinimizeCircle()
+    if minimizeCircle then 
+        minimizeCircle:Destroy()
+        minimizeCircle = nil
+    end
+    
+    minimizeCircle = Instance.new("TextButton")
+    minimizeCircle.Name = "MinimizeCircle"
+    minimizeCircle.Size = UDim2.new(0, 50, 0, 50)
+    minimizeCircle.Position = UDim2.new(0.5, -25, 0, 10)
+    minimizeCircle.BackgroundColor3 = Color3.fromRGB(0, 150, 200)
+    minimizeCircle.BackgroundTransparency = 0.15
+    minimizeCircle.Text = "UN"
+    minimizeCircle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    minimizeCircle.TextSize = 18
+    minimizeCircle.Font = Enum.Font.GothamBold
+    minimizeCircle.AutoButtonColor = false
+    minimizeCircle.Visible = true
+    minimizeCircle.ZIndex = 10
+    minimizeCircle.Parent = screenGui
+    
+    local circleCorner = Instance.new("UICorner")
+    circleCorner.CornerRadius = UDim.new(1, 0)
+    circleCorner.Parent = minimizeCircle
+    
+    local circleStroke = Instance.new("UIStroke")
+    circleStroke.Color = Color3.fromRGB(0, 200, 255)
+    circleStroke.Thickness = 2
+    circleStroke.Parent = minimizeCircle
+    
+    minimizeCircle.MouseButton1Click:Connect(function()
+        if minimizeCircle then
+            minimizeCircle:Destroy()
+            minimizeCircle = nil
+        end
+        mainFrame.Visible = true
+        isMinimized = false
+    end)
+end
+
+-- Minimize function
+local function minimizeGUI()
+    if isMinimized then return end
+    mainFrame.Visible = false
+    createMinimizeCircle()
+    isMinimized = true
+end
+
+-- Connect minimize button
+minimizeButton.MouseButton1Click:Connect(function()
+    minimizeGUI()
+end)
+
+-- Close button with cleanup
 closeButton.MouseButton1Click:Connect(function()
     if flying then
         toggleFly()
@@ -187,8 +272,12 @@ closeButton.MouseButton1Click:Connect(function()
     if autoTPEnabled then
         toggleAutoTP()
     end
-    TweenService:Create(mainFrame, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
-    task.wait(0.2)
+    
+    if minimizeCircle then
+        minimizeCircle:Destroy()
+        minimizeCircle = nil
+    end
+    
     screenGui:Destroy()
 end)
 
@@ -1412,15 +1501,6 @@ local function cleanupAutoTP()
     end
 end
 
-closeButton.MouseButton1Click:Connect(function()
-    cleanupFly()
-    cleanupESP()
-    cleanupAutoTP()
-    TweenService:Create(mainFrame, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
-    task.wait(0.2)
-    screenGui:Destroy()
-end)
-
 -- Aimbot Content
 local aimbotContent = Instance.new("Frame")
 aimbotContent.Name = "AimbotContent"
@@ -1434,7 +1514,7 @@ local aimbotPlaceholder = Instance.new("TextLabel")
 aimbotPlaceholder.Size = UDim2.new(1, 0, 0, 30)
 aimbotPlaceholder.Position = UDim2.new(0, 0, 0, 20)
 aimbotPlaceholder.BackgroundTransparency = 1
-aimbotPlaceholder.Text = "Aimbot GUI (Empty - Ready for features)"
+aimbotPlaceholder.Text = "(gay nigger)"
 aimbotPlaceholder.TextColor3 = Color3.fromRGB(200, 200, 210)
 aimbotPlaceholder.TextSize = 16
 aimbotPlaceholder.Font = Enum.Font.Gotham
