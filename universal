@@ -22,6 +22,11 @@ local espLines = {}
 local espBoxes = {}
 local espNames = {}
 
+-- AutoTP variables (for +1 Brick Speed Escape)
+local autoTPEnabled = false
+local autoTPConnection = nil
+local autoTPPosition = Vector3.new(5130, 699, -2560)
+
 -- Disable button click sounds globally
 local function disableButtonSounds(button)
     button.AutoButtonColor = false
@@ -173,6 +178,12 @@ closeButton.MouseButton1Click:Connect(function()
     end
     if espEnabled then
         toggleESP()
+    end
+    if boxEspEnabled then
+        toggleBoxESP()
+    end
+    if autoTPEnabled then
+        toggleAutoTP()
     end
     TweenService:Create(mainFrame, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
     task.wait(0.2)
@@ -458,6 +469,7 @@ boxEspIndicatorCircle.Parent = boxEspToggleIndicator
 local boxEspCircleCorner = Instance.new("UICorner")
 boxEspCircleCorner.CornerRadius = UDim.new(1, 0)
 boxEspCircleCorner.Parent = boxEspIndicatorCircle
+
 -- ESP Functions
 local function createESP()
     for _, player in pairs(Players:GetPlayers()) do
@@ -675,6 +687,7 @@ end)
 boxEspToggleButton.MouseLeave:Connect(function()
     TweenService:Create(boxEspToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
 end)
+
 -- Games Content
 local gamesContent = Instance.new("Frame")
 gamesContent.Name = "GamesContent"
@@ -715,7 +728,7 @@ breatheGameButton.Size = UDim2.new(1, -20, 0, 48)
 breatheGameButton.Position = UDim2.new(0, 10, 0, 68)
 breatheGameButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
 breatheGameButton.BackgroundTransparency = 0.2
-breatheGameButton.Text = "Open breathe fire for brainrots script"
+breatheGameButton.Text = "Open +1 Brick Speed Escape script"
 breatheGameButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 breatheGameButton.TextSize = 16
 breatheGameButton.Font = Enum.Font.GothamBold
@@ -732,6 +745,212 @@ breatheGameButton.MouseEnter:Connect(function()
 end)
 breatheGameButton.MouseLeave:Connect(function()
     TweenService:Create(breatheGameButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
+end)
+
+-- ==================== +1 BRICK SPEED ESCAPE CONTENT ====================
+local breatheContent = Instance.new("Frame")
+breatheContent.Name = "BreatheContent"
+breatheContent.Size = UDim2.new(1, -24, 1, -64)
+breatheContent.Position = UDim2.new(0, 12, 0, 54)
+breatheContent.BackgroundTransparency = 1
+breatheContent.Visible = false
+breatheContent.Parent = mainFrame
+
+-- AutoTP Toggle Button (no status text below)
+local autoTPToggleButton = Instance.new("TextButton")
+autoTPToggleButton.Name = "AutoTPToggleButton"
+autoTPToggleButton.Size = UDim2.new(1, -20, 0, 55)
+autoTPToggleButton.Position = UDim2.new(0, 10, 0, 20)
+autoTPToggleButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+autoTPToggleButton.BackgroundTransparency = 0.2
+autoTPToggleButton.Text = "AutoTP: OFF"
+autoTPToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+autoTPToggleButton.TextSize = 18
+autoTPToggleButton.Font = Enum.Font.GothamBold
+autoTPToggleButton.AutoButtonColor = false
+autoTPToggleButton.Parent = breatheContent
+disableButtonSounds(autoTPToggleButton)
+
+local autoTPToggleCorner = Instance.new("UICorner")
+autoTPToggleCorner.CornerRadius = UDim.new(0, 10)
+autoTPToggleCorner.Parent = autoTPToggleButton
+
+local autoTPToggleIndicator = Instance.new("Frame")
+autoTPToggleIndicator.Name = "AutoTPToggleIndicator"
+autoTPToggleIndicator.Size = UDim2.new(0, 40, 0, 30)
+autoTPToggleIndicator.Position = UDim2.new(1, -55, 0.5, -15)
+autoTPToggleIndicator.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+autoTPToggleIndicator.BorderSizePixel = 0
+autoTPToggleIndicator.Parent = autoTPToggleButton
+
+local autoTPIndicatorCorner = Instance.new("UICorner")
+autoTPIndicatorCorner.CornerRadius = UDim.new(1, 0)
+autoTPIndicatorCorner.Parent = autoTPToggleIndicator
+
+local autoTPIndicatorCircle = Instance.new("Frame")
+autoTPIndicatorCircle.Name = "AutoTPIndicatorCircle"
+autoTPIndicatorCircle.Size = UDim2.new(0, 26, 0, 26)
+autoTPIndicatorCircle.Position = UDim2.new(0, 3, 0.5, -13)
+autoTPIndicatorCircle.BackgroundColor3 = Color3.fromRGB(200, 70, 70)
+autoTPIndicatorCircle.BorderSizePixel = 0
+autoTPIndicatorCircle.Parent = autoTPToggleIndicator
+
+local autoTPCircleCorner = Instance.new("UICorner")
+autoTPCircleCorner.CornerRadius = UDim.new(1, 0)
+autoTPCircleCorner.Parent = autoTPIndicatorCircle
+
+-- AutoTP Variables
+local autoTPEnabled = false
+local autoTPConnection = nil
+local autoTPPosition = Vector3.new(5130, 699, -2560)
+local autoTPVelocity = nil
+local autoTPGyro = nil
+
+-- Function to apply forward movement velocity
+local function applyForwardVelocity()
+    local char = LocalPlayer.Character
+    if not char then return end
+    
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        humanoid.PlatformStand = true
+    end
+    
+    -- Remove existing velocity objects if any
+    if autoTPVelocity then
+        autoTPVelocity:Destroy()
+    end
+    if autoTPGyro then
+        autoTPGyro:Destroy()
+    end
+    
+    -- Create BodyVelocity to push player forward
+    autoTPVelocity = Instance.new("BodyVelocity")
+    autoTPVelocity.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+    autoTPVelocity.Velocity = hrp.CFrame.LookVector * 200
+    autoTPVelocity.Parent = hrp
+    
+    -- Create BodyGyro to keep player upright
+    autoTPGyro = Instance.new("BodyGyro")
+    autoTPGyro.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
+    autoTPGyro.CFrame = CFrame.new(hrp.Position, hrp.Position + hrp.CFrame.LookVector)
+    autoTPGyro.Parent = hrp
+end
+
+-- Function to stop forward movement
+local function stopForwardVelocity()
+    if autoTPVelocity then
+        autoTPVelocity:Destroy()
+        autoTPVelocity = nil
+    end
+    if autoTPGyro then
+        autoTPGyro:Destroy()
+        autoTPGyro = nil
+    end
+    
+    local char = LocalPlayer.Character
+    if char then
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.PlatformStand = false
+        end
+    end
+end
+
+-- Function to teleport and maintain forward direction
+local function teleportAndMove()
+    local char = LocalPlayer.Character
+    if not char then return end
+    
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    
+    -- Teleport to position
+    hrp.CFrame = CFrame.new(autoTPPosition)
+    
+    -- Apply forward velocity again after teleport
+    if autoTPVelocity then
+        autoTPVelocity:Destroy()
+        autoTPVelocity = nil
+    end
+    if autoTPGyro then
+        autoTPGyro:Destroy()
+        autoTPGyro = nil
+    end
+    
+    autoTPVelocity = Instance.new("BodyVelocity")
+    autoTPVelocity.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+    autoTPVelocity.Velocity = hrp.CFrame.LookVector * 200
+    autoTPVelocity.Parent = hrp
+    
+    autoTPGyro = Instance.new("BodyGyro")
+    autoTPGyro.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
+    autoTPGyro.CFrame = CFrame.new(hrp.Position, hrp.Position + hrp.CFrame.LookVector)
+    autoTPGyro.Parent = hrp
+end
+
+local function startAutoTP()
+    if autoTPEnabled then return end
+    autoTPEnabled = true
+    
+    -- Teleport and start moving
+    teleportAndMove()
+    
+    -- Start loop
+    autoTPConnection = RunService:BindToRenderStep("AutoTP", 0, function()
+        if autoTPEnabled then
+            teleportAndMove()
+            task.wait(0.5)
+        end
+    end)
+end
+
+local function stopAutoTP()
+    autoTPEnabled = false
+    if autoTPConnection then
+        RunService:UnbindFromRenderStep("AutoTP")
+        autoTPConnection = nil
+    end
+    stopForwardVelocity()
+end
+
+local function toggleAutoTP()
+    if autoTPEnabled then
+        stopAutoTP()
+        autoTPToggleButton.Text = "AutoTP: OFF"
+        autoTPToggleIndicator.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+        autoTPIndicatorCircle.BackgroundColor3 = Color3.fromRGB(200, 70, 70)
+        autoTPIndicatorCircle.Position = UDim2.new(0, 3, 0.5, -13)
+    else
+        startAutoTP()
+        autoTPToggleButton.Text = "AutoTP: ON"
+        autoTPToggleIndicator.BackgroundColor3 = Color3.fromRGB(70, 150, 70)
+        autoTPIndicatorCircle.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
+        autoTPIndicatorCircle.Position = UDim2.new(0, 11, 0.5, -13)
+    end
+end
+
+autoTPToggleButton.MouseButton1Click:Connect(function()
+    toggleAutoTP()
+end)
+
+autoTPToggleButton.MouseEnter:Connect(function()
+    TweenService:Create(autoTPToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
+end)
+autoTPToggleButton.MouseLeave:Connect(function()
+    TweenService:Create(autoTPToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
+end)
+
+-- Cleanup on character respawn
+LocalPlayer.CharacterAdded:Connect(function()
+    if autoTPEnabled then
+        -- Reapply after respawn
+        task.wait(0.5)
+        teleportAndMove()
+    end
 end)
 
 -- Settings Content
@@ -834,7 +1053,7 @@ themesButton.MouseLeave:Connect(function()
     TweenService:Create(themesButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
 end)
 
--- THEMES CONTENT
+--THEMES CONTENT
 local themesContent = Instance.new("Frame")
 themesContent.Name = "ThemesContent"
 themesContent.Size = UDim2.new(1, -24, 1, -64)
@@ -935,6 +1154,39 @@ end)
 catButton.MouseButton1Click:Connect(function()
     defaultBg.Visible = false
     mainBgImage.Image = "rbxassetid://11176073563"
+    mainBgImage.Visible = true
+    bgOverlay.Visible = true
+end)
+
+--catgirl 
+local catgirlButton = Instance.new("TextButton")
+catgirlButton.Name = "CatgirlButton"
+catgirlButton.Size = UDim2.new(1, -20, 0, 55)
+catgirlButton.Position = UDim2.new(0, 10, 0, 215)
+catgirlButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+catgirlButton.BackgroundTransparency = 0.2
+catgirlButton.Text = "catgirl"
+catgirlButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+catgirlButton.TextSize = 20
+catgirlButton.Font = Enum.Font.GothamBold
+catgirlButton.AutoButtonColor = false
+catgirlButton.Parent = themesContent
+disableButtonSounds(catgirlButton)
+
+local catgirlCorner = Instance.new("UICorner")
+catgirlCorner.CornerRadius = UDim.new(0, 10)
+catgirlCorner.Parent = catgirlButton
+
+catgirlButton.MouseEnter:Connect(function()
+    TweenService:Create(catgirlButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
+end)
+catgirlButton.MouseLeave:Connect(function()
+    TweenService:Create(catgirlButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
+end)
+
+catgirlButton.MouseButton1Click:Connect(function()
+    defaultBg.Visible = false
+    mainBgImage.Image = "rbxassetid://15017125146"
     mainBgImage.Visible = true
     bgOverlay.Visible = true
 end)
@@ -1120,6 +1372,10 @@ LocalPlayer.CharacterAdded:Connect(function()
         stopESP()
         startESP()
     end
+    if boxEspEnabled then
+        stopBoxESP()
+        startBoxESP()
+    end
 end)
 
 local function cleanupFOV()
@@ -1143,18 +1399,28 @@ local function cleanupESP()
     if espEnabled then
         stopESP()
     end
+    if boxEspEnabled then
+        stopBoxESP()
+    end
+end
+
+local function cleanupAutoTP()
+    if autoTPEnabled then
+        stopAutoTP()
+    end
 end
 
 closeButton.MouseButton1Click:Connect(function()
     cleanupFly()
     cleanupESP()
+    cleanupAutoTP()
     cleanupFOV()
     TweenService:Create(mainFrame, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
     task.wait(0.2)
     screenGui:Destroy()
 end)
 
--- Brainrot Content
+-- Brainrot Content (placeholder)
 local brainrotContent = Instance.new("Frame")
 brainrotContent.Name = "BrainrotContent"
 brainrotContent.Size = UDim2.new(1, -24, 1, -64)
@@ -1163,45 +1429,18 @@ brainrotContent.BackgroundTransparency = 1
 brainrotContent.Visible = false
 brainrotContent.Parent = mainFrame
 
-local farmButton = Instance.new("TextButton")
-farmButton.Name = "FarmButton"
-farmButton.Size = UDim2.new(1, -20, 0, 55)
-farmButton.Position = UDim2.new(0, 10, 0, 20)
-farmButton.BackgroundColor3 = Color3.fromRGB(0, 120, 60)
-farmButton.BackgroundTransparency = 0.1
-farmButton.Text = "Farm"
-farmButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-farmButton.TextSize = 20
-farmButton.Font = Enum.Font.GothamBold
-farmButton.AutoButtonColor = false
-farmButton.Parent = brainrotContent
-disableButtonSounds(farmButton)
+local brainrotPlaceholder = Instance.new("TextLabel")
+brainrotPlaceholder.Size = UDim2.new(1, 0, 0, 30)
+brainrotPlaceholder.Position = UDim2.new(0, 0, 0, 20)
+brainrotPlaceholder.BackgroundTransparency = 1
+brainrotPlaceholder.Text = "Brainrot Script Content"
+brainrotPlaceholder.TextColor3 = Color3.fromRGB(200, 200, 210)
+brainrotPlaceholder.TextSize = 16
+brainrotPlaceholder.Font = Enum.Font.Gotham
+brainrotPlaceholder.TextXAlignment = Enum.TextXAlignment.Center
+brainrotPlaceholder.Parent = brainrotContent
 
-local farmCorner = Instance.new("UICorner")
-farmCorner.CornerRadius = UDim.new(0, 10)
-farmCorner.Parent = farmButton
-
-farmButton.MouseEnter:Connect(function()
-    TweenService:Create(farmButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(0, 140, 70), BackgroundTransparency = 0.05}):Play()
-end)
-farmButton.MouseLeave:Connect(function()
-    TweenService:Create(farmButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(0, 120, 60), BackgroundTransparency = 0.1}):Play()
-end)
-
-farmButton.MouseButton1Click:Connect(function()
-    pcall(function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/meow86403-bit/skibidi-/refs/heads/main/brainrotscript.lua"))()
-    end)
-end)
-
-local breatheContent = Instance.new("Frame")
-breatheContent.Name = "BreatheContent"
-breatheContent.Size = UDim2.new(1, -24, 1, -64)
-breatheContent.Position = UDim2.new(0, 12, 0, 54)
-breatheContent.BackgroundTransparency = 1
-breatheContent.Visible = false
-breatheContent.Parent = mainFrame
-
+-- Aimbot Content
 local aimbotContent = Instance.new("Frame")
 aimbotContent.Name = "AimbotContent"
 aimbotContent.Size = UDim2.new(1, -24, 1, -64)
@@ -1209,6 +1448,17 @@ aimbotContent.Position = UDim2.new(0, 12, 0, 54)
 aimbotContent.BackgroundTransparency = 1
 aimbotContent.Visible = false
 aimbotContent.Parent = mainFrame
+
+local aimbotPlaceholder = Instance.new("TextLabel")
+aimbotPlaceholder.Size = UDim2.new(1, 0, 0, 30)
+aimbotPlaceholder.Position = UDim2.new(0, 0, 0, 20)
+aimbotPlaceholder.BackgroundTransparency = 1
+aimbotPlaceholder.Text = "Aimbot GUI (Empty - Ready for features)"
+aimbotPlaceholder.TextColor3 = Color3.fromRGB(200, 200, 210)
+aimbotPlaceholder.TextSize = 16
+aimbotPlaceholder.Font = Enum.Font.Gotham
+aimbotPlaceholder.TextXAlignment = Enum.TextXAlignment.Center
+aimbotPlaceholder.Parent = aimbotContent
 
 -- FOV variables
 local fovEnabled = false
@@ -1591,7 +1841,7 @@ end
 
 local function switchToBreatheUI()
     currentState = "breathe"
-    titleLabel.Text = "Universal Script"
+    titleLabel.Text = "+1 Brick Speed Escape"
     backButton.Visible = true
     tabBar.Visible = false
     mainContent.Visible = false
@@ -1607,7 +1857,7 @@ end
 
 local function switchToAimbotUI()
     currentState = "aimbot"
-    titleLabel.Text = "Universal Script"
+    titleLabel.Text = "Aimbot"
     backButton.Visible = true
     tabBar.Visible = false
     mainContent.Visible = false
@@ -1623,7 +1873,7 @@ end
 
 local function switchToThemesUI()
     currentState = "themes"
-    titleLabel.Text = "Universal Script"
+    titleLabel.Text = "Themes"
     backButton.Visible = true
     tabBar.Visible = false
     mainContent.Visible = false
