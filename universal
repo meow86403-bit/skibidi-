@@ -26,7 +26,7 @@ local espLines = {}
 local espBoxes = {}
 local espNames = {}
 
--- AutoTP variables (for +1 Brick Speed Escape)
+-- AutoTP variables
 local autoTPEnabled = false
 local autoTPConnection = nil
 local autoTPPosition = Vector3.new(5130, 699, -2560)
@@ -37,7 +37,6 @@ local autoTPGyro = nil
 local isMinimized = false
 local minimizeCircle = nil
 
--- Disable button click sounds globally
 local function disableButtonSounds(button)
     button.AutoButtonColor = false
     for _, child in pairs(button:GetChildren()) do
@@ -47,7 +46,6 @@ local function disableButtonSounds(button)
     end
 end
 
--- Create ScreenGui
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "UniversalScriptGUI"
 screenGui.ResetOnSpawn = false
@@ -62,7 +60,6 @@ if not screenGui.Parent then
     end)
 end
 
--- Main Frame
 local mainFrame = Instance.new("Frame")
 mainFrame.Name = "MainFrame"
 mainFrame.Size = UDim2.new(0, 420, 0, 420)
@@ -113,7 +110,6 @@ uiStroke.Color = Color3.fromRGB(70, 70, 80)
 uiStroke.Thickness = 1.2
 uiStroke.Parent = mainFrame
 
--- Top Bar
 local topBar = Instance.new("Frame")
 topBar.Name = "TopBar"
 topBar.Size = UDim2.new(1, 0, 0, 44)
@@ -157,7 +153,6 @@ titleLabel.TextXAlignment = Enum.TextXAlignment.Center
 titleLabel.Font = Enum.Font.GothamBold
 titleLabel.Parent = topBar
 
--- Minimize Button (LEFT of X, with "-" icon)
 local minimizeButton = Instance.new("TextButton")
 minimizeButton.Name = "MinimizeButton"
 minimizeButton.Size = UDim2.new(0, 34, 0, 34)
@@ -208,7 +203,6 @@ closeButton.MouseLeave:Connect(function()
     TweenService:Create(closeButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(180, 40, 40)}):Play()
 end)
 
--- Minimize Circle creation
 local function createMinimizeCircle()
     if minimizeCircle then 
         minimizeCircle:Destroy()
@@ -249,7 +243,6 @@ local function createMinimizeCircle()
     end)
 end
 
--- Minimize function
 local function minimizeGUI()
     if isMinimized then return end
     mainFrame.Visible = false
@@ -257,12 +250,10 @@ local function minimizeGUI()
     isMinimized = true
 end
 
--- Connect minimize button
 minimizeButton.MouseButton1Click:Connect(function()
     minimizeGUI()
 end)
 
--- Close button with cleanup
 closeButton.MouseButton1Click:Connect(function()
     if flying then
         toggleFly()
@@ -288,7 +279,6 @@ closeButton.MouseButton1Click:Connect(function()
     screenGui:Destroy()
 end)
 
--- Pill Tabs (Evenly spaced: Main, Esp, Games, Settings)
 local tabBar = Instance.new("Frame")
 tabBar.Name = "TabBar"
 tabBar.Size = UDim2.new(1, -24, 0, 40)
@@ -368,7 +358,6 @@ local settingsTabCorner = Instance.new("UICorner")
 settingsTabCorner.CornerRadius = UDim.new(1, 0)
 settingsTabCorner.Parent = settingsTab
 
--- Hover effects
 mainTab.MouseEnter:Connect(function()
     if mainTab.BackgroundColor3 ~= Color3.fromRGB(0, 150, 200) then
         TweenService:Create(mainTab, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.2}):Play()
@@ -413,7 +402,6 @@ settingsTab.MouseLeave:Connect(function()
     end
 end)
 
--- Main Content
 local mainContent = Instance.new("Frame")
 mainContent.Name = "MainContent"
 mainContent.Size = UDim2.new(1, -24, 1, -114)
@@ -447,7 +435,6 @@ openUniversalButton.MouseLeave:Connect(function()
     TweenService:Create(openUniversalButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
 end)
 
--- Open Aimbot Button
 local openAimbotButton = Instance.new("TextButton")
 openAimbotButton.Name = "OpenAimbotButton"
 openAimbotButton.Size = UDim2.new(1, -20, 0, 48)
@@ -473,7 +460,7 @@ openAimbotButton.MouseLeave:Connect(function()
     TweenService:Create(openAimbotButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
 end)
 
--- ESP Content
+-- ==================== ESP CONTENT WITH DIVIDER LINE ====================
 local espContent = Instance.new("Frame")
 espContent.Name = "EspContent"
 espContent.Size = UDim2.new(1, -24, 1, -114)
@@ -567,6 +554,15 @@ boxEspIndicatorCircle.Parent = boxEspToggleIndicator
 local boxEspCircleCorner = Instance.new("UICorner")
 boxEspCircleCorner.CornerRadius = UDim.new(1, 0)
 boxEspCircleCorner.Parent = boxEspIndicatorCircle
+
+-- Divider Line under Box ESP
+local espDividerLine = Instance.new("Frame")
+espDividerLine.Name = "EspDividerLine"
+espDividerLine.Size = UDim2.new(1, -20, 0, 1)
+espDividerLine.Position = UDim2.new(0, 10, 0, 150)
+espDividerLine.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+espDividerLine.BorderSizePixel = 0
+espDividerLine.Parent = espContent
 
 -- ESP Functions
 local function createESP()
@@ -786,7 +782,6 @@ boxEspToggleButton.MouseLeave:Connect(function()
     TweenService:Create(boxEspToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
 end)
 
--- Games Content
 local gamesContent = Instance.new("Frame")
 gamesContent.Name = "GamesContent"
 gamesContent.Size = UDim2.new(1, -24, 1, -114)
@@ -845,7 +840,6 @@ breatheGameButton.MouseLeave:Connect(function()
     TweenService:Create(breatheGameButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
 end)
 
--- ==================== +1 BRICK SPEED ESCAPE CONTENT (AutoTP) ====================
 local breatheContent = Instance.new("Frame")
 breatheContent.Name = "BreatheContent"
 breatheContent.Size = UDim2.new(1, -24, 1, -64)
@@ -854,7 +848,6 @@ breatheContent.BackgroundTransparency = 1
 breatheContent.Visible = false
 breatheContent.Parent = mainFrame
 
--- AutoTP Toggle Button
 local autoTPToggleButton = Instance.new("TextButton")
 autoTPToggleButton.Name = "AutoTPToggleButton"
 autoTPToggleButton.Size = UDim2.new(1, -20, 0, 55)
@@ -897,7 +890,6 @@ local autoTPCircleCorner = Instance.new("UICorner")
 autoTPCircleCorner.CornerRadius = UDim.new(1, 0)
 autoTPCircleCorner.Parent = autoTPIndicatorCircle
 
--- AutoTP Functions
 local function applyForwardVelocity()
     local char = LocalPlayer.Character
     if not char then return end
@@ -1026,7 +1018,6 @@ autoTPToggleButton.MouseLeave:Connect(function()
     TweenService:Create(autoTPToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
 end)
 
--- ==================== SCREAM FOR BRAINROTS CONTENT (WITH FARM BUTTON) ====================
 local brainrotContent = Instance.new("Frame")
 brainrotContent.Name = "BrainrotContent"
 brainrotContent.Size = UDim2.new(1, -24, 1, -64)
@@ -1035,7 +1026,6 @@ brainrotContent.BackgroundTransparency = 1
 brainrotContent.Visible = false
 brainrotContent.Parent = mainFrame
 
--- Farm Button (no text below)
 local farmButton = Instance.new("TextButton")
 farmButton.Name = "FarmButton"
 farmButton.Size = UDim2.new(1, -20, 0, 55)
@@ -1067,7 +1057,6 @@ farmButton.MouseButton1Click:Connect(function()
     end)
 end)
 
--- Settings Content
 local settingsContent = Instance.new("Frame")
 settingsContent.Name = "SettingsContent"
 settingsContent.Size = UDim2.new(1, -24, 1, -114)
@@ -1167,7 +1156,6 @@ themesButton.MouseLeave:Connect(function()
     TweenService:Create(themesButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
 end)
 
--- THEMES CONTENT
 local themesContent = Instance.new("Frame")
 themesContent.Name = "ThemesContent"
 themesContent.Size = UDim2.new(1, -24, 1, -64)
@@ -1304,7 +1292,7 @@ catgirlButton.MouseButton1Click:Connect(function()
     bgOverlay.Visible = true
 end)
 
--- ==================== UNIVERSAL CONTENT (WITH FLY MODE & NO CLIP) ====================
+-- ==================== UNIVERSAL CONTENT ====================
 local universalContent = Instance.new("Frame")
 universalContent.Name = "UniversalContent"
 universalContent.Size = UDim2.new(1, -24, 1, -64)
@@ -1313,7 +1301,6 @@ universalContent.BackgroundTransparency = 1
 universalContent.Visible = false
 universalContent.Parent = mainFrame
 
--- Fly Mode Toggle Button
 local flyToggleButton = Instance.new("TextButton")
 flyToggleButton.Name = "FlyToggleButton"
 flyToggleButton.Size = UDim2.new(1, -20, 0, 55)
@@ -1356,7 +1343,6 @@ local flyCircleCorner = Instance.new("UICorner")
 flyCircleCorner.CornerRadius = UDim.new(1, 0)
 flyCircleCorner.Parent = flyIndicatorCircle
 
--- No Clip Toggle Button
 local noClipToggleButton = Instance.new("TextButton")
 noClipToggleButton.Name = "NoClipToggleButton"
 noClipToggleButton.Size = UDim2.new(1, -20, 0, 55)
@@ -1399,7 +1385,6 @@ local noClipCircleCorner = Instance.new("UICorner")
 noClipCircleCorner.CornerRadius = UDim.new(1, 0)
 noClipCircleCorner.Parent = noClipIndicatorCircle
 
--- No Clip function
 local function toggleNoClip()
     noClipEnabled = not noClipEnabled
     
@@ -1446,7 +1431,6 @@ noClipToggleButton.MouseLeave:Connect(function()
     TweenService:Create(noClipToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
 end)
 
--- Fly Mode functions
 local function startFly()
     local char = LocalPlayer.Character
     if not char then return end
@@ -1560,7 +1544,6 @@ flyToggleButton.MouseLeave:Connect(function()
     TweenService:Create(flyToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
 end)
 
--- Handle character respawn for No Clip
 local function onCharacterAddedForNoClip(char)
     if noClipEnabled then
         task.wait(0.1)
@@ -1584,7 +1567,6 @@ local function onCharacterAddedForNoClip(char)
     end
 end
 
--- Handle character respawn
 LocalPlayer.CharacterAdded:Connect(function(char)
     if flying then
         stopFly()
@@ -1602,34 +1584,7 @@ LocalPlayer.CharacterAdded:Connect(function(char)
     onCharacterAddedForNoClip(char)
 end)
 
-local function cleanupFly()
-    if flying then
-        stopFly()
-    end
-end
-
-local function cleanupESP()
-    if espEnabled then
-        stopESP()
-    end
-    if boxEspEnabled then
-        stopBoxESP()
-    end
-end
-
-local function cleanupAutoTP()
-    if autoTPEnabled then
-        stopAutoTP()
-    end
-end
-
-local function cleanupNoClip()
-    if noClipEnabled then
-        toggleNoClip()
-    end
-end
-
--- Aimbot Content
+-- ==================== AIMBOT CONTENT WITH PREDICTION ====================
 local aimbotContent = Instance.new("Frame")
 aimbotContent.Name = "AimbotContent"
 aimbotContent.Size = UDim2.new(1, -24, 1, -64)
@@ -1649,13 +1604,13 @@ aimbotPlaceholder.Font = Enum.Font.Gotham
 aimbotPlaceholder.TextXAlignment = Enum.TextXAlignment.Center
 aimbotPlaceholder.Parent = aimbotContent
 
--- FOV variables
 local fovEnabled = false
 local fovRadius = 50
 local fovCircle = nil
 local currentLockTarget = nil
+local isMouseDown = false
+local targetVelocities = {}
 
--- Create FOV Circle
 local function createFOVCircle()
     if fovCircle then fovCircle:Destroy() end
     
@@ -1674,7 +1629,6 @@ local function createFOVCircle()
     fovCorner.Parent = fovCircle
 end
 
--- FOV Toggle Button
 local fovToggleButton = Instance.new("TextButton")
 fovToggleButton.Name = "FOVToggleButton"
 fovToggleButton.Size = UDim2.new(1, -20, 0, 55)
@@ -1717,7 +1671,6 @@ local fovCircleCorner = Instance.new("UICorner")
 fovCircleCorner.CornerRadius = UDim.new(1, 0)
 fovCircleCorner.Parent = fovIndicatorCircle
 
--- Toggle FOV
 local function toggleFOV()
     fovEnabled = not fovEnabled
     if fovEnabled then
@@ -1734,6 +1687,7 @@ local function toggleFOV()
         fovIndicatorCircle.BackgroundColor3 = Color3.fromRGB(200, 70, 70)
         fovIndicatorCircle.Position = UDim2.new(0, 3, 0.5, -13)
         currentLockTarget = nil
+        isMouseDown = false
     end
 end
 
@@ -1748,7 +1702,6 @@ fovToggleButton.MouseLeave:Connect(function()
     TweenService:Create(fovToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
 end)
 
--- FOV Slider Label
 local fovSliderLabel = Instance.new("TextLabel")
 fovSliderLabel.Name = "FOVSliderLabel"
 fovSliderLabel.Size = UDim2.new(1, -20, 0, 25)
@@ -1761,7 +1714,6 @@ fovSliderLabel.Font = Enum.Font.GothamBold
 fovSliderLabel.TextXAlignment = Enum.TextXAlignment.Left
 fovSliderLabel.Parent = aimbotContent
 
--- FOV Slider Background
 local fovSliderBg = Instance.new("Frame")
 fovSliderBg.Name = "FOVSliderBg"
 fovSliderBg.Size = UDim2.new(1, -20, 0, 6)
@@ -1774,7 +1726,6 @@ local fovSliderCorner = Instance.new("UICorner")
 fovSliderCorner.CornerRadius = UDim.new(1, 0)
 fovSliderCorner.Parent = fovSliderBg
 
--- FOV Slider Fill
 local fovSliderFill = Instance.new("Frame")
 fovSliderFill.Name = "FOVSliderFill"
 fovSliderFill.Size = UDim2.new((fovRadius - 10) / 90, 0, 1, 0)
@@ -1787,7 +1738,6 @@ local fovFillCorner = Instance.new("UICorner")
 fovFillCorner.CornerRadius = UDim.new(1, 0)
 fovFillCorner.Parent = fovSliderFill
 
--- FOV Slider Button
 local fovSliderButton = Instance.new("TextButton")
 fovSliderButton.Name = "FOVSliderButton"
 fovSliderButton.Size = UDim2.new(0, 16, 0, 20)
@@ -1801,7 +1751,6 @@ local fovButtonCorner = Instance.new("UICorner")
 fovButtonCorner.CornerRadius = UDim.new(0, 3)
 fovButtonCorner.Parent = fovSliderButton
 
--- Divider Line
 local dividerLine = Instance.new("Frame")
 dividerLine.Name = "DividerLine"
 dividerLine.Size = UDim2.new(1, -20, 0, 1)
@@ -1810,22 +1759,156 @@ dividerLine.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
 dividerLine.BorderSizePixel = 0
 dividerLine.Parent = aimbotContent
 
--- Slider dragging
+-- ==================== PREDICTION SYSTEM ====================
+local predictionEnabled = false
+local predictionStrength = 0.5
+
+local predictionToggleButton = Instance.new("TextButton")
+predictionToggleButton.Name = "PredictionToggleButton"
+predictionToggleButton.Size = UDim2.new(1, -20, 0, 55)
+predictionToggleButton.Position = UDim2.new(0, 10, 0, 150)
+predictionToggleButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+predictionToggleButton.BackgroundTransparency = 0.2
+predictionToggleButton.Text = "Prediction: OFF"
+predictionToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+predictionToggleButton.TextSize = 18
+predictionToggleButton.Font = Enum.Font.GothamBold
+predictionToggleButton.AutoButtonColor = false
+predictionToggleButton.Parent = aimbotContent
+disableButtonSounds(predictionToggleButton)
+
+local predictionToggleCorner = Instance.new("UICorner")
+predictionToggleCorner.CornerRadius = UDim.new(0, 10)
+predictionToggleCorner.Parent = predictionToggleButton
+
+local predictionToggleIndicator = Instance.new("Frame")
+predictionToggleIndicator.Name = "PredictionToggleIndicator"
+predictionToggleIndicator.Size = UDim2.new(0, 40, 0, 30)
+predictionToggleIndicator.Position = UDim2.new(1, -55, 0.5, -15)
+predictionToggleIndicator.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+predictionToggleIndicator.BorderSizePixel = 0
+predictionToggleIndicator.Parent = predictionToggleButton
+
+local predictionIndicatorCorner = Instance.new("UICorner")
+predictionIndicatorCorner.CornerRadius = UDim.new(1, 0)
+predictionIndicatorCorner.Parent = predictionToggleIndicator
+
+local predictionIndicatorCircle = Instance.new("Frame")
+predictionIndicatorCircle.Name = "PredictionIndicatorCircle"
+predictionIndicatorCircle.Size = UDim2.new(0, 26, 0, 26)
+predictionIndicatorCircle.Position = UDim2.new(0, 3, 0.5, -13)
+predictionIndicatorCircle.BackgroundColor3 = Color3.fromRGB(200, 70, 70)
+predictionIndicatorCircle.BorderSizePixel = 0
+predictionIndicatorCircle.Parent = predictionToggleIndicator
+
+local predictionCircleCorner = Instance.new("UICorner")
+predictionCircleCorner.CornerRadius = UDim.new(1, 0)
+predictionCircleCorner.Parent = predictionIndicatorCircle
+
+local predictionSliderLabel = Instance.new("TextLabel")
+predictionSliderLabel.Name = "PredictionSliderLabel"
+predictionSliderLabel.Size = UDim2.new(1, -20, 0, 25)
+predictionSliderLabel.Position = UDim2.new(0, 10, 0, 215)
+predictionSliderLabel.BackgroundTransparency = 1
+predictionSliderLabel.Text = "Prediction Strength: 50%"
+predictionSliderLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+predictionSliderLabel.TextSize = 14
+predictionSliderLabel.Font = Enum.Font.GothamBold
+predictionSliderLabel.TextXAlignment = Enum.TextXAlignment.Left
+predictionSliderLabel.Parent = aimbotContent
+
+local predictionSliderBg = Instance.new("Frame")
+predictionSliderBg.Name = "PredictionSliderBg"
+predictionSliderBg.Size = UDim2.new(1, -20, 0, 6)
+predictionSliderBg.Position = UDim2.new(0, 10, 0, 245)
+predictionSliderBg.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+predictionSliderBg.BorderSizePixel = 0
+predictionSliderBg.Parent = aimbotContent
+
+local predictionSliderCorner = Instance.new("UICorner")
+predictionSliderCorner.CornerRadius = UDim.new(1, 0)
+predictionSliderCorner.Parent = predictionSliderBg
+
+local predictionSliderFill = Instance.new("Frame")
+predictionSliderFill.Name = "PredictionSliderFill"
+predictionSliderFill.Size = UDim2.new(0.5, 0, 1, 0)
+predictionSliderFill.Position = UDim2.new(0, 0, 0, 0)
+predictionSliderFill.BackgroundColor3 = Color3.fromRGB(0, 200, 100)
+predictionSliderFill.BorderSizePixel = 0
+predictionSliderFill.Parent = predictionSliderBg
+
+local predictionFillCorner = Instance.new("UICorner")
+predictionFillCorner.CornerRadius = UDim.new(1, 0)
+predictionFillCorner.Parent = predictionSliderFill
+
+local predictionSliderButton = Instance.new("TextButton")
+predictionSliderButton.Name = "PredictionSliderButton"
+predictionSliderButton.Size = UDim2.new(0, 16, 0, 20)
+predictionSliderButton.Position = UDim2.new(0.5, -8, 0.5, -10)
+predictionSliderButton.BackgroundColor3 = Color3.fromRGB(0, 255, 150)
+predictionSliderButton.BorderSizePixel = 0
+predictionSliderButton.Text = ""
+predictionSliderButton.Parent = predictionSliderBg
+
+local predictionButtonCorner = Instance.new("UICorner")
+predictionButtonCorner.CornerRadius = UDim.new(0, 3)
+predictionButtonCorner.Parent = predictionSliderButton
+
+local predictionDragging = false
+
+local function togglePrediction()
+    predictionEnabled = not predictionEnabled
+    if predictionEnabled then
+        predictionToggleButton.Text = "Prediction: ON"
+        predictionToggleIndicator.BackgroundColor3 = Color3.fromRGB(70, 150, 70)
+        predictionIndicatorCircle.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
+        predictionIndicatorCircle.Position = UDim2.new(0, 11, 0.5, -13)
+    else
+        predictionToggleButton.Text = "Prediction: OFF"
+        predictionToggleIndicator.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+        predictionIndicatorCircle.BackgroundColor3 = Color3.fromRGB(200, 70, 70)
+        predictionIndicatorCircle.Position = UDim2.new(0, 3, 0.5, -13)
+    end
+end
+
+predictionToggleButton.MouseButton1Click:Connect(function()
+    togglePrediction()
+end)
+
+predictionToggleButton.MouseEnter:Connect(function()
+    TweenService:Create(predictionToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
+end)
+predictionToggleButton.MouseLeave:Connect(function()
+    TweenService:Create(predictionToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
+end)
+
+local function updatePredictionStrength(percentage)
+    predictionStrength = math.clamp(percentage, 0, 1)
+    predictionSliderFill.Size = UDim2.new(predictionStrength, 0, 1, 0)
+    predictionSliderButton.Position = UDim2.new(predictionStrength, -8, 0.5, -10)
+    predictionSliderLabel.Text = "Prediction Strength: " .. math.floor(predictionStrength * 100) .. "%"
+end
+
 local sliderDragging = false
 
 fovSliderButton.MouseButton1Down:Connect(function()
     sliderDragging = true
 end)
 
+predictionSliderButton.MouseButton1Down:Connect(function()
+    predictionDragging = true
+end)
+
 UserInputService.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
         sliderDragging = false
+        predictionDragging = false
     end
 end)
 
 UserInputService.InputChanged:Connect(function(input)
     if sliderDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-        local mouse = game:GetService("Players").LocalPlayer:GetMouse()
+        local mouse = LocalPlayer:GetMouse()
         local sliderBgPos = fovSliderBg.AbsolutePosition.X
         local sliderBgSize = fovSliderBg.AbsoluteSize.X
         local mouseX = math.clamp(mouse.X - sliderBgPos, 0, sliderBgSize)
@@ -1840,11 +1923,19 @@ UserInputService.InputChanged:Connect(function(input)
             fovCircle.Size = UDim2.new(0, fovRadius * 2, 0, fovRadius * 2)
         end
     end
+    
+    if predictionDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local mouse = LocalPlayer:GetMouse()
+        local sliderBgPos = predictionSliderBg.AbsolutePosition.X
+        local sliderBgSize = predictionSliderBg.AbsoluteSize.X
+        local mouseX = math.clamp(mouse.X - sliderBgPos, 0, sliderBgSize)
+        local percentage = mouseX / sliderBgSize
+        updatePredictionStrength(percentage)
+    end
 end)
 
--- Get closest player in FOV
 local function getClosestPlayerInFOV()
-    local mouse = game:GetService("Players").LocalPlayer:GetMouse()
+    local mouse = LocalPlayer:GetMouse()
     local closestPlayer = nil
     local closestDistance = fovRadius
     
@@ -1853,13 +1944,15 @@ local function getClosestPlayerInFOV()
             local char = player.Character
             local humanoidRootPart = char:FindFirstChild("HumanoidRootPart")
             if humanoidRootPart then
-                local screenPos = workspace.CurrentCamera:WorldToScreenPoint(humanoidRootPart.Position)
-                local mousePos = Vector2.new(mouse.X, mouse.Y)
-                local distance = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
-                
-                if distance < closestDistance then
-                    closestDistance = distance
-                    closestPlayer = player
+                local screenPos, onScreen = workspace.CurrentCamera:WorldToScreenPoint(humanoidRootPart.Position)
+                if onScreen then
+                    local mousePos = Vector2.new(mouse.X, mouse.Y)
+                    local distance = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
+                    
+                    if distance < closestDistance then
+                        closestDistance = distance
+                        closestPlayer = player
+                    end
                 end
             end
         end
@@ -1868,29 +1961,75 @@ local function getClosestPlayerInFOV()
     return closestPlayer
 end
 
--- Right click aiming
 UserInputService.InputBegan:Connect(function(input)
     if fovEnabled and input.UserInputType == Enum.UserInputType.MouseButton2 then
+        isMouseDown = true
         currentLockTarget = getClosestPlayerInFOV()
+        if currentLockTarget then
+            targetVelocities[currentLockTarget] = {
+                lastPos = nil,
+                lastTime = nil,
+                velocity = Vector3.new(0, 0, 0)
+            }
+        end
     end
 end)
 
 UserInputService.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton2 then
+        isMouseDown = false
         currentLockTarget = nil
     end
 end)
 
--- Update FOV circle position and handle aiming
 RunService:BindToRenderStep("FOVUpdate", 1, function()
     if fovEnabled and fovCircle then
-        local mouse = game:GetService("Players").LocalPlayer:GetMouse()
+        local mouse = LocalPlayer:GetMouse()
         fovCircle.Position = UDim2.new(0, mouse.X - fovRadius, 0, mouse.Y - fovRadius)
         
-        if currentLockTarget and currentLockTarget.Character then
+        if isMouseDown and currentLockTarget and currentLockTarget.Character then
             local targetPart = currentLockTarget.Character:FindFirstChild("Head") or currentLockTarget.Character:FindFirstChild("HumanoidRootPart")
             if targetPart then
-                workspace.CurrentCamera.CFrame = CFrame.new(workspace.CurrentCamera.CFrame.Position, targetPart.Position)
+                local targetPosition = targetPart.Position
+                
+                if predictionEnabled then
+                    local targetVelocity = Vector3.new(0, 0, 0)
+                    local rootPart = currentLockTarget.Character:FindFirstChild("HumanoidRootPart")
+                    if rootPart then
+                        local velData = targetVelocities[currentLockTarget]
+                        if not velData then
+                            velData = {lastPos = nil, lastTime = nil, velocity = Vector3.new(0, 0, 0)}
+                            targetVelocities[currentLockTarget] = velData
+                        end
+                        
+                        if not velData.lastPos then
+                            velData.lastPos = rootPart.Position
+                            velData.lastTime = tick()
+                        else
+                            local deltaTime = math.min(0.1, tick() - velData.lastTime)
+                            if deltaTime > 0 then
+                                targetVelocity = (rootPart.Position - velData.lastPos) / deltaTime
+                                velData.velocity = targetVelocity
+                                velData.lastPos = rootPart.Position
+                                velData.lastTime = tick()
+                            else
+                                targetVelocity = velData.velocity
+                            end
+                        end
+                    end
+                    
+                    local cameraPos = workspace.CurrentCamera.CFrame.Position
+                    local distance = (targetPosition - cameraPos).Magnitude
+                    local bulletSpeed = 3000
+                    local travelTime = distance / bulletSpeed
+                    
+                    local predictedOffset = targetVelocity * travelTime * predictionStrength
+                    local predictedPosition = targetPosition + predictedOffset
+                    
+                    workspace.CurrentCamera.CFrame = CFrame.new(workspace.CurrentCamera.CFrame.Position, predictedPosition)
+                else
+                    workspace.CurrentCamera.CFrame = CFrame.new(workspace.CurrentCamera.CFrame.Position, targetPosition)
+                end
             end
         end
     end
@@ -2076,7 +2215,6 @@ local function switchToThemesUI()
     themesContent.Visible = true
 end
 
--- Tab clicks
 mainTab.MouseButton1Click:Connect(function()
     if currentState == "mainTab" then return end
     switchToMainTab()
@@ -2135,7 +2273,6 @@ backButton.MouseButton1Click:Connect(function()
     end
 end)
 
--- Dragging
 local dragging = false
 local dragStart, startPos
 
@@ -2161,5 +2298,3 @@ end)
 
 mainFrame.BackgroundTransparency = 0.35
 TweenService:Create(mainFrame, TweenInfo.new(0.3), {BackgroundTransparency = 0}):Play()
-
-print("Universal Script UI Loaded")
