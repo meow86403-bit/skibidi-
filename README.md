@@ -1,4 +1,4 @@
-**Loadstring**
+**Loadstring**‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ 
 ‎loadstring(game:HttpGet("https://raw.githubusercontent.com/meow86403-bit/skibidi-/refs/heads/main/universal"))()
 
 **MIGHT crash fr**
