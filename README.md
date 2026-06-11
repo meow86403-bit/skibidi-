@@ -1,4 +1,4 @@
-**READ ME READ ME READ ME READ ME READ ME READ ME READ ME READ ME**
+<big>**READ ME**</big>
 
 use this if you are very cool or get bullied in school :o
 
