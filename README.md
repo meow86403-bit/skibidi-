@@ -1,4 +1,4 @@
-<font size="5">**READ ME**</font>
+<font size="5">Loadstring</font>
 
 use this if you are very cool or get bullied in school :o
 
