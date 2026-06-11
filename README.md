@@ -1,4 +1,4 @@
-<big>**READ ME**</big>
+<font size="5">**READ ME**</font>
 
 use this if you are very cool or get bullied in school :o
 
