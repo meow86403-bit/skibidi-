@@ -2374,4 +2374,4 @@ UserInputService.InputChanged:Connect(function(input)
 end)
 
 mainFrame.BackgroundTransparency = 0.35
-TweenService:Create(mainFrame, TweenInfo.new(0.3), {BackgroundTransparency = 0}):Play() make no clip stay on forever till its toggled off obviously, sometimes it turns off even when its toggled on and when i disable and reenable it doesnt work anymore.
+TweenService:Create(mainFrame, TweenInfo.new(0.3), {BackgroundTransparency = 0}):Play()
