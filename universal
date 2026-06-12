@@ -37,6 +37,26 @@ local autoTPGyro = nil
 local isMinimized = false
 local minimizeCircle = nil
 
+-- Keep track of no clip connection for character respawn
+local noClipCharacterConnection = nil
+
+-- Crash prevention variables
+local renderSteps = {}
+local function safeBindToRenderStep(name, priority, func)
+    if renderSteps[name] then
+        RunService:UnbindFromRenderStep(name)
+    end
+    renderSteps[name] = true
+    RunService:BindToRenderStep(name, priority, func)
+end
+
+local function safeUnbindRenderStep(name)
+    if renderSteps[name] then
+        RunService:UnbindFromRenderStep(name)
+        renderSteps[name] = nil
+    end
+end
+
 local function disableButtonSounds(button)
     button.AutoButtonColor = false
     for _, child in pairs(button:GetChildren()) do
@@ -267,13 +287,22 @@ closeButton.MouseButton1Click:Connect(function()
     if autoTPEnabled then
         toggleAutoTP()
     end
-    if noClipEnabled then
-        toggleNoClip()
-    end
     
     if minimizeCircle then
         minimizeCircle:Destroy()
         minimizeCircle = nil
+    end
+    
+    -- Clean up all render steps
+    safeUnbindRenderStep("ESPUpdate")
+    safeUnbindRenderStep("BoxESPUpdate")
+    safeUnbindRenderStep("FlyMovement")
+    safeUnbindRenderStep("AutoTP")
+    safeUnbindRenderStep("FOVUpdate")
+    
+    if noClipCharacterConnection then
+        noClipCharacterConnection:Disconnect()
+        noClipCharacterConnection = nil
     end
     
     screenGui:Destroy()
@@ -460,7 +489,7 @@ openAimbotButton.MouseLeave:Connect(function()
     TweenService:Create(openAimbotButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
 end)
 
--- ==================== ESP CONTENT WITH DIVIDER LINE ====================
+-- ==================== ESP CONTENT ====================
 local espContent = Instance.new("Frame")
 espContent.Name = "EspContent"
 espContent.Size = UDim2.new(1, -24, 1, -114)
@@ -621,7 +650,7 @@ local function startESP()
     espEnabled = true
     createESP()
     
-    RunService:BindToRenderStep("ESPUpdate", 1, function()
+    safeBindToRenderStep("ESPUpdate", 1, function()
         if espEnabled then
             updateESP()
         end
@@ -630,7 +659,7 @@ end
 
 local function stopESP()
     espEnabled = false
-    RunService:UnbindFromRenderStep("ESPUpdate")
+    safeUnbindRenderStep("ESPUpdate")
     clearESP()
 end
 
@@ -742,7 +771,7 @@ local function startBoxESP()
     boxEspEnabled = true
     createBoxESP()
     
-    RunService:BindToRenderStep("BoxESPUpdate", 1, function()
+    safeBindToRenderStep("BoxESPUpdate", 1, function()
         if boxEspEnabled then
             updateBoxESP()
         end
@@ -751,7 +780,7 @@ end
 
 local function stopBoxESP()
     boxEspEnabled = false
-    RunService:UnbindFromRenderStep("BoxESPUpdate")
+    safeUnbindRenderStep("BoxESPUpdate")
     clearBoxESP()
 end
 
@@ -838,6 +867,32 @@ breatheGameButton.MouseEnter:Connect(function()
 end)
 breatheGameButton.MouseLeave:Connect(function()
     TweenService:Create(breatheGameButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
+end)
+
+-- MM2 Game Button
+local mm2GameButton = Instance.new("TextButton")
+mm2GameButton.Name = "MM2GameButton"
+mm2GameButton.Size = UDim2.new(1, -20, 0, 48)
+mm2GameButton.Position = UDim2.new(0, 10, 0, 126)
+mm2GameButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+mm2GameButton.BackgroundTransparency = 0.2
+mm2GameButton.Text = "Open MM2 script"
+mm2GameButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+mm2GameButton.TextSize = 16
+mm2GameButton.Font = Enum.Font.GothamBold
+mm2GameButton.AutoButtonColor = false
+mm2GameButton.Parent = gamesContent
+disableButtonSounds(mm2GameButton)
+
+local mm2GameCorner = Instance.new("UICorner")
+mm2GameCorner.CornerRadius = UDim.new(0, 10)
+mm2GameCorner.Parent = mm2GameButton
+
+mm2GameButton.MouseEnter:Connect(function()
+    TweenService:Create(mm2GameButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
+end)
+mm2GameButton.MouseLeave:Connect(function()
+    TweenService:Create(mm2GameButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
 end)
 
 local breatheContent = Instance.new("Frame")
@@ -1017,6 +1072,17 @@ end)
 autoTPToggleButton.MouseLeave:Connect(function()
     TweenService:Create(autoTPToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
 end)
+
+-- MM2 Content (EMPTY - just a blank frame)
+local mm2Content = Instance.new("Frame")
+mm2Content.Name = "MM2Content"
+mm2Content.Size = UDim2.new(1, -24, 1, -64)
+mm2Content.Position = UDim2.new(0, 12, 0, 54)
+mm2Content.BackgroundTransparency = 1
+mm2Content.Visible = false
+mm2Content.Parent = mainFrame
+
+-- Intentionally left empty - no buttons, no text, just a blank frame
 
 local brainrotContent = Instance.new("Frame")
 brainrotContent.Name = "BrainrotContent"
@@ -1385,20 +1451,48 @@ local noClipCircleCorner = Instance.new("UICorner")
 noClipCircleCorner.CornerRadius = UDim.new(1, 0)
 noClipCircleCorner.Parent = noClipIndicatorCircle
 
+-- Global function to apply no clip to a character
+local function applyNoClipToCharacter(char)
+    if not noClipEnabled then return end
+    for _, part in pairs(char:GetDescendants()) do
+        if part:IsA("BasePart") then
+            if not originalCanCollide[part] then
+                originalCanCollide[part] = part.CanCollide
+            end
+            part.CanCollide = false
+        end
+    end
+end
+
+-- Global function to keep no clip active (runs every frame)
+local function keepNoClipActive()
+    if not noClipEnabled then return end
+    local char = LocalPlayer.Character
+    if not char then return end
+    
+    for _, part in pairs(char:GetDescendants()) do
+        if part:IsA("BasePart") and part.CanCollide == true then
+            if not originalCanCollide[part] then
+                originalCanCollide[part] = true
+            end
+            part.CanCollide = false
+        end
+    end
+end
+
 local function toggleNoClip()
     noClipEnabled = not noClipEnabled
     
     if noClipEnabled then
         local char = LocalPlayer.Character
         if char then
-            for _, part in pairs(char:GetDescendants()) do
-                if part:IsA("BasePart") then
-                    if not originalCanCollide[part] then
-                        originalCanCollide[part] = part.CanCollide
-                    end
-                    part.CanCollide = false
-                end
-            end
+            applyNoClipToCharacter(char)
+        end
+        
+        -- Start a persistent no clip maintainer
+        if not noClipCharacterConnection then            noClipCharacterConnection = RunService.RenderStepped:Connect(function()
+                keepNoClipActive()
+            end)
         end
         
         noClipToggleButton.Text = "No Clip: ON"
@@ -1406,12 +1500,18 @@ local function toggleNoClip()
         noClipIndicatorCircle.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
         noClipIndicatorCircle.Position = UDim2.new(0, 11, 0.5, -13)
     else
+        -- Only turn off if user explicitly turns it off via button
         for part, canCollide in pairs(originalCanCollide) do
             if part and part.Parent then
                 part.CanCollide = canCollide
             end
         end
         originalCanCollide = {}
+        
+        if noClipCharacterConnection then
+            noClipCharacterConnection:Disconnect()
+            noClipCharacterConnection = nil
+        end
         
         noClipToggleButton.Text = "No Clip: OFF"
         noClipIndicator.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
@@ -1451,7 +1551,7 @@ local function startFly()
     
     flying = true
     
-    RunService:BindToRenderStep("FlyMovement", 0, function()
+    safeBindToRenderStep("FlyMovement", 0, function()
         if not flying or not LocalPlayer.Character then return end
         
         local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
@@ -1490,7 +1590,7 @@ end
 
 local function stopFly()
     flying = false
-    RunService:UnbindFromRenderStep("FlyMovement")
+    safeUnbindRenderStep("FlyMovement")
     
     if bodyVelocity then
         bodyVelocity:Destroy()
@@ -1547,23 +1647,7 @@ end)
 local function onCharacterAddedForNoClip(char)
     if noClipEnabled then
         task.wait(0.1)
-        for _, part in pairs(char:GetDescendants()) do
-            if part:IsA("BasePart") then
-                if not originalCanCollide[part] then
-                    originalCanCollide[part] = part.CanCollide
-                end
-                part.CanCollide = false
-            end
-        end
-        
-        char.ChildAdded:Connect(function(child)
-            if noClipEnabled and child:IsA("BasePart") then
-                if not originalCanCollide[child] then
-                    originalCanCollide[child] = child.CanCollide
-                end
-                child.CanCollide = false
-            end
-        end)
+        applyNoClipToCharacter(char)
     end
 end
 
@@ -1584,7 +1668,7 @@ LocalPlayer.CharacterAdded:Connect(function(char)
     onCharacterAddedForNoClip(char)
 end)
 
--- ==================== AIMBOT CONTENT WITH PREDICTION ====================
+-- ==================== AIMBOT CONTENT ====================
 local aimbotContent = Instance.new("Frame")
 aimbotContent.Name = "AimbotContent"
 aimbotContent.Size = UDim2.new(1, -24, 1, -64)
@@ -1597,7 +1681,7 @@ local aimbotPlaceholder = Instance.new("TextLabel")
 aimbotPlaceholder.Size = UDim2.new(1, 0, 0, 30)
 aimbotPlaceholder.Position = UDim2.new(0, 0, 0, 20)
 aimbotPlaceholder.BackgroundTransparency = 1
-aimbotPlaceholder.Text = "(gay nigger)"
+aimbotPlaceholder.Text = "Aimbot - Right click to lock onto target"
 aimbotPlaceholder.TextColor3 = Color3.fromRGB(200, 200, 210)
 aimbotPlaceholder.TextSize = 16
 aimbotPlaceholder.Font = Enum.Font.Gotham
@@ -1982,7 +2066,7 @@ UserInputService.InputEnded:Connect(function(input)
     end
 end)
 
-RunService:BindToRenderStep("FOVUpdate", 1, function()
+safeBindToRenderStep("FOVUpdate", 1, function()
     if fovEnabled and fovCircle then
         local mouse = LocalPlayer:GetMouse()
         fovCircle.Position = UDim2.new(0, mouse.X - fovRadius, 0, mouse.Y - fovRadius)
@@ -2060,6 +2144,7 @@ local function switchToMainTab()
     breatheContent.Visible = false
     aimbotContent.Visible = false
     themesContent.Visible = false
+    mm2Content.Visible = false
 end
 
 local function switchToEspTab()
@@ -2084,6 +2169,7 @@ local function switchToEspTab()
     breatheContent.Visible = false
     aimbotContent.Visible = false
     themesContent.Visible = false
+    mm2Content.Visible = false
 end
 
 local function switchToGamesTab()
@@ -2108,6 +2194,7 @@ local function switchToGamesTab()
     breatheContent.Visible = false
     aimbotContent.Visible = false
     themesContent.Visible = false
+    mm2Content.Visible = false
 end
 
 local function switchToSettingsTab()
@@ -2132,6 +2219,7 @@ local function switchToSettingsTab()
     breatheContent.Visible = false
     aimbotContent.Visible = false
     themesContent.Visible = false
+    mm2Content.Visible = false
 end
 
 local function switchToUniversalUI()
@@ -2148,6 +2236,7 @@ local function switchToUniversalUI()
     breatheContent.Visible = false
     aimbotContent.Visible = false
     themesContent.Visible = false
+    mm2Content.Visible = false
     updateFlyUI()
 end
 
@@ -2165,6 +2254,7 @@ local function switchToBrainrotUI()
     breatheContent.Visible = false
     aimbotContent.Visible = false
     themesContent.Visible = false
+    mm2Content.Visible = false
 end
 
 local function switchToBreatheUI()
@@ -2181,6 +2271,7 @@ local function switchToBreatheUI()
     breatheContent.Visible = true
     aimbotContent.Visible = false
     themesContent.Visible = false
+    mm2Content.Visible = false
 end
 
 local function switchToAimbotUI()
@@ -2197,6 +2288,7 @@ local function switchToAimbotUI()
     breatheContent.Visible = false
     aimbotContent.Visible = true
     themesContent.Visible = false
+    mm2Content.Visible = false
 end
 
 local function switchToThemesUI()
@@ -2213,6 +2305,24 @@ local function switchToThemesUI()
     breatheContent.Visible = false
     aimbotContent.Visible = false
     themesContent.Visible = true
+    mm2Content.Visible = false
+end
+
+local function switchToMM2UI()
+    currentState = "mm2"
+    titleLabel.Text = "MM2 Script"
+    backButton.Visible = true
+    tabBar.Visible = false
+    mainContent.Visible = false
+    espContent.Visible = false
+    gamesContent.Visible = false
+    settingsContent.Visible = false
+    universalContent.Visible = false
+    brainrotContent.Visible = false
+    breatheContent.Visible = false
+    aimbotContent.Visible = false
+    themesContent.Visible = false
+    mm2Content.Visible = true
 end
 
 mainTab.MouseButton1Click:Connect(function()
@@ -2247,6 +2357,10 @@ breatheGameButton.MouseButton1Click:Connect(function()
     switchToBreatheUI()
 end)
 
+mm2GameButton.MouseButton1Click:Connect(function()
+    switchToMM2UI()
+end)
+
 openAimbotButton.MouseButton1Click:Connect(function()
     switchToAimbotUI()
 end)
@@ -2264,7 +2378,7 @@ backButton.MouseButton1Click:Connect(function()
         switchToMainTab()
     elseif currentState == "aimbot" then
         switchToMainTab()
-    elseif currentState == "brainrot" or currentState == "breathe" then
+    elseif currentState == "brainrot" or currentState == "breathe" or currentState == "mm2" then
         switchToGamesTab()
     elseif currentState == "themes" then
         switchToSettingsTab()
