@@ -37,9 +37,6 @@ local autoTPGyro = nil
 local isMinimized = false
 local minimizeCircle = nil
 
--- Keep track of no clip connection for character respawn
-local noClipCharacterConnection = nil
-
 local function disableButtonSounds(button)
     button.AutoButtonColor = false
     for _, child in pairs(button:GetChildren()) do
@@ -269,6 +266,9 @@ closeButton.MouseButton1Click:Connect(function()
     end
     if autoTPEnabled then
         toggleAutoTP()
+    end
+    if noClipEnabled then
+        toggleNoClip()
     end
     
     if minimizeCircle then
@@ -1432,49 +1432,20 @@ local noClipCircleCorner = Instance.new("UICorner")
 noClipCircleCorner.CornerRadius = UDim.new(1, 0)
 noClipCircleCorner.Parent = noClipIndicatorCircle
 
--- Global function to apply no clip to a character
-local function applyNoClipToCharacter(char)
-    if not noClipEnabled then return end
-    for _, part in pairs(char:GetDescendants()) do
-        if part:IsA("BasePart") then
-            if not originalCanCollide[part] then
-                originalCanCollide[part] = part.CanCollide
-            end
-            part.CanCollide = false
-        end
-    end
-end
-
--- Global function to keep no clip active (runs every frame)
-local function keepNoClipActive()
-    if not noClipEnabled then return end
-    local char = LocalPlayer.Character
-    if not char then return end
-    
-    for _, part in pairs(char:GetDescendants()) do
-        if part:IsA("BasePart") and part.CanCollide == true then
-            if not originalCanCollide[part] then
-                originalCanCollide[part] = true
-            end
-            part.CanCollide = false
-        end
-    end
-end
-
 local function toggleNoClip()
     noClipEnabled = not noClipEnabled
     
     if noClipEnabled then
         local char = LocalPlayer.Character
         if char then
-            applyNoClipToCharacter(char)
-        end
-        
-        -- Start a persistent no clip maintainer
-        if not noClipCharacterConnection then
-            noClipCharacterConnection = RunService.RenderStepped:Connect(function()
-                keepNoClipActive()
-            end)
+            for _, part in pairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    if not originalCanCollide[part] then
+                        originalCanCollide[part] = part.CanCollide
+                    end
+                    part.CanCollide = false
+                end
+            end
         end
         
         noClipToggleButton.Text = "No Clip: ON"
@@ -1482,18 +1453,12 @@ local function toggleNoClip()
         noClipIndicatorCircle.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
         noClipIndicatorCircle.Position = UDim2.new(0, 11, 0.5, -13)
     else
-        -- Only turn off if user explicitly turns it off via button
         for part, canCollide in pairs(originalCanCollide) do
             if part and part.Parent then
                 part.CanCollide = canCollide
             end
         end
         originalCanCollide = {}
-        
-        if noClipCharacterConnection then
-            noClipCharacterConnection:Disconnect()
-            noClipCharacterConnection = nil
-        end
         
         noClipToggleButton.Text = "No Clip: OFF"
         noClipIndicator.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
@@ -1629,7 +1594,23 @@ end)
 local function onCharacterAddedForNoClip(char)
     if noClipEnabled then
         task.wait(0.1)
-        applyNoClipToCharacter(char)
+        for _, part in pairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then
+                if not originalCanCollide[part] then
+                    originalCanCollide[part] = part.CanCollide
+                end
+                part.CanCollide = false
+            end
+        end
+        
+        char.ChildAdded:Connect(function(child)
+            if noClipEnabled and child:IsA("BasePart") then
+                if not originalCanCollide[child] then
+                    originalCanCollide[child] = child.CanCollide
+                end
+                child.CanCollide = false
+            end
+        end)
     end
 end
 
@@ -2353,7 +2334,6 @@ end)
 
 backButton.MouseButton1Click:Connect(function()
     if currentState == "universal" then
-        -- Don't disable no clip when going back
         if flying then
             toggleFly()
             updateFlyUI()
