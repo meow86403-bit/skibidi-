@@ -12,9 +12,11 @@ local flySpeed = 150
 local bodyVelocity = nil
 local bodyGyro = nil
 
--- No Clip variables
+-- No Clip variables - FIXED PERSISTENT VERSION
 local noClipEnabled = false
 local originalCanCollide = {}
+local noClipConnections = {}
+local noClipEnforcementConnection = nil
 
 -- Box ESP variables
 local boxEspEnabled = false
@@ -37,534 +39,228 @@ local autoTPGyro = nil
 local isMinimized = false
 local minimizeCircle = nil
 
-local function disableButtonSounds(button)
-    button.AutoButtonColor = false
-    for _, child in pairs(button:GetChildren()) do
-        if child:IsA("Sound") then
-            child:Destroy()
-        end
+-- ==================== FORWARD DECLARATIONS (to fix nil errors) ====================
+local toggleFly
+local toggleESP
+local toggleBoxESP
+local toggleAutoTP
+local toggleNoClip
+
+-- ==================== NO CLIP FUNCTIONS ====================
+local function applyNoClipToPart(part)
+    if not noClipEnabled then return end
+    if not part:IsA("BasePart") then return end
+    if part:IsA("Terrain") then return end
+    
+    if originalCanCollide[part] == nil then
+        originalCanCollide[part] = part.CanCollide
     end
+    part.CanCollide = false
 end
 
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "UniversalScriptGUI"
-screenGui.ResetOnSpawn = false
-screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+local function applyNoClipToCharacter(char)
+    if not char or not noClipEnabled then return end
+    
+    for _, part in pairs(char:GetDescendants()) do
+        if part:IsA("BasePart") and not part:IsA("Terrain") then
+            if originalCanCollide[part] == nil then
+                originalCanCollide[part] = part.CanCollide
+            end
+            part.CanCollide = false
+        end
+    end
+    
+    local partAddedConn = char.ChildAdded:Connect(function(child)
+        task.wait(0.05)
+        if noClipEnabled and child:IsA("BasePart") and not child:IsA("Terrain") then
+            if originalCanCollide[child] == nil then
+                originalCanCollide[child] = child.CanCollide
+            end
+            child.CanCollide = false
+        end
+    end)
+    
+    local descendantConn = char.DescendantAdded:Connect(function(descendant)
+        task.wait(0.05)
+        if noClipEnabled and descendant:IsA("BasePart") and not descendant:IsA("Terrain") then
+            if originalCanCollide[descendant] == nil then
+                originalCanCollide[descendant] = descendant.CanCollide
+            end
+            descendant.CanCollide = false
+        end
+    end)
+    
+    if noClipConnections[char] then
+        for _, conn in pairs(noClipConnections[char]) do
+            pcall(function() conn:Disconnect() end)
+        end
+    end
+    noClipConnections[char] = {partAddedConn, descendantConn}
+end
 
-pcall(function()
-    screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-end)
-if not screenGui.Parent then
-    pcall(function()
-        screenGui.Parent = game:GetService("CoreGui")
+local function restoreAllCollisions()
+    for part, originalValue in pairs(originalCanCollide) do
+        if part and part.Parent then
+            pcall(function()
+                part.CanCollide = originalValue
+            end)
+        end
+    end
+    originalCanCollide = {}
+end
+
+local function clearNoClipConnections()
+    for char, conns in pairs(noClipConnections) do
+        for _, conn in pairs(conns) do
+            pcall(function() conn:Disconnect() end)
+        end
+    end
+    noClipConnections = {}
+end
+
+local function startNoClipEnforcement()
+    if noClipEnforcementConnection then return end
+    
+    noClipEnforcementConnection = RunService.Heartbeat:Connect(function()
+        if not noClipEnabled then return end
+        
+        local char = LocalPlayer.Character
+        if not char then return end
+        
+        for _, part in pairs(char:GetDescendants()) do
+            if part:IsA("BasePart") and not part:IsA("Terrain") then
+                if part.CanCollide == true then
+                    if originalCanCollide[part] == nil then
+                        originalCanCollide[part] = true
+                    end
+                    part.CanCollide = false
+                end
+            end
+        end
     end)
 end
 
-local mainFrame = Instance.new("Frame")
-mainFrame.Name = "MainFrame"
-mainFrame.Size = UDim2.new(0, 420, 0, 420)
-mainFrame.Position = UDim2.new(0.5, -210, 0.5, -210)
-mainFrame.BackgroundColor3 = Color3.fromRGB(28, 28, 32)
-mainFrame.BackgroundTransparency = 0
-mainFrame.BorderSizePixel = 0
-mainFrame.ClipsDescendants = true
-mainFrame.Visible = true
-mainFrame.Parent = screenGui
-
-local mainBgImage = Instance.new("ImageLabel")
-mainBgImage.Name = "BackgroundImage"
-mainBgImage.Size = UDim2.new(1, 0, 1, 0)
-mainBgImage.Position = UDim2.new(0, 0, 0, 0)
-mainBgImage.BackgroundTransparency = 1
-mainBgImage.Image = ""
-mainBgImage.ScaleType = Enum.ScaleType.Crop
-mainBgImage.ImageTransparency = 0.15
-mainBgImage.Visible = false
-mainBgImage.Parent = mainFrame
-
-local bgOverlay = Instance.new("Frame")
-bgOverlay.Name = "BgOverlay"
-bgOverlay.Size = UDim2.new(1, 0, 1, 0)
-bgOverlay.Position = UDim2.new(0, 0, 0, 0)
-bgOverlay.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
-bgOverlay.BackgroundTransparency = 1
-bgOverlay.BorderSizePixel = 0
-bgOverlay.Visible = true
-bgOverlay.Parent = mainFrame
-
-local defaultBg = Instance.new("Frame")
-defaultBg.Name = "DefaultBg"
-defaultBg.Size = UDim2.new(1, 0, 1, 0)
-defaultBg.Position = UDim2.new(0, 0, 0, 0)
-defaultBg.BackgroundColor3 = Color3.fromRGB(28, 28, 32)
-defaultBg.BackgroundTransparency = 1
-defaultBg.BorderSizePixel = 0
-defaultBg.Parent = mainFrame
-
-local uiCorner = Instance.new("UICorner")
-uiCorner.CornerRadius = UDim.new(0, 12)
-uiCorner.Parent = mainFrame
-
-local uiStroke = Instance.new("UIStroke")
-uiStroke.Color = Color3.fromRGB(70, 70, 80)
-uiStroke.Thickness = 1.2
-uiStroke.Parent = mainFrame
-
-local topBar = Instance.new("Frame")
-topBar.Name = "TopBar"
-topBar.Size = UDim2.new(1, 0, 0, 44)
-topBar.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-topBar.BackgroundTransparency = 0.08
-topBar.BorderSizePixel = 0
-topBar.Parent = mainFrame
-
-local topCorner = Instance.new("UICorner")
-topCorner.CornerRadius = UDim.new(0, 12)
-topCorner.Parent = topBar
-
-local backButton = Instance.new("TextButton")
-backButton.Name = "BackButton"
-backButton.Size = UDim2.new(0, 34, 0, 34)
-backButton.Position = UDim2.new(0, 12, 0.5, -17)
-backButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
-backButton.BackgroundTransparency = 0.2
-backButton.Text = "<"
-backButton.TextColor3 = Color3.fromRGB(230, 230, 230)
-backButton.TextSize = 22
-backButton.Font = Enum.Font.SourceSansBold
-backButton.AutoButtonColor = false
-backButton.Visible = false
-backButton.Parent = topBar
-disableButtonSounds(backButton)
-
-local backCorner = Instance.new("UICorner")
-backCorner.CornerRadius = UDim.new(1, 0)
-backCorner.Parent = backButton
-
-local titleLabel = Instance.new("TextLabel")
-titleLabel.Name = "TitleLabel"
-titleLabel.Size = UDim2.new(0, 200, 1, 0)
-titleLabel.Position = UDim2.new(0.5, -100, 0, 0)
-titleLabel.BackgroundTransparency = 1
-titleLabel.Text = "Universal Script"
-titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-titleLabel.TextSize = 18
-titleLabel.TextXAlignment = Enum.TextXAlignment.Center
-titleLabel.Font = Enum.Font.GothamBold
-titleLabel.Parent = topBar
-
-local minimizeButton = Instance.new("TextButton")
-minimizeButton.Name = "MinimizeButton"
-minimizeButton.Size = UDim2.new(0, 34, 0, 34)
-minimizeButton.Position = UDim2.new(1, -90, 0.5, -17)
-minimizeButton.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
-minimizeButton.BackgroundTransparency = 0.1
-minimizeButton.Text = "—"
-minimizeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-minimizeButton.TextSize = 24
-minimizeButton.Font = Enum.Font.SourceSansBold
-minimizeButton.AutoButtonColor = false
-minimizeButton.Parent = topBar
-disableButtonSounds(minimizeButton)
-
-local minimizeCorner = Instance.new("UICorner")
-minimizeCorner.CornerRadius = UDim.new(1, 0)
-minimizeCorner.Parent = minimizeButton
-
-minimizeButton.MouseEnter:Connect(function()
-    TweenService:Create(minimizeButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.05}):Play()
-end)
-minimizeButton.MouseLeave:Connect(function()
-    TweenService:Create(minimizeButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(60, 60, 70), BackgroundTransparency = 0.1}):Play()
-end)
-
-local closeButton = Instance.new("TextButton")
-closeButton.Name = "CloseButton"
-closeButton.Size = UDim2.new(0, 34, 0, 34)
-closeButton.Position = UDim2.new(1, -46, 0.5, -17)
-closeButton.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
-closeButton.BackgroundTransparency = 0.1
-closeButton.Text = "X"
-closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-closeButton.TextSize = 20
-closeButton.Font = Enum.Font.SourceSansBold
-closeButton.AutoButtonColor = false
-closeButton.Parent = topBar
-disableButtonSounds(closeButton)
-
-local closeCorner = Instance.new("UICorner")
-closeCorner.CornerRadius = UDim.new(1, 0)
-closeCorner.Parent = closeButton
-
-closeButton.MouseEnter:Connect(function()
-    TweenService:Create(closeButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(220, 50, 50)}):Play()
-end)
-closeButton.MouseLeave:Connect(function()
-    TweenService:Create(closeButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(180, 40, 40)}):Play()
-end)
-
-local function createMinimizeCircle()
-    if minimizeCircle then 
-        minimizeCircle:Destroy()
-        minimizeCircle = nil
+local function stopNoClipEnforcement()
+    if noClipEnforcementConnection then
+        noClipEnforcementConnection:Disconnect()
+        noClipEnforcementConnection = nil
     end
-    
-    minimizeCircle = Instance.new("TextButton")
-    minimizeCircle.Name = "MinimizeCircle"
-    minimizeCircle.Size = UDim2.new(0, 50, 0, 50)
-    minimizeCircle.Position = UDim2.new(0.5, -25, 0, 10)
-    minimizeCircle.BackgroundColor3 = Color3.fromRGB(0, 150, 200)
-    minimizeCircle.BackgroundTransparency = 0.15
-    minimizeCircle.Text = "UN"
-    minimizeCircle.TextColor3 = Color3.fromRGB(255, 255, 255)
-    minimizeCircle.TextSize = 18
-    minimizeCircle.Font = Enum.Font.GothamBold
-    minimizeCircle.AutoButtonColor = false
-    minimizeCircle.Visible = true
-    minimizeCircle.ZIndex = 10
-    minimizeCircle.Parent = screenGui
-    
-    local circleCorner = Instance.new("UICorner")
-    circleCorner.CornerRadius = UDim.new(1, 0)
-    circleCorner.Parent = minimizeCircle
-    
-    local circleStroke = Instance.new("UIStroke")
-    circleStroke.Color = Color3.fromRGB(0, 200, 255)
-    circleStroke.Thickness = 2
-    circleStroke.Parent = minimizeCircle
-    
-    minimizeCircle.MouseButton1Click:Connect(function()
-        if minimizeCircle then
-            minimizeCircle:Destroy()
-            minimizeCircle = nil
-        end
-        mainFrame.Visible = true
-        isMinimized = false
-    end)
 end
 
-local function minimizeGUI()
-    if isMinimized then return end
-    mainFrame.Visible = false
-    createMinimizeCircle()
-    isMinimized = true
+local function enableNoClip()
+    local char = LocalPlayer.Character
+    if char then
+        applyNoClipToCharacter(char)
+    end
+    
+    startNoClipEnforcement()
 end
 
-minimizeButton.MouseButton1Click:Connect(function()
-    minimizeGUI()
-end)
+local function disableNoClip()
+    stopNoClipEnforcement()
+    restoreAllCollisions()
+    clearNoClipConnections()
+end
 
-closeButton.MouseButton1Click:Connect(function()
-    if flying then
-        toggleFly()
-    end
-    if espEnabled then
-        toggleESP()
-    end
-    if boxEspEnabled then
-        toggleBoxESP()
-    end
-    if autoTPEnabled then
-        toggleAutoTP()
-    end
+toggleNoClip = function()
+    noClipEnabled = not noClipEnabled
+    
     if noClipEnabled then
-        toggleNoClip()
+        enableNoClip()
+    else
+        disableNoClip()
+    end
+end
+
+-- ==================== FLY FUNCTIONS ====================
+local function startFly()
+    local char = LocalPlayer.Character
+    if not char then return end
+    
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if not humanoid then return end
+    
+    humanoid.PlatformStand = true
+    
+    bodyVelocity = Instance.new("BodyVelocity")
+    bodyVelocity.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+    bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+    bodyVelocity.Parent = char:WaitForChild("HumanoidRootPart")
+    
+    bodyGyro = Instance.new("BodyGyro")
+    bodyGyro.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
+    bodyGyro.Parent = char:WaitForChild("HumanoidRootPart")
+    
+    flying = true
+    
+    RunService:BindToRenderStep("FlyMovement", 0, function()
+        if not flying or not LocalPlayer.Character then return end
+        
+        local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if not hrp or not bodyVelocity or not bodyGyro then return end
+        
+        local camera = workspace.CurrentCamera
+        local moveDirection = Vector3.new(0, 0, 0)
+        
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+            moveDirection = moveDirection + camera.CFrame.LookVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+            moveDirection = moveDirection - camera.CFrame.LookVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+            moveDirection = moveDirection - camera.CFrame.RightVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+            moveDirection = moveDirection + camera.CFrame.RightVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+            moveDirection = moveDirection + Vector3.new(0, 1, 0)
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+            moveDirection = moveDirection - Vector3.new(0, 1, 0)
+        end
+        
+        if moveDirection.Magnitude > 0 then
+            moveDirection = moveDirection.Unit * flySpeed
+        end
+        
+        bodyVelocity.Velocity = moveDirection
+        bodyGyro.CFrame = camera.CFrame
+    end)
+end
+
+local function stopFly()
+    flying = false
+    RunService:UnbindFromRenderStep("FlyMovement")
+    
+    if bodyVelocity then
+        bodyVelocity:Destroy()
+        bodyVelocity = nil
+    end
+    if bodyGyro then
+        bodyGyro:Destroy()
+        bodyGyro = nil
     end
     
-    if minimizeCircle then
-        minimizeCircle:Destroy()
-        minimizeCircle = nil
+    local char = LocalPlayer.Character
+    if char then
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.PlatformStand = false
+        end
     end
-    
-    screenGui:Destroy()
-end)
+end
 
-local tabBar = Instance.new("Frame")
-tabBar.Name = "TabBar"
-tabBar.Size = UDim2.new(1, -24, 0, 40)
-tabBar.Position = UDim2.new(0, 12, 0, 54)
-tabBar.BackgroundTransparency = 1
-tabBar.Parent = mainFrame
-
-local mainTab = Instance.new("TextButton")
-mainTab.Name = "MainTab"
-mainTab.Size = UDim2.new(0, 70, 0, 36)
-mainTab.Position = UDim2.new(0.5, -155, 0, 2)
-mainTab.BackgroundColor3 = Color3.fromRGB(0, 150, 200)
-mainTab.BackgroundTransparency = 0.15
-mainTab.Text = "Main"
-mainTab.TextColor3 = Color3.fromRGB(255, 255, 255)
-mainTab.TextSize = 15
-mainTab.Font = Enum.Font.GothamBold
-mainTab.AutoButtonColor = false
-mainTab.Parent = tabBar
-disableButtonSounds(mainTab)
-
-local mainTabCorner = Instance.new("UICorner")
-mainTabCorner.CornerRadius = UDim.new(1, 0)
-mainTabCorner.Parent = mainTab
-
-local espTab = Instance.new("TextButton")
-espTab.Name = "EspTab"
-espTab.Size = UDim2.new(0, 70, 0, 36)
-espTab.Position = UDim2.new(0.5, -75, 0, 2)
-espTab.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
-espTab.BackgroundTransparency = 0.3
-espTab.Text = "Esp"
-espTab.TextColor3 = Color3.fromRGB(255, 255, 255)
-espTab.TextSize = 15
-espTab.Font = Enum.Font.GothamBold
-espTab.AutoButtonColor = false
-espTab.Parent = tabBar
-disableButtonSounds(espTab)
-
-local espTabCorner = Instance.new("UICorner")
-espTabCorner.CornerRadius = UDim.new(1, 0)
-espTabCorner.Parent = espTab
-
-local gamesTab = Instance.new("TextButton")
-gamesTab.Name = "GamesTab"
-gamesTab.Size = UDim2.new(0, 70, 0, 36)
-gamesTab.Position = UDim2.new(0.5, 5, 0, 2)
-gamesTab.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
-gamesTab.BackgroundTransparency = 0.3
-gamesTab.Text = "Games"
-gamesTab.TextColor3 = Color3.fromRGB(255, 255, 255)
-gamesTab.TextSize = 15
-gamesTab.Font = Enum.Font.GothamBold
-gamesTab.AutoButtonColor = false
-gamesTab.Parent = tabBar
-disableButtonSounds(gamesTab)
-
-local gamesTabCorner = Instance.new("UICorner")
-gamesTabCorner.CornerRadius = UDim.new(1, 0)
-gamesTabCorner.Parent = gamesTab
-
-local settingsTab = Instance.new("TextButton")
-settingsTab.Name = "SettingsTab"
-settingsTab.Size = UDim2.new(0, 70, 0, 36)
-settingsTab.Position = UDim2.new(0.5, 85, 0, 2)
-settingsTab.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
-settingsTab.BackgroundTransparency = 0.3
-settingsTab.Text = "Settings"
-settingsTab.TextColor3 = Color3.fromRGB(255, 255, 255)
-settingsTab.TextSize = 15
-settingsTab.Font = Enum.Font.GothamBold
-settingsTab.AutoButtonColor = false
-settingsTab.Parent = tabBar
-disableButtonSounds(settingsTab)
-
-local settingsTabCorner = Instance.new("UICorner")
-settingsTabCorner.CornerRadius = UDim.new(1, 0)
-settingsTabCorner.Parent = settingsTab
-
-mainTab.MouseEnter:Connect(function()
-    if mainTab.BackgroundColor3 ~= Color3.fromRGB(0, 150, 200) then
-        TweenService:Create(mainTab, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.2}):Play()
+toggleFly = function()
+    if flying then
+        stopFly()
+    else
+        startFly()
     end
-end)
-mainTab.MouseLeave:Connect(function()
-    if mainTab.BackgroundColor3 ~= Color3.fromRGB(0, 150, 200) then
-        TweenService:Create(mainTab, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.3}):Play()
-    end
-end)
+end
 
-espTab.MouseEnter:Connect(function()
-    if espTab.BackgroundColor3 ~= Color3.fromRGB(0, 150, 200) then
-        TweenService:Create(espTab, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.2}):Play()
-    end
-end)
-espTab.MouseLeave:Connect(function()
-    if espTab.BackgroundColor3 ~= Color3.fromRGB(0, 150, 200) then
-        TweenService:Create(espTab, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.3}):Play()
-    end
-end)
-
-gamesTab.MouseEnter:Connect(function()
-    if gamesTab.BackgroundColor3 ~= Color3.fromRGB(0, 150, 200) then
-        TweenService:Create(gamesTab, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.2}):Play()
-    end
-end)
-gamesTab.MouseLeave:Connect(function()
-    if gamesTab.BackgroundColor3 ~= Color3.fromRGB(0, 150, 200) then
-        TweenService:Create(gamesTab, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.3}):Play()
-    end
-end)
-
-settingsTab.MouseEnter:Connect(function()
-    if settingsTab.BackgroundColor3 ~= Color3.fromRGB(0, 150, 200) then
-        TweenService:Create(settingsTab, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.2}):Play()
-    end
-end)
-settingsTab.MouseLeave:Connect(function()
-    if settingsTab.BackgroundColor3 ~= Color3.fromRGB(0, 150, 200) then
-        TweenService:Create(settingsTab, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.3}):Play()
-    end
-end)
-
-local mainContent = Instance.new("Frame")
-mainContent.Name = "MainContent"
-mainContent.Size = UDim2.new(1, -24, 1, -114)
-mainContent.Position = UDim2.new(0, 12, 0, 104)
-mainContent.BackgroundTransparency = 1
-mainContent.Visible = true
-mainContent.Parent = mainFrame
-
-local openUniversalButton = Instance.new("TextButton")
-openUniversalButton.Name = "OpenUniversalButton"
-openUniversalButton.Size = UDim2.new(1, -20, 0, 48)
-openUniversalButton.Position = UDim2.new(0, 10, 0, 10)
-openUniversalButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
-openUniversalButton.BackgroundTransparency = 0.2
-openUniversalButton.Text = "Open Universal Script"
-openUniversalButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-openUniversalButton.TextSize = 17
-openUniversalButton.Font = Enum.Font.GothamBold
-openUniversalButton.AutoButtonColor = false
-openUniversalButton.Parent = mainContent
-disableButtonSounds(openUniversalButton)
-
-local openButtonCorner = Instance.new("UICorner")
-openButtonCorner.CornerRadius = UDim.new(0, 10)
-openButtonCorner.Parent = openUniversalButton
-
-openUniversalButton.MouseEnter:Connect(function()
-    TweenService:Create(openUniversalButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
-end)
-openUniversalButton.MouseLeave:Connect(function()
-    TweenService:Create(openUniversalButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
-end)
-
-local openAimbotButton = Instance.new("TextButton")
-openAimbotButton.Name = "OpenAimbotButton"
-openAimbotButton.Size = UDim2.new(1, -20, 0, 48)
-openAimbotButton.Position = UDim2.new(0, 10, 0, 68)
-openAimbotButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
-openAimbotButton.BackgroundTransparency = 0.2
-openAimbotButton.Text = "Open aimbot"
-openAimbotButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-openAimbotButton.TextSize = 17
-openAimbotButton.Font = Enum.Font.GothamBold
-openAimbotButton.AutoButtonColor = false
-openAimbotButton.Parent = mainContent
-disableButtonSounds(openAimbotButton)
-
-local aimbotCorner = Instance.new("UICorner")
-aimbotCorner.CornerRadius = UDim.new(0, 10)
-aimbotCorner.Parent = openAimbotButton
-
-openAimbotButton.MouseEnter:Connect(function()
-    TweenService:Create(openAimbotButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
-end)
-openAimbotButton.MouseLeave:Connect(function()
-    TweenService:Create(openAimbotButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
-end)
-
--- ==================== ESP CONTENT WITH DIVIDER LINE ====================
-local espContent = Instance.new("Frame")
-espContent.Name = "EspContent"
-espContent.Size = UDim2.new(1, -24, 1, -114)
-espContent.Position = UDim2.new(0, 12, 0, 104)
-espContent.BackgroundTransparency = 1
-espContent.Visible = false
-espContent.Parent = mainFrame
-
--- ESP Toggle Button
-local espToggleButton = Instance.new("TextButton")
-espToggleButton.Name = "EspToggleButton"
-espToggleButton.Size = UDim2.new(1, -20, 0, 55)
-espToggleButton.Position = UDim2.new(0, 10, 0, 20)
-espToggleButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
-espToggleButton.BackgroundTransparency = 0.2
-espToggleButton.Text = "ESP: OFF"
-espToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-espToggleButton.TextSize = 18
-espToggleButton.Font = Enum.Font.GothamBold
-espToggleButton.AutoButtonColor = false
-espToggleButton.Parent = espContent
-disableButtonSounds(espToggleButton)
-
-local espToggleCorner = Instance.new("UICorner")
-espToggleCorner.CornerRadius = UDim.new(0, 10)
-espToggleCorner.Parent = espToggleButton
-
-local espToggleIndicator = Instance.new("Frame")
-espToggleIndicator.Name = "EspToggleIndicator"
-espToggleIndicator.Size = UDim2.new(0, 40, 0, 30)
-espToggleIndicator.Position = UDim2.new(1, -55, 0.5, -15)
-espToggleIndicator.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
-espToggleIndicator.BorderSizePixel = 0
-espToggleIndicator.Parent = espToggleButton
-
-local espIndicatorCorner = Instance.new("UICorner")
-espIndicatorCorner.CornerRadius = UDim.new(1, 0)
-espIndicatorCorner.Parent = espToggleIndicator
-
-local espIndicatorCircle = Instance.new("Frame")
-espIndicatorCircle.Name = "EspIndicatorCircle"
-espIndicatorCircle.Size = UDim2.new(0, 26, 0, 26)
-espIndicatorCircle.Position = UDim2.new(0, 3, 0.5, -13)
-espIndicatorCircle.BackgroundColor3 = Color3.fromRGB(200, 70, 70)
-espIndicatorCircle.BorderSizePixel = 0
-espIndicatorCircle.Parent = espToggleIndicator
-
-local espCircleCorner = Instance.new("UICorner")
-espCircleCorner.CornerRadius = UDim.new(1, 0)
-espCircleCorner.Parent = espIndicatorCircle
-
--- Box ESP Toggle Button
-local boxEspToggleButton = Instance.new("TextButton")
-boxEspToggleButton.Name = "BoxEspToggleButton"
-boxEspToggleButton.Size = UDim2.new(1, -20, 0, 55)
-boxEspToggleButton.Position = UDim2.new(0, 10, 0, 85)
-boxEspToggleButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
-boxEspToggleButton.BackgroundTransparency = 0.2
-boxEspToggleButton.Text = "Box ESP: OFF"
-boxEspToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-boxEspToggleButton.TextSize = 18
-boxEspToggleButton.Font = Enum.Font.GothamBold
-boxEspToggleButton.AutoButtonColor = false
-boxEspToggleButton.Parent = espContent
-disableButtonSounds(boxEspToggleButton)
-
-local boxEspToggleCorner = Instance.new("UICorner")
-boxEspToggleCorner.CornerRadius = UDim.new(0, 10)
-boxEspToggleCorner.Parent = boxEspToggleButton
-
-local boxEspToggleIndicator = Instance.new("Frame")
-boxEspToggleIndicator.Name = "BoxEspToggleIndicator"
-boxEspToggleIndicator.Size = UDim2.new(0, 40, 0, 30)
-boxEspToggleIndicator.Position = UDim2.new(1, -55, 0.5, -15)
-boxEspToggleIndicator.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
-boxEspToggleIndicator.BorderSizePixel = 0
-boxEspToggleIndicator.Parent = boxEspToggleButton
-
-local boxEspIndicatorCorner = Instance.new("UICorner")
-boxEspIndicatorCorner.CornerRadius = UDim.new(1, 0)
-boxEspIndicatorCorner.Parent = boxEspToggleIndicator
-
-local boxEspIndicatorCircle = Instance.new("Frame")
-boxEspIndicatorCircle.Name = "BoxEspIndicatorCircle"
-boxEspIndicatorCircle.Size = UDim2.new(0, 26, 0, 26)
-boxEspIndicatorCircle.Position = UDim2.new(0, 3, 0.5, -13)
-boxEspIndicatorCircle.BackgroundColor3 = Color3.fromRGB(200, 70, 70)
-boxEspIndicatorCircle.BorderSizePixel = 0
-boxEspIndicatorCircle.Parent = boxEspToggleIndicator
-
-local boxEspCircleCorner = Instance.new("UICorner")
-boxEspCircleCorner.CornerRadius = UDim.new(1, 0)
-boxEspCircleCorner.Parent = boxEspIndicatorCircle
-
--- Divider Line under Box ESP
-local espDividerLine = Instance.new("Frame")
-espDividerLine.Name = "EspDividerLine"
-espDividerLine.Size = UDim2.new(1, -20, 0, 1)
-espDividerLine.Position = UDim2.new(0, 10, 0, 150)
-espDividerLine.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
-espDividerLine.BorderSizePixel = 0
-espDividerLine.Parent = espContent
-
--- ESP Functions
+-- ==================== ESP FUNCTIONS ====================
 local function createESP()
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer then
@@ -634,34 +330,15 @@ local function stopESP()
     clearESP()
 end
 
-local function toggleESP()
+toggleESP = function()
     if espEnabled then
         stopESP()
-        espToggleButton.Text = "ESP: OFF"
-        espToggleIndicator.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
-        espIndicatorCircle.BackgroundColor3 = Color3.fromRGB(200, 70, 70)
-        espIndicatorCircle.Position = UDim2.new(0, 3, 0.5, -13)
     else
         startESP()
-        espToggleButton.Text = "ESP: ON"
-        espToggleIndicator.BackgroundColor3 = Color3.fromRGB(70, 150, 70)
-        espIndicatorCircle.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
-        espIndicatorCircle.Position = UDim2.new(0, 11, 0.5, -13)
     end
 end
 
-espToggleButton.MouseButton1Click:Connect(function()
-    toggleESP()
-end)
-
-espToggleButton.MouseEnter:Connect(function()
-    TweenService:Create(espToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
-end)
-espToggleButton.MouseLeave:Connect(function()
-    TweenService:Create(espToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
-end)
-
--- Box ESP Functions
+-- ==================== BOX ESP FUNCTIONS ====================
 local function createBoxESP()
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer then
@@ -755,167 +432,15 @@ local function stopBoxESP()
     clearBoxESP()
 end
 
-local function toggleBoxESP()
+toggleBoxESP = function()
     if boxEspEnabled then
         stopBoxESP()
-        boxEspToggleButton.Text = "Box ESP: OFF"
-        boxEspToggleIndicator.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
-        boxEspIndicatorCircle.BackgroundColor3 = Color3.fromRGB(200, 70, 70)
-        boxEspIndicatorCircle.Position = UDim2.new(0, 3, 0.5, -13)
     else
         startBoxESP()
-        boxEspToggleButton.Text = "Box ESP: ON"
-        boxEspToggleIndicator.BackgroundColor3 = Color3.fromRGB(70, 150, 70)
-        boxEspIndicatorCircle.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
-        boxEspIndicatorCircle.Position = UDim2.new(0, 11, 0.5, -13)
     end
 end
 
-boxEspToggleButton.MouseButton1Click:Connect(function()
-    toggleBoxESP()
-end)
-
-boxEspToggleButton.MouseEnter:Connect(function()
-    TweenService:Create(boxEspToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
-end)
-boxEspToggleButton.MouseLeave:Connect(function()
-    TweenService:Create(boxEspToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
-end)
-
-local gamesContent = Instance.new("Frame")
-gamesContent.Name = "GamesContent"
-gamesContent.Size = UDim2.new(1, -24, 1, -114)
-gamesContent.Position = UDim2.new(0, 12, 0, 104)
-gamesContent.BackgroundTransparency = 1
-gamesContent.Visible = false
-gamesContent.Parent = mainFrame
-
-local brainrotGameButton = Instance.new("TextButton")
-brainrotGameButton.Name = "BrainrotGameButton"
-brainrotGameButton.Size = UDim2.new(1, -20, 0, 48)
-brainrotGameButton.Position = UDim2.new(0, 10, 0, 10)
-brainrotGameButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
-brainrotGameButton.BackgroundTransparency = 0.2
-brainrotGameButton.Text = "Open scream for brainrots script"
-brainrotGameButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-brainrotGameButton.TextSize = 16
-brainrotGameButton.Font = Enum.Font.GothamBold
-brainrotGameButton.AutoButtonColor = false
-brainrotGameButton.Parent = gamesContent
-disableButtonSounds(brainrotGameButton)
-
-local brainrotGameCorner = Instance.new("UICorner")
-brainrotGameCorner.CornerRadius = UDim.new(0, 10)
-brainrotGameCorner.Parent = brainrotGameButton
-
-brainrotGameButton.MouseEnter:Connect(function()
-    TweenService:Create(brainrotGameButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
-end)
-brainrotGameButton.MouseLeave:Connect(function()
-    TweenService:Create(brainrotGameButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
-end)
-
-local breatheGameButton = Instance.new("TextButton")
-breatheGameButton.Name = "BreatheGameButton"
-breatheGameButton.Size = UDim2.new(1, -20, 0, 48)
-breatheGameButton.Position = UDim2.new(0, 10, 0, 68)
-breatheGameButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
-breatheGameButton.BackgroundTransparency = 0.2
-breatheGameButton.Text = "Open +1 Brick Speed Escape script"
-breatheGameButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-breatheGameButton.TextSize = 16
-breatheGameButton.Font = Enum.Font.GothamBold
-breatheGameButton.AutoButtonColor = false
-breatheGameButton.Parent = gamesContent
-disableButtonSounds(breatheGameButton)
-
-local breatheGameCorner = Instance.new("UICorner")
-breatheGameCorner.CornerRadius = UDim.new(0, 10)
-breatheGameCorner.Parent = breatheGameButton
-
-breatheGameButton.MouseEnter:Connect(function()
-    TweenService:Create(breatheGameButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
-end)
-breatheGameButton.MouseLeave:Connect(function()
-    TweenService:Create(breatheGameButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
-end)
-
--- MM2 Game Button
-local mm2GameButton = Instance.new("TextButton")
-mm2GameButton.Name = "MM2GameButton"
-mm2GameButton.Size = UDim2.new(1, -20, 0, 48)
-mm2GameButton.Position = UDim2.new(0, 10, 0, 126)
-mm2GameButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
-mm2GameButton.BackgroundTransparency = 0.2
-mm2GameButton.Text = "Open MM2 script"
-mm2GameButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-mm2GameButton.TextSize = 16
-mm2GameButton.Font = Enum.Font.GothamBold
-mm2GameButton.AutoButtonColor = false
-mm2GameButton.Parent = gamesContent
-disableButtonSounds(mm2GameButton)
-
-local mm2GameCorner = Instance.new("UICorner")
-mm2GameCorner.CornerRadius = UDim.new(0, 10)
-mm2GameCorner.Parent = mm2GameButton
-
-mm2GameButton.MouseEnter:Connect(function()
-    TweenService:Create(mm2GameButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
-end)
-mm2GameButton.MouseLeave:Connect(function()
-    TweenService:Create(mm2GameButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
-end)
-
-local breatheContent = Instance.new("Frame")
-breatheContent.Name = "BreatheContent"
-breatheContent.Size = UDim2.new(1, -24, 1, -64)
-breatheContent.Position = UDim2.new(0, 12, 0, 54)
-breatheContent.BackgroundTransparency = 1
-breatheContent.Visible = false
-breatheContent.Parent = mainFrame
-
-local autoTPToggleButton = Instance.new("TextButton")
-autoTPToggleButton.Name = "AutoTPToggleButton"
-autoTPToggleButton.Size = UDim2.new(1, -20, 0, 55)
-autoTPToggleButton.Position = UDim2.new(0, 10, 0, 20)
-autoTPToggleButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
-autoTPToggleButton.BackgroundTransparency = 0.2
-autoTPToggleButton.Text = "AutoTP: OFF"
-autoTPToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-autoTPToggleButton.TextSize = 18
-autoTPToggleButton.Font = Enum.Font.GothamBold
-autoTPToggleButton.AutoButtonColor = false
-autoTPToggleButton.Parent = breatheContent
-disableButtonSounds(autoTPToggleButton)
-
-local autoTPToggleCorner = Instance.new("UICorner")
-autoTPToggleCorner.CornerRadius = UDim.new(0, 10)
-autoTPToggleCorner.Parent = autoTPToggleButton
-
-local autoTPToggleIndicator = Instance.new("Frame")
-autoTPToggleIndicator.Name = "AutoTPToggleIndicator"
-autoTPToggleIndicator.Size = UDim2.new(0, 40, 0, 30)
-autoTPToggleIndicator.Position = UDim2.new(1, -55, 0.5, -15)
-autoTPToggleIndicator.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
-autoTPToggleIndicator.BorderSizePixel = 0
-autoTPToggleIndicator.Parent = autoTPToggleButton
-
-local autoTPIndicatorCorner = Instance.new("UICorner")
-autoTPIndicatorCorner.CornerRadius = UDim.new(1, 0)
-autoTPIndicatorCorner.Parent = autoTPToggleIndicator
-
-local autoTPIndicatorCircle = Instance.new("Frame")
-autoTPIndicatorCircle.Name = "AutoTPIndicatorCircle"
-autoTPIndicatorCircle.Size = UDim2.new(0, 26, 0, 26)
-autoTPIndicatorCircle.Position = UDim2.new(0, 3, 0.5, -13)
-autoTPIndicatorCircle.BackgroundColor3 = Color3.fromRGB(200, 70, 70)
-autoTPIndicatorCircle.BorderSizePixel = 0
-autoTPIndicatorCircle.Parent = autoTPToggleIndicator
-
-local autoTPCircleCorner = Instance.new("UICorner")
-autoTPCircleCorner.CornerRadius = UDim.new(1, 0)
-autoTPCircleCorner.Parent = autoTPIndicatorCircle
-
+-- ==================== AUTO TP FUNCTIONS ====================
 local function applyForwardVelocity()
     local char = LocalPlayer.Character
     if not char then return end
@@ -1017,24 +542,750 @@ local function stopAutoTP()
     stopForwardVelocity()
 end
 
-local function toggleAutoTP()
+toggleAutoTP = function()
     if autoTPEnabled then
         stopAutoTP()
-        autoTPToggleButton.Text = "AutoTP: OFF"
-        autoTPToggleIndicator.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
-        autoTPIndicatorCircle.BackgroundColor3 = Color3.fromRGB(200, 70, 70)
-        autoTPIndicatorCircle.Position = UDim2.new(0, 3, 0.5, -13)
     else
         startAutoTP()
+    end
+end
+
+-- ==================== DISABLE BUTTON SOUNDS ====================
+local function disableButtonSounds(button)
+    button.AutoButtonColor = false
+    for _, child in pairs(button:GetChildren()) do
+        if child:IsA("Sound") then
+            child:Destroy()
+        end
+    end
+end
+
+-- ==================== CREATE SCREEN GUI ====================
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "UniversalScriptGUI"
+screenGui.ResetOnSpawn = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+pcall(function()
+    screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+end)
+if not screenGui.Parent then
+    pcall(function()
+        screenGui.Parent = game:GetService("CoreGui")
+    end)
+end
+
+-- ==================== MAIN FRAME ====================
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 420, 0, 420)
+mainFrame.Position = UDim2.new(0.5, -210, 0.5, -210)
+mainFrame.BackgroundColor3 = Color3.fromRGB(28, 28, 32)
+mainFrame.BackgroundTransparency = 0
+mainFrame.BorderSizePixel = 0
+mainFrame.ClipsDescendants = true
+mainFrame.Visible = true
+mainFrame.Parent = screenGui
+
+local mainBgImage = Instance.new("ImageLabel")
+mainBgImage.Name = "BackgroundImage"
+mainBgImage.Size = UDim2.new(1, 0, 1, 0)
+mainBgImage.Position = UDim2.new(0, 0, 0, 0)
+mainBgImage.BackgroundTransparency = 1
+mainBgImage.Image = ""
+mainBgImage.ScaleType = Enum.ScaleType.Crop
+mainBgImage.ImageTransparency = 0.15
+mainBgImage.Visible = false
+mainBgImage.Parent = mainFrame
+
+local bgOverlay = Instance.new("Frame")
+bgOverlay.Name = "BgOverlay"
+bgOverlay.Size = UDim2.new(1, 0, 1, 0)
+bgOverlay.Position = UDim2.new(0, 0, 0, 0)
+bgOverlay.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+bgOverlay.BackgroundTransparency = 1
+bgOverlay.BorderSizePixel = 0
+bgOverlay.Visible = true
+bgOverlay.Parent = mainFrame
+
+local defaultBg = Instance.new("Frame")
+defaultBg.Name = "DefaultBg"
+defaultBg.Size = UDim2.new(1, 0, 1, 0)
+defaultBg.Position = UDim2.new(0, 0, 0, 0)
+defaultBg.BackgroundColor3 = Color3.fromRGB(28, 28, 32)
+defaultBg.BackgroundTransparency = 1
+defaultBg.BorderSizePixel = 0
+defaultBg.Parent = mainFrame
+
+local uiCorner = Instance.new("UICorner")
+uiCorner.CornerRadius = UDim.new(0, 12)
+uiCorner.Parent = mainFrame
+
+local uiStroke = Instance.new("UIStroke")
+uiStroke.Color = Color3.fromRGB(70, 70, 80)
+uiStroke.Thickness = 1.2
+uiStroke.Parent = mainFrame
+
+-- ==================== TOP BAR ====================
+local topBar = Instance.new("Frame")
+topBar.Name = "TopBar"
+topBar.Size = UDim2.new(1, 0, 0, 44)
+topBar.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+topBar.BackgroundTransparency = 0.08
+topBar.BorderSizePixel = 0
+topBar.Parent = mainFrame
+
+local topCorner = Instance.new("UICorner")
+topCorner.CornerRadius = UDim.new(0, 12)
+topCorner.Parent = topBar
+
+local backButton = Instance.new("TextButton")
+backButton.Name = "BackButton"
+backButton.Size = UDim2.new(0, 34, 0, 34)
+backButton.Position = UDim2.new(0, 12, 0.5, -17)
+backButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+backButton.BackgroundTransparency = 0.2
+backButton.Text = "<"
+backButton.TextColor3 = Color3.fromRGB(230, 230, 230)
+backButton.TextSize = 22
+backButton.Font = Enum.Font.SourceSansBold
+backButton.AutoButtonColor = false
+backButton.Visible = false
+backButton.Parent = topBar
+disableButtonSounds(backButton)
+
+local backCorner = Instance.new("UICorner")
+backCorner.CornerRadius = UDim.new(1, 0)
+backCorner.Parent = backButton
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Name = "TitleLabel"
+titleLabel.Size = UDim2.new(0, 200, 1, 0)
+titleLabel.Position = UDim2.new(0.5, -100, 0, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "Universal Script"
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.TextSize = 18
+titleLabel.TextXAlignment = Enum.TextXAlignment.Center
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.Parent = topBar
+
+local minimizeButton = Instance.new("TextButton")
+minimizeButton.Name = "MinimizeButton"
+minimizeButton.Size = UDim2.new(0, 34, 0, 34)
+minimizeButton.Position = UDim2.new(1, -90, 0.5, -17)
+minimizeButton.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+minimizeButton.BackgroundTransparency = 0.1
+minimizeButton.Text = "—"
+minimizeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+minimizeButton.TextSize = 24
+minimizeButton.Font = Enum.Font.SourceSansBold
+minimizeButton.AutoButtonColor = false
+minimizeButton.Parent = topBar
+disableButtonSounds(minimizeButton)
+
+local minimizeCorner = Instance.new("UICorner")
+minimizeCorner.CornerRadius = UDim.new(1, 0)
+minimizeCorner.Parent = minimizeButton
+
+minimizeButton.MouseEnter:Connect(function()
+    TweenService:Create(minimizeButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.05}):Play()
+end)
+minimizeButton.MouseLeave:Connect(function()
+    TweenService:Create(minimizeButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(60, 60, 70), BackgroundTransparency = 0.1}):Play()
+end)
+
+local closeButton = Instance.new("TextButton")
+closeButton.Name = "CloseButton"
+closeButton.Size = UDim2.new(0, 34, 0, 34)
+closeButton.Position = UDim2.new(1, -46, 0.5, -17)
+closeButton.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
+closeButton.BackgroundTransparency = 0.1
+closeButton.Text = "X"
+closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeButton.TextSize = 20
+closeButton.Font = Enum.Font.SourceSansBold
+closeButton.AutoButtonColor = false
+closeButton.Parent = topBar
+disableButtonSounds(closeButton)
+
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(1, 0)
+closeCorner.Parent = closeButton
+
+closeButton.MouseEnter:Connect(function()
+    TweenService:Create(closeButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(220, 50, 50)}):Play()
+end)
+closeButton.MouseLeave:Connect(function()
+    TweenService:Create(closeButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(180, 40, 40)}):Play()
+end)
+
+-- ==================== MINIMIZE FUNCTIONS ====================
+local function createMinimizeCircle()
+    if minimizeCircle then 
+        minimizeCircle:Destroy()
+        minimizeCircle = nil
+    end
+    
+    minimizeCircle = Instance.new("TextButton")
+    minimizeCircle.Name = "MinimizeCircle"
+    minimizeCircle.Size = UDim2.new(0, 50, 0, 50)
+    minimizeCircle.Position = UDim2.new(0.5, -25, 0, 10)
+    minimizeCircle.BackgroundColor3 = Color3.fromRGB(0, 150, 200)
+    minimizeCircle.BackgroundTransparency = 0.15
+    minimizeCircle.Text = "UN"
+    minimizeCircle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    minimizeCircle.TextSize = 18
+    minimizeCircle.Font = Enum.Font.GothamBold
+    minimizeCircle.AutoButtonColor = false
+    minimizeCircle.Visible = true
+    minimizeCircle.ZIndex = 10
+    minimizeCircle.Parent = screenGui
+    
+    local circleCorner = Instance.new("UICorner")
+    circleCorner.CornerRadius = UDim.new(1, 0)
+    circleCorner.Parent = minimizeCircle
+    
+    local circleStroke = Instance.new("UIStroke")
+    circleStroke.Color = Color3.fromRGB(0, 200, 255)
+    circleStroke.Thickness = 2
+    circleStroke.Parent = minimizeCircle
+    
+    minimizeCircle.MouseButton1Click:Connect(function()
+        if minimizeCircle then
+            minimizeCircle:Destroy()
+            minimizeCircle = nil
+        end
+        mainFrame.Visible = true
+        isMinimized = false
+    end)
+end
+
+local function minimizeGUI()
+    if isMinimized then return end
+    mainFrame.Visible = false
+    createMinimizeCircle()
+    isMinimized = true
+end
+
+minimizeButton.MouseButton1Click:Connect(function()
+    minimizeGUI()
+end)
+
+-- ==================== CLOSE BUTTON (NOW FUNCTIONS EXIST) ====================
+closeButton.MouseButton1Click:Connect(function()
+    if flying then
+        toggleFly()
+    end
+    if espEnabled then
+        toggleESP()
+    end
+    if boxEspEnabled then
+        toggleBoxESP()
+    end
+    if autoTPEnabled then
+        toggleAutoTP()
+    end
+    if noClipEnabled then
+        toggleNoClip()
+    end
+    
+    if minimizeCircle then
+        minimizeCircle:Destroy()
+        minimizeCircle = nil
+    end
+    
+    screenGui:Destroy()
+end)
+
+-- ==================== TAB BAR ====================
+local tabBar = Instance.new("Frame")
+tabBar.Name = "TabBar"
+tabBar.Size = UDim2.new(1, -24, 0, 40)
+tabBar.Position = UDim2.new(0, 12, 0, 54)
+tabBar.BackgroundTransparency = 1
+tabBar.Parent = mainFrame
+
+local mainTab = Instance.new("TextButton")
+mainTab.Name = "MainTab"
+mainTab.Size = UDim2.new(0, 70, 0, 36)
+mainTab.Position = UDim2.new(0.5, -155, 0, 2)
+mainTab.BackgroundColor3 = Color3.fromRGB(0, 150, 200)
+mainTab.BackgroundTransparency = 0.15
+mainTab.Text = "Main"
+mainTab.TextColor3 = Color3.fromRGB(255, 255, 255)
+mainTab.TextSize = 15
+mainTab.Font = Enum.Font.GothamBold
+mainTab.AutoButtonColor = false
+mainTab.Parent = tabBar
+disableButtonSounds(mainTab)
+
+local mainTabCorner = Instance.new("UICorner")
+mainTabCorner.CornerRadius = UDim.new(1, 0)
+mainTabCorner.Parent = mainTab
+
+local espTab = Instance.new("TextButton")
+espTab.Name = "EspTab"
+espTab.Size = UDim2.new(0, 70, 0, 36)
+espTab.Position = UDim2.new(0.5, -75, 0, 2)
+espTab.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+espTab.BackgroundTransparency = 0.3
+espTab.Text = "Esp"
+espTab.TextColor3 = Color3.fromRGB(255, 255, 255)
+espTab.TextSize = 15
+espTab.Font = Enum.Font.GothamBold
+espTab.AutoButtonColor = false
+espTab.Parent = tabBar
+disableButtonSounds(espTab)
+
+local espTabCorner = Instance.new("UICorner")
+espTabCorner.CornerRadius = UDim.new(1, 0)
+espTabCorner.Parent = espTab
+
+local gamesTab = Instance.new("TextButton")
+gamesTab.Name = "GamesTab"
+gamesTab.Size = UDim2.new(0, 70, 0, 36)
+gamesTab.Position = UDim2.new(0.5, 5, 0, 2)
+gamesTab.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+gamesTab.BackgroundTransparency = 0.3
+gamesTab.Text = "Games"
+gamesTab.TextColor3 = Color3.fromRGB(255, 255, 255)
+gamesTab.TextSize = 15
+gamesTab.Font = Enum.Font.GothamBold
+gamesTab.AutoButtonColor = false
+gamesTab.Parent = tabBar
+disableButtonSounds(gamesTab)
+
+local gamesTabCorner = Instance.new("UICorner")
+gamesTabCorner.CornerRadius = UDim.new(1, 0)
+gamesTabCorner.Parent = gamesTab
+
+local settingsTab = Instance.new("TextButton")
+settingsTab.Name = "SettingsTab"
+settingsTab.Size = UDim2.new(0, 70, 0, 36)
+settingsTab.Position = UDim2.new(0.5, 85, 0, 2)
+settingsTab.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+settingsTab.BackgroundTransparency = 0.3
+settingsTab.Text = "Settings"
+settingsTab.TextColor3 = Color3.fromRGB(255, 255, 255)
+settingsTab.TextSize = 15
+settingsTab.Font = Enum.Font.GothamBold
+settingsTab.AutoButtonColor = false
+settingsTab.Parent = tabBar
+disableButtonSounds(settingsTab)
+
+local settingsTabCorner = Instance.new("UICorner")
+settingsTabCorner.CornerRadius = UDim.new(1, 0)
+settingsTabCorner.Parent = settingsTab
+
+-- Tab hover effects
+mainTab.MouseEnter:Connect(function()
+    if mainTab.BackgroundColor3 ~= Color3.fromRGB(0, 150, 200) then
+        TweenService:Create(mainTab, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.2}):Play()
+    end
+end)
+mainTab.MouseLeave:Connect(function()
+    if mainTab.BackgroundColor3 ~= Color3.fromRGB(0, 150, 200) then
+        TweenService:Create(mainTab, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.3}):Play()
+    end
+end)
+
+espTab.MouseEnter:Connect(function()
+    if espTab.BackgroundColor3 ~= Color3.fromRGB(0, 150, 200) then
+        TweenService:Create(espTab, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.2}):Play()
+    end
+end)
+espTab.MouseLeave:Connect(function()
+    if espTab.BackgroundColor3 ~= Color3.fromRGB(0, 150, 200) then
+        TweenService:Create(espTab, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.3}):Play()
+    end
+end)
+
+gamesTab.MouseEnter:Connect(function()
+    if gamesTab.BackgroundColor3 ~= Color3.fromRGB(0, 150, 200) then
+        TweenService:Create(gamesTab, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.2}):Play()
+    end
+end)
+gamesTab.MouseLeave:Connect(function()
+    if gamesTab.BackgroundColor3 ~= Color3.fromRGB(0, 150, 200) then
+        TweenService:Create(gamesTab, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.3}):Play()
+    end
+end)
+
+settingsTab.MouseEnter:Connect(function()
+    if settingsTab.BackgroundColor3 ~= Color3.fromRGB(0, 150, 200) then
+        TweenService:Create(settingsTab, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.2}):Play()
+    end
+end)
+settingsTab.MouseLeave:Connect(function()
+    if settingsTab.BackgroundColor3 ~= Color3.fromRGB(0, 150, 200) then
+        TweenService:Create(settingsTab, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.3}):Play()
+    end
+end)
+
+-- ==================== MAIN CONTENT ====================
+local mainContent = Instance.new("Frame")
+mainContent.Name = "MainContent"
+mainContent.Size = UDim2.new(1, -24, 1, -114)
+mainContent.Position = UDim2.new(0, 12, 0, 104)
+mainContent.BackgroundTransparency = 1
+mainContent.Visible = true
+mainContent.Parent = mainFrame
+
+local openUniversalButton = Instance.new("TextButton")
+openUniversalButton.Name = "OpenUniversalButton"
+openUniversalButton.Size = UDim2.new(1, -20, 0, 48)
+openUniversalButton.Position = UDim2.new(0, 10, 0, 10)
+openUniversalButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+openUniversalButton.BackgroundTransparency = 0.2
+openUniversalButton.Text = "Open Universal Script"
+openUniversalButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+openUniversalButton.TextSize = 17
+openUniversalButton.Font = Enum.Font.GothamBold
+openUniversalButton.AutoButtonColor = false
+openUniversalButton.Parent = mainContent
+disableButtonSounds(openUniversalButton)
+
+local openButtonCorner = Instance.new("UICorner")
+openButtonCorner.CornerRadius = UDim.new(0, 10)
+openButtonCorner.Parent = openUniversalButton
+
+openUniversalButton.MouseEnter:Connect(function()
+    TweenService:Create(openUniversalButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
+end)
+openUniversalButton.MouseLeave:Connect(function()
+    TweenService:Create(openUniversalButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
+end)
+
+local openAimbotButton = Instance.new("TextButton")
+openAimbotButton.Name = "OpenAimbotButton"
+openAimbotButton.Size = UDim2.new(1, -20, 0, 48)
+openAimbotButton.Position = UDim2.new(0, 10, 0, 68)
+openAimbotButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+openAimbotButton.BackgroundTransparency = 0.2
+openAimbotButton.Text = "Open aimbot"
+openAimbotButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+openAimbotButton.TextSize = 17
+openAimbotButton.Font = Enum.Font.GothamBold
+openAimbotButton.AutoButtonColor = false
+openAimbotButton.Parent = mainContent
+disableButtonSounds(openAimbotButton)
+
+local aimbotCorner = Instance.new("UICorner")
+aimbotCorner.CornerRadius = UDim.new(0, 10)
+aimbotCorner.Parent = openAimbotButton
+
+openAimbotButton.MouseEnter:Connect(function()
+    TweenService:Create(openAimbotButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
+end)
+openAimbotButton.MouseLeave:Connect(function()
+    TweenService:Create(openAimbotButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
+end)
+
+-- ==================== ESP CONTENT ====================
+local espContent = Instance.new("Frame")
+espContent.Name = "EspContent"
+espContent.Size = UDim2.new(1, -24, 1, -114)
+espContent.Position = UDim2.new(0, 12, 0, 104)
+espContent.BackgroundTransparency = 1
+espContent.Visible = false
+espContent.Parent = mainFrame
+
+local espToggleButton = Instance.new("TextButton")
+espToggleButton.Name = "EspToggleButton"
+espToggleButton.Size = UDim2.new(1, -20, 0, 55)
+espToggleButton.Position = UDim2.new(0, 10, 0, 20)
+espToggleButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+espToggleButton.BackgroundTransparency = 0.2
+espToggleButton.Text = "ESP: OFF"
+espToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+espToggleButton.TextSize = 18
+espToggleButton.Font = Enum.Font.GothamBold
+espToggleButton.AutoButtonColor = false
+espToggleButton.Parent = espContent
+disableButtonSounds(espToggleButton)
+
+local espToggleCorner = Instance.new("UICorner")
+espToggleCorner.CornerRadius = UDim.new(0, 10)
+espToggleCorner.Parent = espToggleButton
+
+local espToggleIndicator = Instance.new("Frame")
+espToggleIndicator.Name = "EspToggleIndicator"
+espToggleIndicator.Size = UDim2.new(0, 40, 0, 30)
+espToggleIndicator.Position = UDim2.new(1, -55, 0.5, -15)
+espToggleIndicator.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+espToggleIndicator.BorderSizePixel = 0
+espToggleIndicator.Parent = espToggleButton
+
+local espIndicatorCorner = Instance.new("UICorner")
+espIndicatorCorner.CornerRadius = UDim.new(1, 0)
+espIndicatorCorner.Parent = espToggleIndicator
+
+local espIndicatorCircle = Instance.new("Frame")
+espIndicatorCircle.Name = "EspIndicatorCircle"
+espIndicatorCircle.Size = UDim2.new(0, 26, 0, 26)
+espIndicatorCircle.Position = UDim2.new(0, 3, 0.5, -13)
+espIndicatorCircle.BackgroundColor3 = Color3.fromRGB(200, 70, 70)
+espIndicatorCircle.BorderSizePixel = 0
+espIndicatorCircle.Parent = espToggleIndicator
+
+local espCircleCorner = Instance.new("UICorner")
+espCircleCorner.CornerRadius = UDim.new(1, 0)
+espCircleCorner.Parent = espIndicatorCircle
+
+local boxEspToggleButton = Instance.new("TextButton")
+boxEspToggleButton.Name = "BoxEspToggleButton"
+boxEspToggleButton.Size = UDim2.new(1, -20, 0, 55)
+boxEspToggleButton.Position = UDim2.new(0, 10, 0, 85)
+boxEspToggleButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+boxEspToggleButton.BackgroundTransparency = 0.2
+boxEspToggleButton.Text = "Box ESP: OFF"
+boxEspToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+boxEspToggleButton.TextSize = 18
+boxEspToggleButton.Font = Enum.Font.GothamBold
+boxEspToggleButton.AutoButtonColor = false
+boxEspToggleButton.Parent = espContent
+disableButtonSounds(boxEspToggleButton)
+
+local boxEspToggleCorner = Instance.new("UICorner")
+boxEspToggleCorner.CornerRadius = UDim.new(0, 10)
+boxEspToggleCorner.Parent = boxEspToggleButton
+
+local boxEspToggleIndicator = Instance.new("Frame")
+boxEspToggleIndicator.Name = "BoxEspToggleIndicator"
+boxEspToggleIndicator.Size = UDim2.new(0, 40, 0, 30)
+boxEspToggleIndicator.Position = UDim2.new(1, -55, 0.5, -15)
+boxEspToggleIndicator.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+boxEspToggleIndicator.BorderSizePixel = 0
+boxEspToggleIndicator.Parent = boxEspToggleButton
+
+local boxEspIndicatorCorner = Instance.new("UICorner")
+boxEspIndicatorCorner.CornerRadius = UDim.new(1, 0)
+boxEspIndicatorCorner.Parent = boxEspToggleIndicator
+
+local boxEspIndicatorCircle = Instance.new("Frame")
+boxEspIndicatorCircle.Name = "BoxEspIndicatorCircle"
+boxEspIndicatorCircle.Size = UDim2.new(0, 26, 0, 26)
+boxEspIndicatorCircle.Position = UDim2.new(0, 3, 0.5, -13)
+boxEspIndicatorCircle.BackgroundColor3 = Color3.fromRGB(200, 70, 70)
+boxEspIndicatorCircle.BorderSizePixel = 0
+boxEspIndicatorCircle.Parent = boxEspToggleIndicator
+
+local boxEspCircleCorner = Instance.new("UICorner")
+boxEspCircleCorner.CornerRadius = UDim.new(1, 0)
+boxEspCircleCorner.Parent = boxEspIndicatorCircle
+
+local espDividerLine = Instance.new("Frame")
+espDividerLine.Name = "EspDividerLine"
+espDividerLine.Size = UDim2.new(1, -20, 0, 1)
+espDividerLine.Position = UDim2.new(0, 10, 0, 150)
+espDividerLine.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+espDividerLine.BorderSizePixel = 0
+espDividerLine.Parent = espContent
+
+-- ESP UI Updates
+local function updateESPUI()
+    if espEnabled then
+        espToggleButton.Text = "ESP: ON"
+        espToggleIndicator.BackgroundColor3 = Color3.fromRGB(70, 150, 70)
+        espIndicatorCircle.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
+        espIndicatorCircle.Position = UDim2.new(0, 11, 0.5, -13)
+    else
+        espToggleButton.Text = "ESP: OFF"
+        espToggleIndicator.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+        espIndicatorCircle.BackgroundColor3 = Color3.fromRGB(200, 70, 70)
+        espIndicatorCircle.Position = UDim2.new(0, 3, 0.5, -13)
+    end
+    
+    if boxEspEnabled then
+        boxEspToggleButton.Text = "Box ESP: ON"
+        boxEspToggleIndicator.BackgroundColor3 = Color3.fromRGB(70, 150, 70)
+        boxEspIndicatorCircle.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
+        boxEspIndicatorCircle.Position = UDim2.new(0, 11, 0.5, -13)
+    else
+        boxEspToggleButton.Text = "Box ESP: OFF"
+        boxEspToggleIndicator.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+        boxEspIndicatorCircle.BackgroundColor3 = Color3.fromRGB(200, 70, 70)
+        boxEspIndicatorCircle.Position = UDim2.new(0, 3, 0.5, -13)
+    end
+end
+
+espToggleButton.MouseButton1Click:Connect(function()
+    toggleESP()
+    updateESPUI()
+end)
+
+espToggleButton.MouseEnter:Connect(function()
+    TweenService:Create(espToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
+end)
+espToggleButton.MouseLeave:Connect(function()
+    TweenService:Create(espToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
+end)
+
+boxEspToggleButton.MouseButton1Click:Connect(function()
+    toggleBoxESP()
+    updateESPUI()
+end)
+
+boxEspToggleButton.MouseEnter:Connect(function()
+    TweenService:Create(boxEspToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
+end)
+boxEspToggleButton.MouseLeave:Connect(function()
+    TweenService:Create(boxEspToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
+end)
+
+-- ==================== GAMES CONTENT ====================
+local gamesContent = Instance.new("Frame")
+gamesContent.Name = "GamesContent"
+gamesContent.Size = UDim2.new(1, -24, 1, -114)
+gamesContent.Position = UDim2.new(0, 12, 0, 104)
+gamesContent.BackgroundTransparency = 1
+gamesContent.Visible = false
+gamesContent.Parent = mainFrame
+
+local brainrotGameButton = Instance.new("TextButton")
+brainrotGameButton.Name = "BrainrotGameButton"
+brainrotGameButton.Size = UDim2.new(1, -20, 0, 48)
+brainrotGameButton.Position = UDim2.new(0, 10, 0, 10)
+brainrotGameButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+brainrotGameButton.BackgroundTransparency = 0.2
+brainrotGameButton.Text = "Open scream for brainrots script"
+brainrotGameButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+brainrotGameButton.TextSize = 16
+brainrotGameButton.Font = Enum.Font.GothamBold
+brainrotGameButton.AutoButtonColor = false
+brainrotGameButton.Parent = gamesContent
+disableButtonSounds(brainrotGameButton)
+
+local brainrotGameCorner = Instance.new("UICorner")
+brainrotGameCorner.CornerRadius = UDim.new(0, 10)
+brainrotGameCorner.Parent = brainrotGameButton
+
+brainrotGameButton.MouseEnter:Connect(function()
+    TweenService:Create(brainrotGameButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
+end)
+brainrotGameButton.MouseLeave:Connect(function()
+    TweenService:Create(brainrotGameButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
+end)
+
+local breatheGameButton = Instance.new("TextButton")
+breatheGameButton.Name = "BreatheGameButton"
+breatheGameButton.Size = UDim2.new(1, -20, 0, 48)
+breatheGameButton.Position = UDim2.new(0, 10, 0, 68)
+breatheGameButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+breatheGameButton.BackgroundTransparency = 0.2
+breatheGameButton.Text = "Open +1 Brick Speed Escape script"
+breatheGameButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+breatheGameButton.TextSize = 16
+breatheGameButton.Font = Enum.Font.GothamBold
+breatheGameButton.AutoButtonColor = false
+breatheGameButton.Parent = gamesContent
+disableButtonSounds(breatheGameButton)
+
+local breatheGameCorner = Instance.new("UICorner")
+breatheGameCorner.CornerRadius = UDim.new(0, 10)
+breatheGameCorner.Parent = breatheGameButton
+
+breatheGameButton.MouseEnter:Connect(function()
+    TweenService:Create(breatheGameButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
+end)
+breatheGameButton.MouseLeave:Connect(function()
+    TweenService:Create(breatheGameButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
+end)
+
+local mm2GameButton = Instance.new("TextButton")
+mm2GameButton.Name = "MM2GameButton"
+mm2GameButton.Size = UDim2.new(1, -20, 0, 48)
+mm2GameButton.Position = UDim2.new(0, 10, 0, 126)
+mm2GameButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+mm2GameButton.BackgroundTransparency = 0.2
+mm2GameButton.Text = "Open MM2 script"
+mm2GameButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+mm2GameButton.TextSize = 16
+mm2GameButton.Font = Enum.Font.GothamBold
+mm2GameButton.AutoButtonColor = false
+mm2GameButton.Parent = gamesContent
+disableButtonSounds(mm2GameButton)
+
+local mm2GameCorner = Instance.new("UICorner")
+mm2GameCorner.CornerRadius = UDim.new(0, 10)
+mm2GameCorner.Parent = mm2GameButton
+
+mm2GameButton.MouseEnter:Connect(function()
+    TweenService:Create(mm2GameButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
+end)
+mm2GameButton.MouseLeave:Connect(function()
+    TweenService:Create(mm2GameButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
+end)
+
+-- ==================== BREATHE CONTENT (AutoTP) ====================
+local breatheContent = Instance.new("Frame")
+breatheContent.Name = "BreatheContent"
+breatheContent.Size = UDim2.new(1, -24, 1, -64)
+breatheContent.Position = UDim2.new(0, 12, 0, 54)
+breatheContent.BackgroundTransparency = 1
+breatheContent.Visible = false
+breatheContent.Parent = mainFrame
+
+local autoTPToggleButton = Instance.new("TextButton")
+autoTPToggleButton.Name = "AutoTPToggleButton"
+autoTPToggleButton.Size = UDim2.new(1, -20, 0, 55)
+autoTPToggleButton.Position = UDim2.new(0, 10, 0, 20)
+autoTPToggleButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+autoTPToggleButton.BackgroundTransparency = 0.2
+autoTPToggleButton.Text = "AutoTP: OFF"
+autoTPToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+autoTPToggleButton.TextSize = 18
+autoTPToggleButton.Font = Enum.Font.GothamBold
+autoTPToggleButton.AutoButtonColor = false
+autoTPToggleButton.Parent = breatheContent
+disableButtonSounds(autoTPToggleButton)
+
+local autoTPToggleCorner = Instance.new("UICorner")
+autoTPToggleCorner.CornerRadius = UDim.new(0, 10)
+autoTPToggleCorner.Parent = autoTPToggleButton
+
+local autoTPToggleIndicator = Instance.new("Frame")
+autoTPToggleIndicator.Name = "AutoTPToggleIndicator"
+autoTPToggleIndicator.Size = UDim2.new(0, 40, 0, 30)
+autoTPToggleIndicator.Position = UDim2.new(1, -55, 0.5, -15)
+autoTPToggleIndicator.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+autoTPToggleIndicator.BorderSizePixel = 0
+autoTPToggleIndicator.Parent = autoTPToggleButton
+
+local autoTPIndicatorCorner = Instance.new("UICorner")
+autoTPIndicatorCorner.CornerRadius = UDim.new(1, 0)
+autoTPIndicatorCorner.Parent = autoTPToggleIndicator
+
+local autoTPIndicatorCircle = Instance.new("Frame")
+autoTPIndicatorCircle.Name = "AutoTPIndicatorCircle"
+autoTPIndicatorCircle.Size = UDim2.new(0, 26, 0, 26)
+autoTPIndicatorCircle.Position = UDim2.new(0, 3, 0.5, -13)
+autoTPIndicatorCircle.BackgroundColor3 = Color3.fromRGB(200, 70, 70)
+autoTPIndicatorCircle.BorderSizePixel = 0
+autoTPIndicatorCircle.Parent = autoTPToggleIndicator
+
+local autoTPCircleCorner = Instance.new("UICorner")
+autoTPCircleCorner.CornerRadius = UDim.new(1, 0)
+autoTPCircleCorner.Parent = autoTPIndicatorCircle
+
+local function updateAutoTPUI()
+    if autoTPEnabled then
         autoTPToggleButton.Text = "AutoTP: ON"
         autoTPToggleIndicator.BackgroundColor3 = Color3.fromRGB(70, 150, 70)
         autoTPIndicatorCircle.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
         autoTPIndicatorCircle.Position = UDim2.new(0, 11, 0.5, -13)
+    else
+        autoTPToggleButton.Text = "AutoTP: OFF"
+        autoTPToggleIndicator.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+        autoTPIndicatorCircle.BackgroundColor3 = Color3.fromRGB(200, 70, 70)
+        autoTPIndicatorCircle.Position = UDim2.new(0, 3, 0.5, -13)
     end
 end
 
 autoTPToggleButton.MouseButton1Click:Connect(function()
     toggleAutoTP()
+    updateAutoTPUI()
 end)
 
 autoTPToggleButton.MouseEnter:Connect(function()
@@ -1044,7 +1295,7 @@ autoTPToggleButton.MouseLeave:Connect(function()
     TweenService:Create(autoTPToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
 end)
 
--- MM2 Content (EMPTY)
+-- ==================== MM2 CONTENT ====================
 local mm2Content = Instance.new("Frame")
 mm2Content.Name = "MM2Content"
 mm2Content.Size = UDim2.new(1, -24, 1, -64)
@@ -1053,7 +1304,6 @@ mm2Content.BackgroundTransparency = 1
 mm2Content.Visible = false
 mm2Content.Parent = mainFrame
 
--- Empty placeholder text
 local mm2Placeholder = Instance.new("TextLabel")
 mm2Placeholder.Size = UDim2.new(1, -20, 0, 30)
 mm2Placeholder.Position = UDim2.new(0, 10, 0, 20)
@@ -1065,6 +1315,7 @@ mm2Placeholder.Font = Enum.Font.Gotham
 mm2Placeholder.TextXAlignment = Enum.TextXAlignment.Center
 mm2Placeholder.Parent = mm2Content
 
+-- ==================== BRAINROT CONTENT ====================
 local brainrotContent = Instance.new("Frame")
 brainrotContent.Name = "BrainrotContent"
 brainrotContent.Size = UDim2.new(1, -24, 1, -64)
@@ -1104,6 +1355,7 @@ farmButton.MouseButton1Click:Connect(function()
     end)
 end)
 
+-- ==================== SETTINGS CONTENT ====================
 local settingsContent = Instance.new("Frame")
 settingsContent.Name = "SettingsContent"
 settingsContent.Size = UDim2.new(1, -24, 1, -114)
@@ -1203,6 +1455,7 @@ themesButton.MouseLeave:Connect(function()
     TweenService:Create(themesButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
 end)
 
+-- ==================== THEMES CONTENT ====================
 local themesContent = Instance.new("Frame")
 themesContent.Name = "ThemesContent"
 themesContent.Size = UDim2.new(1, -24, 1, -64)
@@ -1432,139 +1685,6 @@ local noClipCircleCorner = Instance.new("UICorner")
 noClipCircleCorner.CornerRadius = UDim.new(1, 0)
 noClipCircleCorner.Parent = noClipIndicatorCircle
 
-local function toggleNoClip()
-    noClipEnabled = not noClipEnabled
-    
-    if noClipEnabled then
-        local char = LocalPlayer.Character
-        if char then
-            for _, part in pairs(char:GetDescendants()) do
-                if part:IsA("BasePart") then
-                    if not originalCanCollide[part] then
-                        originalCanCollide[part] = part.CanCollide
-                    end
-                    part.CanCollide = false
-                end
-            end
-        end
-        
-        noClipToggleButton.Text = "No Clip: ON"
-        noClipIndicator.BackgroundColor3 = Color3.fromRGB(70, 150, 70)
-        noClipIndicatorCircle.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
-        noClipIndicatorCircle.Position = UDim2.new(0, 11, 0.5, -13)
-    else
-        for part, canCollide in pairs(originalCanCollide) do
-            if part and part.Parent then
-                part.CanCollide = canCollide
-            end
-        end
-        originalCanCollide = {}
-        
-        noClipToggleButton.Text = "No Clip: OFF"
-        noClipIndicator.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
-        noClipIndicatorCircle.BackgroundColor3 = Color3.fromRGB(200, 70, 70)
-        noClipIndicatorCircle.Position = UDim2.new(0, 3, 0.5, -13)
-    end
-end
-
-noClipToggleButton.MouseButton1Click:Connect(function()
-    toggleNoClip()
-end)
-
-noClipToggleButton.MouseEnter:Connect(function()
-    TweenService:Create(noClipToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
-end)
-noClipToggleButton.MouseLeave:Connect(function()
-    TweenService:Create(noClipToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
-end)
-
-local function startFly()
-    local char = LocalPlayer.Character
-    if not char then return end
-    
-    local humanoid = char:FindFirstChildOfClass("Humanoid")
-    if not humanoid then return end
-    
-    humanoid.PlatformStand = true
-    
-    bodyVelocity = Instance.new("BodyVelocity")
-    bodyVelocity.MaxForce = Vector3.new(1e6, 1e6, 1e6)
-    bodyVelocity.Velocity = Vector3.new(0, 0, 0)
-    bodyVelocity.Parent = char:WaitForChild("HumanoidRootPart")
-    
-    bodyGyro = Instance.new("BodyGyro")
-    bodyGyro.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
-    bodyGyro.Parent = char:WaitForChild("HumanoidRootPart")
-    
-    flying = true
-    
-    RunService:BindToRenderStep("FlyMovement", 0, function()
-        if not flying or not LocalPlayer.Character then return end
-        
-        local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if not hrp or not bodyVelocity or not bodyGyro then return end
-        
-        local camera = workspace.CurrentCamera
-        local moveDirection = Vector3.new(0, 0, 0)
-        
-        if UserInputService:IsKeyDown(Enum.KeyCode.W) then
-            moveDirection = moveDirection + camera.CFrame.LookVector
-        end
-        if UserInputService:IsKeyDown(Enum.KeyCode.S) then
-            moveDirection = moveDirection - camera.CFrame.LookVector
-        end
-        if UserInputService:IsKeyDown(Enum.KeyCode.A) then
-            moveDirection = moveDirection - camera.CFrame.RightVector
-        end
-        if UserInputService:IsKeyDown(Enum.KeyCode.D) then
-            moveDirection = moveDirection + camera.CFrame.RightVector
-        end
-        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-            moveDirection = moveDirection + Vector3.new(0, 1, 0)
-        end
-        if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
-            moveDirection = moveDirection - Vector3.new(0, 1, 0)
-        end
-        
-        if moveDirection.Magnitude > 0 then
-            moveDirection = moveDirection.Unit * flySpeed
-        end
-        
-        bodyVelocity.Velocity = moveDirection
-        bodyGyro.CFrame = camera.CFrame
-    end)
-end
-
-local function stopFly()
-    flying = false
-    RunService:UnbindFromRenderStep("FlyMovement")
-    
-    if bodyVelocity then
-        bodyVelocity:Destroy()
-        bodyVelocity = nil
-    end
-    if bodyGyro then
-        bodyGyro:Destroy()
-        bodyGyro = nil
-    end
-    
-    local char = LocalPlayer.Character
-    if char then
-        local humanoid = char:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            humanoid.PlatformStand = false
-        end
-    end
-end
-
-local function toggleFly()
-    if flying then
-        stopFly()
-    else
-        startFly()
-    end
-end
-
 local function updateFlyUI()
     if flying then
         flyToggleButton.Text = "Fly Mode: ON"
@@ -1576,6 +1696,20 @@ local function updateFlyUI()
         flyToggleIndicator.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
         flyIndicatorCircle.BackgroundColor3 = Color3.fromRGB(200, 70, 70)
         flyIndicatorCircle.Position = UDim2.new(0, 3, 0.5, -13)
+    end
+end
+
+local function updateNoClipUI()
+    if noClipEnabled then
+        noClipToggleButton.Text = "No Clip: ON"
+        noClipIndicator.BackgroundColor3 = Color3.fromRGB(70, 150, 70)
+        noClipIndicatorCircle.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
+        noClipIndicatorCircle.Position = UDim2.new(0, 11, 0.5, -13)
+    else
+        noClipToggleButton.Text = "No Clip: OFF"
+        noClipIndicator.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+        noClipIndicatorCircle.BackgroundColor3 = Color3.fromRGB(200, 70, 70)
+        noClipIndicatorCircle.Position = UDim2.new(0, 3, 0.5, -13)
     end
 end
 
@@ -1591,26 +1725,23 @@ flyToggleButton.MouseLeave:Connect(function()
     TweenService:Create(flyToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
 end)
 
+noClipToggleButton.MouseButton1Click:Connect(function()
+    toggleNoClip()
+    updateNoClipUI()
+end)
+
+noClipToggleButton.MouseEnter:Connect(function()
+    TweenService:Create(noClipToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
+end)
+noClipToggleButton.MouseLeave:Connect(function()
+    TweenService:Create(noClipToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
+end)
+
+-- ==================== CHARACTER ADDED HANDLER ====================
 local function onCharacterAddedForNoClip(char)
+    task.wait(0.1)
     if noClipEnabled then
-        task.wait(0.1)
-        for _, part in pairs(char:GetDescendants()) do
-            if part:IsA("BasePart") then
-                if not originalCanCollide[part] then
-                    originalCanCollide[part] = part.CanCollide
-                end
-                part.CanCollide = false
-            end
-        end
-        
-        char.ChildAdded:Connect(function(child)
-            if noClipEnabled and child:IsA("BasePart") then
-                if not originalCanCollide[child] then
-                    originalCanCollide[child] = child.CanCollide
-                end
-                child.CanCollide = false
-            end
-        end)
+        applyNoClipToCharacter(char)
     end
 end
 
@@ -1631,7 +1762,7 @@ LocalPlayer.CharacterAdded:Connect(function(char)
     onCharacterAddedForNoClip(char)
 end)
 
--- ==================== AIMBOT CONTENT WITH PREDICTION ====================
+-- ==================== AIMBOT CONTENT ====================
 local aimbotContent = Instance.new("Frame")
 aimbotContent.Name = "AimbotContent"
 aimbotContent.Size = UDim2.new(1, -24, 1, -64)
@@ -1644,7 +1775,7 @@ local aimbotPlaceholder = Instance.new("TextLabel")
 aimbotPlaceholder.Size = UDim2.new(1, 0, 0, 30)
 aimbotPlaceholder.Position = UDim2.new(0, 0, 0, 20)
 aimbotPlaceholder.BackgroundTransparency = 1
-aimbotPlaceholder.Text = "(gay nigger)"
+aimbotPlaceholder.Text = "Aimbot Settings"
 aimbotPlaceholder.TextColor3 = Color3.fromRGB(200, 200, 210)
 aimbotPlaceholder.TextSize = 16
 aimbotPlaceholder.Font = Enum.Font.Gotham
@@ -2082,7 +2213,7 @@ RunService:BindToRenderStep("FOVUpdate", 1, function()
     end
 end)
 
--- UI State Functions
+-- ==================== UI STATE FUNCTIONS ====================
 local currentState = "mainTab"
 
 local function switchToMainTab()
@@ -2288,6 +2419,7 @@ local function switchToMM2UI()
     mm2Content.Visible = true
 end
 
+-- Tab click connections
 mainTab.MouseButton1Click:Connect(function()
     if currentState == "mainTab" then return end
     switchToMainTab()
@@ -2350,6 +2482,7 @@ backButton.MouseButton1Click:Connect(function()
     end
 end)
 
+-- ==================== DRAGGING ====================
 local dragging = false
 local dragStart, startPos
 
@@ -2375,3 +2508,9 @@ end)
 
 mainFrame.BackgroundTransparency = 0.35
 TweenService:Create(mainFrame, TweenInfo.new(0.3), {BackgroundTransparency = 0}):Play()
+
+-- Initial UI updates
+updateFlyUI()
+updateNoClipUI()
+updateESPUI()
+updateAutoTPUI()
