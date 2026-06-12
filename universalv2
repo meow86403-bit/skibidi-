@@ -6,460 +6,37 @@ local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 
--- ==================== VARIABLES ====================
+-- Fly Mode variables
 local flying = false
 local flySpeed = 150
 local bodyVelocity = nil
 local bodyGyro = nil
 
+-- No Clip variables
 local noClipEnabled = false
 local originalCanCollide = {}
-local noClipConnections = {}
-local noClipEnforcementConnection = nil
 
+-- Box ESP variables
 local boxEspEnabled = false
 local boxEspFrames = {}
 
+-- ESP variables
 local espEnabled = false
+local espLines = {}
 local espBoxes = {}
+local espNames = {}
 
+-- AutoTP variables
 local autoTPEnabled = false
 local autoTPConnection = nil
 local autoTPPosition = Vector3.new(5130, 699, -2560)
 local autoTPVelocity = nil
 local autoTPGyro = nil
 
+-- Minimize variables
 local isMinimized = false
 local minimizeCircle = nil
 
-local screenGui = nil
-
--- ==================== FORWARD DECLARATIONS ====================
-local toggleFly
-local toggleESP
-local toggleBoxESP
-local toggleAutoTP
-local toggleNoClip
-local stopFly
-local stopESP
-local stopBoxESP
-local stopAutoTP
-local updateFlyUI
-local updateNoClipUI
-local updateESPUI
-local updateAutoTPUI
-
--- ==================== NO CLIP FUNCTIONS ====================
-local function applyNoClipToPart(part)
-    if not noClipEnabled then return end
-    if not part:IsA("BasePart") then return end
-    if part:IsA("Terrain") then return end
-    if originalCanCollide[part] == nil then
-        originalCanCollide[part] = part.CanCollide
-    end
-    part.CanCollide = false
-end
-
-local function applyNoClipToCharacter(char)
-    if not char or not noClipEnabled then return end
-    for _, part in pairs(char:GetDescendants()) do
-        if part:IsA("BasePart") and not part:IsA("Terrain") then
-            if originalCanCollide[part] == nil then
-                originalCanCollide[part] = part.CanCollide
-            end
-            part.CanCollide = false
-        end
-    end
-    local partAddedConn = char.ChildAdded:Connect(function(child)
-        task.wait(0.05)
-        if noClipEnabled and child:IsA("BasePart") and not child:IsA("Terrain") then
-            if originalCanCollide[child] == nil then
-                originalCanCollide[child] = child.CanCollide
-            end
-            child.CanCollide = false
-        end
-    end)
-    local descendantConn = char.DescendantAdded:Connect(function(descendant)
-        task.wait(0.05)
-        if noClipEnabled and descendant:IsA("BasePart") and not descendant:IsA("Terrain") then
-            if originalCanCollide[descendant] == nil then
-                originalCanCollide[descendant] = descendant.CanCollide
-            end
-            descendant.CanCollide = false
-        end
-    end)
-    if noClipConnections[char] then
-        for _, conn in pairs(noClipConnections[char]) do
-            pcall(function() conn:Disconnect() end)
-        end
-    end
-    noClipConnections[char] = {partAddedConn, descendantConn}
-end
-
-local function restoreAllCollisions()
-    for part, originalValue in pairs(originalCanCollide) do
-        if part and part.Parent then
-            pcall(function() part.CanCollide = originalValue end)
-        end
-    end
-    originalCanCollide = {}
-end
-
-local function clearNoClipConnections()
-    for char, conns in pairs(noClipConnections) do
-        for _, conn in pairs(conns) do
-            pcall(function() conn:Disconnect() end)
-        end
-    end
-    noClipConnections = {}
-end
-
-local function startNoClipEnforcement()
-    if noClipEnforcementConnection then return end
-    noClipEnforcementConnection = RunService.Heartbeat:Connect(function()
-        if not noClipEnabled then return end
-        local char = LocalPlayer.Character
-        if not char then return end
-        for _, part in pairs(char:GetDescendants()) do
-            if part:IsA("BasePart") and not part:IsA("Terrain") then
-                if part.CanCollide == true then
-                    if originalCanCollide[part] == nil then
-                        originalCanCollide[part] = true
-                    end
-                    part.CanCollide = false
-                end
-            end
-        end
-    end)
-end
-
-local function stopNoClipEnforcement()
-    if noClipEnforcementConnection then
-        noClipEnforcementConnection:Disconnect()
-        noClipEnforcementConnection = nil
-    end
-end
-
-local function enableNoClip()
-    local char = LocalPlayer.Character
-    if char then applyNoClipToCharacter(char) end
-    startNoClipEnforcement()
-end
-
-local function disableNoClip()
-    stopNoClipEnforcement()
-    restoreAllCollisions()
-    clearNoClipConnections()
-end
-
-toggleNoClip = function()
-    noClipEnabled = not noClipEnabled
-    if noClipEnabled then enableNoClip() else disableNoClip() end
-    if updateNoClipUI then updateNoClipUI() end
-end
-
--- ==================== FLY FUNCTIONS ====================
-local function startFly()
-    local char = LocalPlayer.Character
-    if not char then return end
-    local humanoid = char:FindFirstChildOfClass("Humanoid")
-    if not humanoid then return end
-    humanoid.PlatformStand = true
-    bodyVelocity = Instance.new("BodyVelocity")
-    bodyVelocity.MaxForce = Vector3.new(1e6, 1e6, 1e6)
-    bodyVelocity.Velocity = Vector3.new(0, 0, 0)
-    bodyVelocity.Parent = char:WaitForChild("HumanoidRootPart")
-    bodyGyro = Instance.new("BodyGyro")
-    bodyGyro.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
-    bodyGyro.Parent = char:WaitForChild("HumanoidRootPart")
-    flying = true
-    RunService:BindToRenderStep("FlyMovement", 0, function()
-        if not flying or not LocalPlayer.Character then return end
-        local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if not hrp or not bodyVelocity or not bodyGyro then return end
-        local camera = workspace.CurrentCamera
-        local moveDirection = Vector3.new(0, 0, 0)
-        if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDirection = moveDirection + camera.CFrame.LookVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDirection = moveDirection - camera.CFrame.LookVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDirection = moveDirection - camera.CFrame.RightVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDirection = moveDirection + camera.CFrame.RightVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveDirection = moveDirection + Vector3.new(0, 1, 0) end
-        if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then moveDirection = moveDirection - Vector3.new(0, 1, 0) end
-        if moveDirection.Magnitude > 0 then moveDirection = moveDirection.Unit * flySpeed end
-        bodyVelocity.Velocity = moveDirection
-        bodyGyro.CFrame = camera.CFrame
-    end)
-end
-
-stopFly = function()
-    flying = false
-    RunService:UnbindFromRenderStep("FlyMovement")
-    if bodyVelocity then bodyVelocity:Destroy() bodyVelocity = nil end
-    if bodyGyro then bodyGyro:Destroy() bodyGyro = nil end
-    local char = LocalPlayer.Character
-    if char then
-        local humanoid = char:FindFirstChildOfClass("Humanoid")
-        if humanoid then humanoid.PlatformStand = false end
-    end
-end
-
-toggleFly = function()
-    if flying then stopFly() else startFly() end
-    if updateFlyUI then updateFlyUI() end
-end
-
--- ==================== ESP FUNCTIONS ====================
-local function createESP()
-    if not screenGui then return end
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            local char = player.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                local highlight = Instance.new("Highlight")
-                highlight.Name = "ESP_Highlight_" .. player.Name
-                highlight.Adornee = char
-                highlight.FillTransparency = 1
-                highlight.OutlineColor = Color3.fromRGB(255, 0, 0)
-                highlight.OutlineTransparency = 0
-                highlight.Parent = screenGui
-                espBoxes[player] = highlight
-            end
-        end
-    end
-end
-
-local function updateESP()
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            local char = player.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                if not espBoxes[player] or not espBoxes[player].Parent then
-                    if not screenGui then return end
-                    local highlight = Instance.new("Highlight")
-                    highlight.Name = "ESP_Highlight_" .. player.Name
-                    highlight.Adornee = char
-                    highlight.FillTransparency = 1
-                    highlight.OutlineColor = Color3.fromRGB(255, 0, 0)
-                    highlight.OutlineTransparency = 0
-                    highlight.Parent = screenGui
-                    espBoxes[player] = highlight
-                else
-                    espBoxes[player].Adornee = char
-                end
-            else
-                if espBoxes[player] then
-                    espBoxes[player]:Destroy()
-                    espBoxes[player] = nil
-                end
-            end
-        end
-    end
-end
-
-local function clearESP()
-    for _, box in pairs(espBoxes) do
-        pcall(function() box:Destroy() end)
-    end
-    espBoxes = {}
-end
-
-local function startESP()
-    espEnabled = true
-    createESP()
-    RunService:BindToRenderStep("ESPUpdate", 1, function()
-        if espEnabled then updateESP() end
-    end)
-end
-
-stopESP = function()
-    espEnabled = false
-    RunService:UnbindFromRenderStep("ESPUpdate")
-    clearESP()
-end
-
-toggleESP = function()
-    if espEnabled then stopESP() else startESP() end
-    if updateESPUI then updateESPUI() end
-end
-
--- ==================== BOX ESP FUNCTIONS ====================
-local function createBoxESP()
-    if not screenGui then return end
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            local char = player.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                local billboard = Instance.new("BillboardGui")
-                billboard.Name = "BoxESP_" .. player.Name
-                billboard.Adornee = char:FindFirstChild("HumanoidRootPart")
-                billboard.Size = UDim2.new(4, 0, 5.5, 0)
-                billboard.AlwaysOnTop = true
-                billboard.Parent = screenGui
-                local boxFrame = Instance.new("Frame")
-                boxFrame.Size = UDim2.new(1, 0, 1, 0)
-                boxFrame.BackgroundTransparency = 1
-                boxFrame.BorderSizePixel = 1
-                boxFrame.BorderColor3 = Color3.fromRGB(255, 255, 255)
-                boxFrame.Parent = billboard
-                local uiStroke = Instance.new("UIStroke")
-                uiStroke.Color = Color3.fromRGB(255, 255, 255)
-                uiStroke.Thickness = 1.5
-                uiStroke.Parent = boxFrame
-                boxEspFrames[player] = billboard
-            end
-        end
-    end
-end
-
-local function updateBoxESP()
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            local char = player.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                if not boxEspFrames[player] or not boxEspFrames[player].Parent then
-                    if not screenGui then return end
-                    local billboard = Instance.new("BillboardGui")
-                    billboard.Name = "BoxESP_" .. player.Name
-                    billboard.Adornee = char:FindFirstChild("HumanoidRootPart")
-                    billboard.Size = UDim2.new(4, 0, 5.5, 0)
-                    billboard.AlwaysOnTop = true
-                    billboard.Parent = screenGui
-                    local boxFrame = Instance.new("Frame")
-                    boxFrame.Size = UDim2.new(1, 0, 1, 0)
-                    boxFrame.BackgroundTransparency = 1
-                    boxFrame.BorderSizePixel = 1
-                    boxFrame.BorderColor3 = Color3.fromRGB(255, 255, 255)
-                    boxFrame.Parent = billboard
-                    local uiStroke = Instance.new("UIStroke")
-                    uiStroke.Color = Color3.fromRGB(255, 255, 255)
-                    uiStroke.Thickness = 1.5
-                    uiStroke.Parent = boxFrame
-                    boxEspFrames[player] = billboard
-                else
-                    boxEspFrames[player].Adornee = char:FindFirstChild("HumanoidRootPart")
-                end
-            else
-                if boxEspFrames[player] then
-                    boxEspFrames[player]:Destroy()
-                    boxEspFrames[player] = nil
-                end
-            end
-        end
-    end
-end
-
-local function clearBoxESP()
-    for _, box in pairs(boxEspFrames) do
-        pcall(function() box:Destroy() end)
-    end
-    boxEspFrames = {}
-end
-
-local function startBoxESP()
-    boxEspEnabled = true
-    createBoxESP()
-    RunService:BindToRenderStep("BoxESPUpdate", 1, function()
-        if boxEspEnabled then updateBoxESP() end
-    end)
-end
-
-stopBoxESP = function()
-    boxEspEnabled = false
-    RunService:UnbindFromRenderStep("BoxESPUpdate")
-    clearBoxESP()
-end
-
-toggleBoxESP = function()
-    if boxEspEnabled then stopBoxESP() else startBoxESP() end
-    if updateESPUI then updateESPUI() end
-end
-
--- ==================== AUTO TP FUNCTIONS ====================
-local function applyForwardVelocity()
-    local char = LocalPlayer.Character
-    if not char then return end
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-    local humanoid = char:FindFirstChildOfClass("Humanoid")
-    if humanoid then humanoid.PlatformStand = true end
-    if autoTPVelocity then autoTPVelocity:Destroy() end
-    if autoTPGyro then autoTPGyro:Destroy() end
-    autoTPVelocity = Instance.new("BodyVelocity")
-    autoTPVelocity.MaxForce = Vector3.new(1e6, 1e6, 1e6)
-    autoTPVelocity.Velocity = hrp.CFrame.LookVector * 200
-    autoTPVelocity.Parent = hrp
-    autoTPGyro = Instance.new("BodyGyro")
-    autoTPGyro.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
-    autoTPGyro.CFrame = CFrame.new(hrp.Position, hrp.Position + hrp.CFrame.LookVector)
-    autoTPGyro.Parent = hrp
-end
-
-local function stopForwardVelocity()
-    if autoTPVelocity then autoTPVelocity:Destroy() autoTPVelocity = nil end
-    if autoTPGyro then autoTPGyro:Destroy() autoTPGyro = nil end
-    local char = LocalPlayer.Character
-    if char then
-        local humanoid = char:FindFirstChildOfClass("Humanoid")
-        if humanoid then humanoid.PlatformStand = false end
-    end
-end
-
-local function teleportAndMove()
-    local char = LocalPlayer.Character
-    if not char then return end
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-    hrp.CFrame = CFrame.new(autoTPPosition)
-    if autoTPVelocity then autoTPVelocity:Destroy() autoTPVelocity = nil end
-    if autoTPGyro then autoTPGyro:Destroy() autoTPGyro = nil end
-    autoTPVelocity = Instance.new("BodyVelocity")
-    autoTPVelocity.MaxForce = Vector3.new(1e6, 1e6, 1e6)
-    autoTPVelocity.Velocity = hrp.CFrame.LookVector * 200
-    autoTPVelocity.Parent = hrp
-    autoTPGyro = Instance.new("BodyGyro")
-    autoTPGyro.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
-    autoTPGyro.CFrame = CFrame.new(hrp.Position, hrp.Position + hrp.CFrame.LookVector)
-    autoTPGyro.Parent = hrp
-end
-
-local function startAutoTP()
-    if autoTPEnabled then return end
-    autoTPEnabled = true
-    teleportAndMove()
-    autoTPConnection = RunService:BindToRenderStep("AutoTP", 0, function()
-        if autoTPEnabled then
-            teleportAndMove()
-            task.wait(0.5)
-        end
-    end)
-end
-
-stopAutoTP = function()
-    autoTPEnabled = false
-    if autoTPConnection then
-        RunService:UnbindFromRenderStep("AutoTP")
-        autoTPConnection = nil
-    end
-    stopForwardVelocity()
-end
-
-toggleAutoTP = function()
-    if autoTPEnabled then stopAutoTP() else startAutoTP() end
-    if updateAutoTPUI then updateAutoTPUI() end
-end
-
--- ==================== CREATE SCREEN GUI FIRST ====================
-screenGui = Instance.new("ScreenGui")
-screenGui.Name = "UniversalScriptGUI"
-screenGui.ResetOnSpawn = false
-screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-
-pcall(function() screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end)
-if not screenGui.Parent then
-    pcall(function() screenGui.Parent = game:GetService("CoreGui") end)
-end
-
--- ==================== DISABLE BUTTON SOUNDS ====================
 local function disableButtonSounds(button)
     button.AutoButtonColor = false
     for _, child in pairs(button:GetChildren()) do
@@ -469,7 +46,20 @@ local function disableButtonSounds(button)
     end
 end
 
--- ==================== MAIN FRAME ====================
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "UniversalScriptGUI"
+screenGui.ResetOnSpawn = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+pcall(function()
+    screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+end)
+if not screenGui.Parent then
+    pcall(function()
+        screenGui.Parent = game:GetService("CoreGui")
+    end)
+end
+
 local mainFrame = Instance.new("Frame")
 mainFrame.Name = "MainFrame"
 mainFrame.Size = UDim2.new(0, 420, 0, 420)
@@ -520,7 +110,6 @@ uiStroke.Color = Color3.fromRGB(70, 70, 80)
 uiStroke.Thickness = 1.2
 uiStroke.Parent = mainFrame
 
--- ==================== TOP BAR ====================
 local topBar = Instance.new("Frame")
 topBar.Name = "TopBar"
 topBar.Size = UDim2.new(1, 0, 0, 44)
@@ -614,9 +203,12 @@ closeButton.MouseLeave:Connect(function()
     TweenService:Create(closeButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(180, 40, 40)}):Play()
 end)
 
--- ==================== MINIMIZE FUNCTIONS ====================
 local function createMinimizeCircle()
-    if minimizeCircle then minimizeCircle:Destroy() minimizeCircle = nil end
+    if minimizeCircle then 
+        minimizeCircle:Destroy()
+        minimizeCircle = nil
+    end
+    
     minimizeCircle = Instance.new("TextButton")
     minimizeCircle.Name = "MinimizeCircle"
     minimizeCircle.Size = UDim2.new(0, 50, 0, 50)
@@ -631,15 +223,21 @@ local function createMinimizeCircle()
     minimizeCircle.Visible = true
     minimizeCircle.ZIndex = 10
     minimizeCircle.Parent = screenGui
+    
     local circleCorner = Instance.new("UICorner")
     circleCorner.CornerRadius = UDim.new(1, 0)
     circleCorner.Parent = minimizeCircle
+    
     local circleStroke = Instance.new("UIStroke")
     circleStroke.Color = Color3.fromRGB(0, 200, 255)
     circleStroke.Thickness = 2
     circleStroke.Parent = minimizeCircle
+    
     minimizeCircle.MouseButton1Click:Connect(function()
-        if minimizeCircle then minimizeCircle:Destroy() minimizeCircle = nil end
+        if minimizeCircle then
+            minimizeCircle:Destroy()
+            minimizeCircle = nil
+        end
         mainFrame.Visible = true
         isMinimized = false
     end)
@@ -652,20 +250,35 @@ local function minimizeGUI()
     isMinimized = true
 end
 
-minimizeButton.MouseButton1Click:Connect(function() minimizeGUI() end)
+minimizeButton.MouseButton1Click:Connect(function()
+    minimizeGUI()
+end)
 
--- ==================== CLOSE BUTTON ====================
 closeButton.MouseButton1Click:Connect(function()
-    if flying then toggleFly() end
-    if espEnabled then toggleESP() end
-    if boxEspEnabled then toggleBoxESP() end
-    if autoTPEnabled then toggleAutoTP() end
-    if noClipEnabled then toggleNoClip() end
-    if minimizeCircle then minimizeCircle:Destroy() minimizeCircle = nil end
+    if flying then
+        toggleFly()
+    end
+    if espEnabled then
+        toggleESP()
+    end
+    if boxEspEnabled then
+        toggleBoxESP()
+    end
+    if autoTPEnabled then
+        toggleAutoTP()
+    end
+    if noClipEnabled then
+        toggleNoClip()
+    end
+    
+    if minimizeCircle then
+        minimizeCircle:Destroy()
+        minimizeCircle = nil
+    end
+    
     screenGui:Destroy()
 end)
 
--- ==================== TAB BAR ====================
 local tabBar = Instance.new("Frame")
 tabBar.Name = "TabBar"
 tabBar.Size = UDim2.new(1, -24, 0, 40)
@@ -745,7 +358,6 @@ local settingsTabCorner = Instance.new("UICorner")
 settingsTabCorner.CornerRadius = UDim.new(1, 0)
 settingsTabCorner.Parent = settingsTab
 
--- Tab hover effects
 mainTab.MouseEnter:Connect(function()
     if mainTab.BackgroundColor3 ~= Color3.fromRGB(0, 150, 200) then
         TweenService:Create(mainTab, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.2}):Play()
@@ -756,6 +368,7 @@ mainTab.MouseLeave:Connect(function()
         TweenService:Create(mainTab, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.3}):Play()
     end
 end)
+
 espTab.MouseEnter:Connect(function()
     if espTab.BackgroundColor3 ~= Color3.fromRGB(0, 150, 200) then
         TweenService:Create(espTab, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.2}):Play()
@@ -766,6 +379,7 @@ espTab.MouseLeave:Connect(function()
         TweenService:Create(espTab, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.3}):Play()
     end
 end)
+
 gamesTab.MouseEnter:Connect(function()
     if gamesTab.BackgroundColor3 ~= Color3.fromRGB(0, 150, 200) then
         TweenService:Create(gamesTab, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.2}):Play()
@@ -776,6 +390,7 @@ gamesTab.MouseLeave:Connect(function()
         TweenService:Create(gamesTab, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.3}):Play()
     end
 end)
+
 settingsTab.MouseEnter:Connect(function()
     if settingsTab.BackgroundColor3 ~= Color3.fromRGB(0, 150, 200) then
         TweenService:Create(settingsTab, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.2}):Play()
@@ -787,7 +402,6 @@ settingsTab.MouseLeave:Connect(function()
     end
 end)
 
--- ==================== MAIN CONTENT ====================
 local mainContent = Instance.new("Frame")
 mainContent.Name = "MainContent"
 mainContent.Size = UDim2.new(1, -24, 1, -114)
@@ -846,7 +460,7 @@ openAimbotButton.MouseLeave:Connect(function()
     TweenService:Create(openAimbotButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
 end)
 
--- ==================== ESP CONTENT ====================
+-- ==================== ESP CONTENT WITH DIVIDER LINE ====================
 local espContent = Instance.new("Frame")
 espContent.Name = "EspContent"
 espContent.Size = UDim2.new(1, -24, 1, -114)
@@ -855,6 +469,7 @@ espContent.BackgroundTransparency = 1
 espContent.Visible = false
 espContent.Parent = mainFrame
 
+-- ESP Toggle Button
 local espToggleButton = Instance.new("TextButton")
 espToggleButton.Name = "EspToggleButton"
 espToggleButton.Size = UDim2.new(1, -20, 0, 55)
@@ -897,6 +512,7 @@ local espCircleCorner = Instance.new("UICorner")
 espCircleCorner.CornerRadius = UDim.new(1, 0)
 espCircleCorner.Parent = espIndicatorCircle
 
+-- Box ESP Toggle Button
 local boxEspToggleButton = Instance.new("TextButton")
 boxEspToggleButton.Name = "BoxEspToggleButton"
 boxEspToggleButton.Size = UDim2.new(1, -20, 0, 55)
@@ -939,6 +555,7 @@ local boxEspCircleCorner = Instance.new("UICorner")
 boxEspCircleCorner.CornerRadius = UDim.new(1, 0)
 boxEspCircleCorner.Parent = boxEspIndicatorCircle
 
+-- Divider Line under Box ESP
 local espDividerLine = Instance.new("Frame")
 espDividerLine.Name = "EspDividerLine"
 espDividerLine.Size = UDim2.new(1, -20, 0, 1)
@@ -947,7 +564,224 @@ espDividerLine.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
 espDividerLine.BorderSizePixel = 0
 espDividerLine.Parent = espContent
 
--- ==================== GAMES CONTENT ====================
+-- ESP Functions
+local function createESP()
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local char = player.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local highlight = Instance.new("Highlight")
+                highlight.Name = "ESP_Highlight_" .. player.Name
+                highlight.Adornee = char
+                highlight.FillTransparency = 1
+                highlight.OutlineColor = Color3.fromRGB(255, 0, 0)
+                highlight.OutlineTransparency = 0
+                highlight.Parent = screenGui
+                espBoxes[player] = highlight
+            end
+        end
+    end
+end
+
+local function updateESP()
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local char = player.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                if not espBoxes[player] or not espBoxes[player].Parent then
+                    local highlight = Instance.new("Highlight")
+                    highlight.Name = "ESP_Highlight_" .. player.Name
+                    highlight.Adornee = char
+                    highlight.FillTransparency = 1
+                    highlight.OutlineColor = Color3.fromRGB(255, 0, 0)
+                    highlight.OutlineTransparency = 0
+                    highlight.Parent = screenGui
+                    espBoxes[player] = highlight
+                else
+                    espBoxes[player].Adornee = char
+                end
+            else
+                if espBoxes[player] then
+                    espBoxes[player]:Destroy()
+                    espBoxes[player] = nil
+                end
+            end
+        end
+    end
+end
+
+local function clearESP()
+    for _, box in pairs(espBoxes) do
+        pcall(function() box:Destroy() end)
+    end
+    espBoxes = {}
+end
+
+local function startESP()
+    espEnabled = true
+    createESP()
+    
+    RunService:BindToRenderStep("ESPUpdate", 1, function()
+        if espEnabled then
+            updateESP()
+        end
+    end)
+end
+
+local function stopESP()
+    espEnabled = false
+    RunService:UnbindFromRenderStep("ESPUpdate")
+    clearESP()
+end
+
+local function toggleESP()
+    if espEnabled then
+        stopESP()
+        espToggleButton.Text = "ESP: OFF"
+        espToggleIndicator.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+        espIndicatorCircle.BackgroundColor3 = Color3.fromRGB(200, 70, 70)
+        espIndicatorCircle.Position = UDim2.new(0, 3, 0.5, -13)
+    else
+        startESP()
+        espToggleButton.Text = "ESP: ON"
+        espToggleIndicator.BackgroundColor3 = Color3.fromRGB(70, 150, 70)
+        espIndicatorCircle.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
+        espIndicatorCircle.Position = UDim2.new(0, 11, 0.5, -13)
+    end
+end
+
+espToggleButton.MouseButton1Click:Connect(function()
+    toggleESP()
+end)
+
+espToggleButton.MouseEnter:Connect(function()
+    TweenService:Create(espToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
+end)
+espToggleButton.MouseLeave:Connect(function()
+    TweenService:Create(espToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
+end)
+
+-- Box ESP Functions
+local function createBoxESP()
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local char = player.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local billboard = Instance.new("BillboardGui")
+                billboard.Name = "BoxESP_" .. player.Name
+                billboard.Adornee = char:FindFirstChild("HumanoidRootPart")
+                billboard.Size = UDim2.new(4, 0, 5.5, 0)
+                billboard.AlwaysOnTop = true
+                billboard.Parent = screenGui
+                
+                local boxFrame = Instance.new("Frame")
+                boxFrame.Size = UDim2.new(1, 0, 1, 0)
+                boxFrame.BackgroundTransparency = 1
+                boxFrame.BorderSizePixel = 1
+                boxFrame.BorderColor3 = Color3.fromRGB(255, 255, 255)
+                boxFrame.Parent = billboard
+                
+                local uiStroke = Instance.new("UIStroke")
+                uiStroke.Color = Color3.fromRGB(255, 255, 255)
+                uiStroke.Thickness = 1.5
+                uiStroke.Parent = boxFrame
+
+                boxEspFrames[player] = billboard
+            end
+        end
+    end
+end
+
+local function updateBoxESP()
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local char = player.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                if not boxEspFrames[player] or not boxEspFrames[player].Parent then
+                    local billboard = Instance.new("BillboardGui")
+                    billboard.Name = "BoxESP_" .. player.Name
+                    billboard.Adornee = char:FindFirstChild("HumanoidRootPart")
+                    billboard.Size = UDim2.new(4, 0, 5.5, 0)
+                    billboard.AlwaysOnTop = true
+                    billboard.Parent = screenGui
+                    
+                    local boxFrame = Instance.new("Frame")
+                    boxFrame.Size = UDim2.new(1, 0, 1, 0)
+                    boxFrame.BackgroundTransparency = 1
+                    boxFrame.BorderSizePixel = 1
+                    boxFrame.BorderColor3 = Color3.fromRGB(255, 255, 255)
+                    boxFrame.Parent = billboard
+                    
+                    local uiStroke = Instance.new("UIStroke")
+                    uiStroke.Color = Color3.fromRGB(255, 255, 255)
+                    uiStroke.Thickness = 1.5
+                    uiStroke.Parent = boxFrame
+
+                    boxEspFrames[player] = billboard
+                else
+                    boxEspFrames[player].Adornee = char:FindFirstChild("HumanoidRootPart")
+                end
+            else
+                if boxEspFrames[player] then
+                    boxEspFrames[player]:Destroy()
+                    boxEspFrames[player] = nil
+                end
+            end
+        end
+    end
+end
+
+local function clearBoxESP()
+    for _, box in pairs(boxEspFrames) do
+        pcall(function() box:Destroy() end)
+    end
+    boxEspFrames = {}
+end
+
+local function startBoxESP()
+    boxEspEnabled = true
+    createBoxESP()
+    
+    RunService:BindToRenderStep("BoxESPUpdate", 1, function()
+        if boxEspEnabled then
+            updateBoxESP()
+        end
+    end)
+end
+
+local function stopBoxESP()
+    boxEspEnabled = false
+    RunService:UnbindFromRenderStep("BoxESPUpdate")
+    clearBoxESP()
+end
+
+local function toggleBoxESP()
+    if boxEspEnabled then
+        stopBoxESP()
+        boxEspToggleButton.Text = "Box ESP: OFF"
+        boxEspToggleIndicator.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+        boxEspIndicatorCircle.BackgroundColor3 = Color3.fromRGB(200, 70, 70)
+        boxEspIndicatorCircle.Position = UDim2.new(0, 3, 0.5, -13)
+    else
+        startBoxESP()
+        boxEspToggleButton.Text = "Box ESP: ON"
+        boxEspToggleIndicator.BackgroundColor3 = Color3.fromRGB(70, 150, 70)
+        boxEspIndicatorCircle.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
+        boxEspIndicatorCircle.Position = UDim2.new(0, 11, 0.5, -13)
+    end
+end
+
+boxEspToggleButton.MouseButton1Click:Connect(function()
+    toggleBoxESP()
+end)
+
+boxEspToggleButton.MouseEnter:Connect(function()
+    TweenService:Create(boxEspToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
+end)
+boxEspToggleButton.MouseLeave:Connect(function()
+    TweenService:Create(boxEspToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
+end)
+
 local gamesContent = Instance.new("Frame")
 gamesContent.Name = "GamesContent"
 gamesContent.Size = UDim2.new(1, -24, 1, -114)
@@ -1006,6 +840,7 @@ breatheGameButton.MouseLeave:Connect(function()
     TweenService:Create(breatheGameButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
 end)
 
+-- MM2 Game Button
 local mm2GameButton = Instance.new("TextButton")
 mm2GameButton.Name = "MM2GameButton"
 mm2GameButton.Size = UDim2.new(1, -20, 0, 48)
@@ -1031,7 +866,6 @@ mm2GameButton.MouseLeave:Connect(function()
     TweenService:Create(mm2GameButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
 end)
 
--- ==================== BREATHE CONTENT (AutoTP) ====================
 local breatheContent = Instance.new("Frame")
 breatheContent.Name = "BreatheContent"
 breatheContent.Size = UDim2.new(1, -24, 1, -64)
@@ -1082,7 +916,135 @@ local autoTPCircleCorner = Instance.new("UICorner")
 autoTPCircleCorner.CornerRadius = UDim.new(1, 0)
 autoTPCircleCorner.Parent = autoTPIndicatorCircle
 
--- ==================== MM2 CONTENT ====================
+local function applyForwardVelocity()
+    local char = LocalPlayer.Character
+    if not char then return end
+    
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        humanoid.PlatformStand = true
+    end
+    
+    if autoTPVelocity then
+        autoTPVelocity:Destroy()
+    end
+    if autoTPGyro then
+        autoTPGyro:Destroy()
+    end
+    
+    autoTPVelocity = Instance.new("BodyVelocity")
+    autoTPVelocity.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+    autoTPVelocity.Velocity = hrp.CFrame.LookVector * 200
+    autoTPVelocity.Parent = hrp
+    
+    autoTPGyro = Instance.new("BodyGyro")
+    autoTPGyro.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
+    autoTPGyro.CFrame = CFrame.new(hrp.Position, hrp.Position + hrp.CFrame.LookVector)
+    autoTPGyro.Parent = hrp
+end
+
+local function stopForwardVelocity()
+    if autoTPVelocity then
+        autoTPVelocity:Destroy()
+        autoTPVelocity = nil
+    end
+    if autoTPGyro then
+        autoTPGyro:Destroy()
+        autoTPGyro = nil
+    end
+    
+    local char = LocalPlayer.Character
+    if char then
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.PlatformStand = false
+        end
+    end
+end
+
+local function teleportAndMove()
+    local char = LocalPlayer.Character
+    if not char then return end
+    
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    
+    hrp.CFrame = CFrame.new(autoTPPosition)
+    
+    if autoTPVelocity then
+        autoTPVelocity:Destroy()
+        autoTPVelocity = nil
+    end
+    if autoTPGyro then
+        autoTPGyro:Destroy()
+        autoTPGyro = nil
+    end
+    
+    autoTPVelocity = Instance.new("BodyVelocity")
+    autoTPVelocity.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+    autoTPVelocity.Velocity = hrp.CFrame.LookVector * 200
+    autoTPVelocity.Parent = hrp
+    
+    autoTPGyro = Instance.new("BodyGyro")
+    autoTPGyro.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
+    autoTPGyro.CFrame = CFrame.new(hrp.Position, hrp.Position + hrp.CFrame.LookVector)
+    autoTPGyro.Parent = hrp
+end
+
+local function startAutoTP()
+    if autoTPEnabled then return end
+    autoTPEnabled = true
+    
+    teleportAndMove()
+    
+    autoTPConnection = RunService:BindToRenderStep("AutoTP", 0, function()
+        if autoTPEnabled then
+            teleportAndMove()
+            task.wait(0.5)
+        end
+    end)
+end
+
+local function stopAutoTP()
+    autoTPEnabled = false
+    if autoTPConnection then
+        RunService:UnbindFromRenderStep("AutoTP")
+        autoTPConnection = nil
+    end
+    stopForwardVelocity()
+end
+
+local function toggleAutoTP()
+    if autoTPEnabled then
+        stopAutoTP()
+        autoTPToggleButton.Text = "AutoTP: OFF"
+        autoTPToggleIndicator.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+        autoTPIndicatorCircle.BackgroundColor3 = Color3.fromRGB(200, 70, 70)
+        autoTPIndicatorCircle.Position = UDim2.new(0, 3, 0.5, -13)
+    else
+        startAutoTP()
+        autoTPToggleButton.Text = "AutoTP: ON"
+        autoTPToggleIndicator.BackgroundColor3 = Color3.fromRGB(70, 150, 70)
+        autoTPIndicatorCircle.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
+        autoTPIndicatorCircle.Position = UDim2.new(0, 11, 0.5, -13)
+    end
+end
+
+autoTPToggleButton.MouseButton1Click:Connect(function()
+    toggleAutoTP()
+end)
+
+autoTPToggleButton.MouseEnter:Connect(function()
+    TweenService:Create(autoTPToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
+end)
+autoTPToggleButton.MouseLeave:Connect(function()
+    TweenService:Create(autoTPToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
+end)
+
+-- MM2 Content (EMPTY)
 local mm2Content = Instance.new("Frame")
 mm2Content.Name = "MM2Content"
 mm2Content.Size = UDim2.new(1, -24, 1, -64)
@@ -1091,6 +1053,7 @@ mm2Content.BackgroundTransparency = 1
 mm2Content.Visible = false
 mm2Content.Parent = mainFrame
 
+-- Empty placeholder text
 local mm2Placeholder = Instance.new("TextLabel")
 mm2Placeholder.Size = UDim2.new(1, -20, 0, 30)
 mm2Placeholder.Position = UDim2.new(0, 10, 0, 20)
@@ -1102,7 +1065,6 @@ mm2Placeholder.Font = Enum.Font.Gotham
 mm2Placeholder.TextXAlignment = Enum.TextXAlignment.Center
 mm2Placeholder.Parent = mm2Content
 
--- ==================== BRAINROT CONTENT ====================
 local brainrotContent = Instance.new("Frame")
 brainrotContent.Name = "BrainrotContent"
 brainrotContent.Size = UDim2.new(1, -24, 1, -64)
@@ -1142,7 +1104,6 @@ farmButton.MouseButton1Click:Connect(function()
     end)
 end)
 
--- ==================== SETTINGS CONTENT ====================
 local settingsContent = Instance.new("Frame")
 settingsContent.Name = "SettingsContent"
 settingsContent.Size = UDim2.new(1, -24, 1, -114)
@@ -1242,7 +1203,6 @@ themesButton.MouseLeave:Connect(function()
     TweenService:Create(themesButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
 end)
 
--- ==================== THEMES CONTENT ====================
 local themesContent = Instance.new("Frame")
 themesContent.Name = "ThemesContent"
 themesContent.Size = UDim2.new(1, -24, 1, -64)
@@ -1472,8 +1432,140 @@ local noClipCircleCorner = Instance.new("UICorner")
 noClipCircleCorner.CornerRadius = UDim.new(1, 0)
 noClipCircleCorner.Parent = noClipIndicatorCircle
 
--- ==================== UI UPDATE FUNCTIONS ====================
-updateFlyUI = function()
+local function toggleNoClip()
+    noClipEnabled = not noClipEnabled
+    
+    if noClipEnabled then
+        local char = LocalPlayer.Character
+        if char then
+            for _, part in pairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    if not originalCanCollide[part] then
+                        originalCanCollide[part] = part.CanCollide
+                    end
+                    part.CanCollide = false
+                end
+            end
+        end
+        
+        noClipToggleButton.Text = "No Clip: ON"
+        noClipIndicator.BackgroundColor3 = Color3.fromRGB(70, 150, 70)
+        noClipIndicatorCircle.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
+        noClipIndicatorCircle.Position = UDim2.new(0, 11, 0.5, -13)
+    else
+        for part, canCollide in pairs(originalCanCollide) do
+            if part and part.Parent then
+                part.CanCollide = canCollide
+            end
+        end
+        originalCanCollide = {}
+        
+        noClipToggleButton.Text = "No Clip: OFF"
+        noClipIndicator.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+        noClipIndicatorCircle.BackgroundColor3 = Color3.fromRGB(200, 70, 70)
+        noClipIndicatorCircle.Position = UDim2.new(0, 3, 0.5, -13)
+    end
+end
+
+noClipToggleButton.MouseButton1Click:Connect(function()
+    toggleNoClip()
+end)
+
+noClipToggleButton.MouseEnter:Connect(function()
+    TweenService:Create(noClipToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
+end)
+noClipToggleButton.MouseLeave:Connect(function()
+    TweenService:Create(noClipToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
+end)
+
+local function startFly()
+    local char = LocalPlayer.Character
+    if not char then return end
+    
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if not humanoid then return end
+    
+    humanoid.PlatformStand = true
+    
+    bodyVelocity = Instance.new("BodyVelocity")
+    bodyVelocity.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+    bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+    bodyVelocity.Parent = char:WaitForChild("HumanoidRootPart")
+    
+    bodyGyro = Instance.new("BodyGyro")
+    bodyGyro.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
+    bodyGyro.Parent = char:WaitForChild("HumanoidRootPart")
+    
+    flying = true
+    
+    RunService:BindToRenderStep("FlyMovement", 0, function()
+        if not flying or not LocalPlayer.Character then return end
+        
+        local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if not hrp or not bodyVelocity or not bodyGyro then return end
+        
+        local camera = workspace.CurrentCamera
+        local moveDirection = Vector3.new(0, 0, 0)
+        
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+            moveDirection = moveDirection + camera.CFrame.LookVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+            moveDirection = moveDirection - camera.CFrame.LookVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+            moveDirection = moveDirection - camera.CFrame.RightVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+            moveDirection = moveDirection + camera.CFrame.RightVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+            moveDirection = moveDirection + Vector3.new(0, 1, 0)
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+            moveDirection = moveDirection - Vector3.new(0, 1, 0)
+        end
+        
+        if moveDirection.Magnitude > 0 then
+            moveDirection = moveDirection.Unit * flySpeed
+        end
+        
+        bodyVelocity.Velocity = moveDirection
+        bodyGyro.CFrame = camera.CFrame
+    end)
+end
+
+local function stopFly()
+    flying = false
+    RunService:UnbindFromRenderStep("FlyMovement")
+    
+    if bodyVelocity then
+        bodyVelocity:Destroy()
+        bodyVelocity = nil
+    end
+    if bodyGyro then
+        bodyGyro:Destroy()
+        bodyGyro = nil
+    end
+    
+    local char = LocalPlayer.Character
+    if char then
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.PlatformStand = false
+        end
+    end
+end
+
+local function toggleFly()
+    if flying then
+        stopFly()
+    else
+        startFly()
+    end
+end
+
+local function updateFlyUI()
     if flying then
         flyToggleButton.Text = "Fly Mode: ON"
         flyToggleIndicator.BackgroundColor3 = Color3.fromRGB(70, 150, 70)
@@ -1487,63 +1579,9 @@ updateFlyUI = function()
     end
 end
 
-updateNoClipUI = function()
-    if noClipEnabled then
-        noClipToggleButton.Text = "No Clip: ON"
-        noClipIndicator.BackgroundColor3 = Color3.fromRGB(70, 150, 70)
-        noClipIndicatorCircle.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
-        noClipIndicatorCircle.Position = UDim2.new(0, 11, 0.5, -13)
-    else
-        noClipToggleButton.Text = "No Clip: OFF"
-        noClipIndicator.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
-        noClipIndicatorCircle.BackgroundColor3 = Color3.fromRGB(200, 70, 70)
-        noClipIndicatorCircle.Position = UDim2.new(0, 3, 0.5, -13)
-    end
-end
-
-updateESPUI = function()
-    if espEnabled then
-        espToggleButton.Text = "ESP: ON"
-        espToggleIndicator.BackgroundColor3 = Color3.fromRGB(70, 150, 70)
-        espIndicatorCircle.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
-        espIndicatorCircle.Position = UDim2.new(0, 11, 0.5, -13)
-    else
-        espToggleButton.Text = "ESP: OFF"
-        espToggleIndicator.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
-        espIndicatorCircle.BackgroundColor3 = Color3.fromRGB(200, 70, 70)
-        espIndicatorCircle.Position = UDim2.new(0, 3, 0.5, -13)
-    end
-    
-    if boxEspEnabled then
-        boxEspToggleButton.Text = "Box ESP: ON"
-        boxEspToggleIndicator.BackgroundColor3 = Color3.fromRGB(70, 150, 70)
-        boxEspIndicatorCircle.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
-        boxEspIndicatorCircle.Position = UDim2.new(0, 11, 0.5, -13)
-    else
-        boxEspToggleButton.Text = "Box ESP: OFF"
-        boxEspToggleIndicator.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
-        boxEspIndicatorCircle.BackgroundColor3 = Color3.fromRGB(200, 70, 70)
-        boxEspIndicatorCircle.Position = UDim2.new(0, 3, 0.5, -13)
-    end
-end
-
-updateAutoTPUI = function()
-    if autoTPEnabled then
-        autoTPToggleButton.Text = "AutoTP: ON"
-        autoTPToggleIndicator.BackgroundColor3 = Color3.fromRGB(70, 150, 70)
-        autoTPIndicatorCircle.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
-        autoTPIndicatorCircle.Position = UDim2.new(0, 11, 0.5, -13)
-    else
-        autoTPToggleButton.Text = "AutoTP: OFF"
-        autoTPToggleIndicator.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
-        autoTPIndicatorCircle.BackgroundColor3 = Color3.fromRGB(200, 70, 70)
-        autoTPIndicatorCircle.Position = UDim2.new(0, 3, 0.5, -13)
-    end
-end
-
--- ==================== BUTTON CONNECTIONS ====================
 flyToggleButton.MouseButton1Click:Connect(function()
     toggleFly()
+    updateFlyUI()
 end)
 
 flyToggleButton.MouseEnter:Connect(function()
@@ -1553,61 +1591,33 @@ flyToggleButton.MouseLeave:Connect(function()
     TweenService:Create(flyToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
 end)
 
-noClipToggleButton.MouseButton1Click:Connect(function()
-    toggleNoClip()
-end)
-
-noClipToggleButton.MouseEnter:Connect(function()
-    TweenService:Create(noClipToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
-end)
-noClipToggleButton.MouseLeave:Connect(function()
-    TweenService:Create(noClipToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
-end)
-
-espToggleButton.MouseButton1Click:Connect(function()
-    toggleESP()
-end)
-
-espToggleButton.MouseEnter:Connect(function()
-    TweenService:Create(espToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
-end)
-espToggleButton.MouseLeave:Connect(function()
-    TweenService:Create(espToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
-end)
-
-boxEspToggleButton.MouseButton1Click:Connect(function()
-    toggleBoxESP()
-end)
-
-boxEspToggleButton.MouseEnter:Connect(function()
-    TweenService:Create(boxEspToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
-end)
-boxEspToggleButton.MouseLeave:Connect(function()
-    TweenService:Create(boxEspToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
-end)
-
-autoTPToggleButton.MouseButton1Click:Connect(function()
-    toggleAutoTP()
-end)
-
-autoTPToggleButton.MouseEnter:Connect(function()
-    TweenService:Create(autoTPToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
-end)
-autoTPToggleButton.MouseLeave:Connect(function()
-    TweenService:Create(autoTPToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
-end)
-
--- ==================== CHARACTER ADDED HANDLER ====================
 local function onCharacterAddedForNoClip(char)
-    task.wait(0.1)
     if noClipEnabled then
-        applyNoClipToCharacter(char)
+        task.wait(0.1)
+        for _, part in pairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then
+                if not originalCanCollide[part] then
+                    originalCanCollide[part] = part.CanCollide
+                end
+                part.CanCollide = false
+            end
+        end
+        
+        char.ChildAdded:Connect(function(child)
+            if noClipEnabled and child:IsA("BasePart") then
+                if not originalCanCollide[child] then
+                    originalCanCollide[child] = child.CanCollide
+                end
+                child.CanCollide = false
+            end
+        end)
     end
 end
 
 LocalPlayer.CharacterAdded:Connect(function(char)
     if flying then
         stopFly()
+        flying = false
         updateFlyUI()
     end
     if espEnabled then
@@ -1621,7 +1631,7 @@ LocalPlayer.CharacterAdded:Connect(function(char)
     onCharacterAddedForNoClip(char)
 end)
 
--- ==================== AIMBOT CONTENT ====================
+-- ==================== AIMBOT CONTENT WITH PREDICTION ====================
 local aimbotContent = Instance.new("Frame")
 aimbotContent.Name = "AimbotContent"
 aimbotContent.Size = UDim2.new(1, -24, 1, -64)
@@ -1634,7 +1644,7 @@ local aimbotPlaceholder = Instance.new("TextLabel")
 aimbotPlaceholder.Size = UDim2.new(1, 0, 0, 30)
 aimbotPlaceholder.Position = UDim2.new(0, 0, 0, 20)
 aimbotPlaceholder.BackgroundTransparency = 1
-aimbotPlaceholder.Text = "Aimbot Settings"
+aimbotPlaceholder.Text = "(gay nigger)"
 aimbotPlaceholder.TextColor3 = Color3.fromRGB(200, 200, 210)
 aimbotPlaceholder.TextSize = 16
 aimbotPlaceholder.Font = Enum.Font.Gotham
@@ -1650,6 +1660,7 @@ local targetVelocities = {}
 
 local function createFOVCircle()
     if fovCircle then fovCircle:Destroy() end
+    
     fovCircle = Instance.new("Frame")
     fovCircle.Name = "FOVCircle"
     fovCircle.Size = UDim2.new(0, fovRadius * 2, 0, fovRadius * 2)
@@ -1659,6 +1670,7 @@ local function createFOVCircle()
     fovCircle.BorderColor3 = Color3.fromRGB(0, 150, 200)
     fovCircle.Visible = fovEnabled
     fovCircle.Parent = screenGui
+    
     local fovCorner = Instance.new("UICorner")
     fovCorner.CornerRadius = UDim.new(1, 0)
     fovCorner.Parent = fovCircle
@@ -1726,7 +1738,10 @@ local function toggleFOV()
     end
 end
 
-fovToggleButton.MouseButton1Click:Connect(function() toggleFOV() end)
+fovToggleButton.MouseButton1Click:Connect(function()
+    toggleFOV()
+end)
+
 fovToggleButton.MouseEnter:Connect(function()
     TweenService:Create(fovToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
 end)
@@ -1791,7 +1806,7 @@ dividerLine.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
 dividerLine.BorderSizePixel = 0
 dividerLine.Parent = aimbotContent
 
--- Prediction System
+-- ==================== PREDICTION SYSTEM ====================
 local predictionEnabled = false
 local predictionStrength = 0.5
 
@@ -1903,7 +1918,10 @@ local function togglePrediction()
     end
 end
 
-predictionToggleButton.MouseButton1Click:Connect(function() togglePrediction() end)
+predictionToggleButton.MouseButton1Click:Connect(function()
+    togglePrediction()
+end)
+
 predictionToggleButton.MouseEnter:Connect(function()
     TweenService:Create(predictionToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
 end)
@@ -1920,8 +1938,13 @@ end
 
 local sliderDragging = false
 
-fovSliderButton.MouseButton1Down:Connect(function() sliderDragging = true end)
-predictionSliderButton.MouseButton1Down:Connect(function() predictionDragging = true end)
+fovSliderButton.MouseButton1Down:Connect(function()
+    sliderDragging = true
+end)
+
+predictionSliderButton.MouseButton1Down:Connect(function()
+    predictionDragging = true
+end)
 
 UserInputService.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -1937,14 +1960,17 @@ UserInputService.InputChanged:Connect(function(input)
         local sliderBgSize = fovSliderBg.AbsoluteSize.X
         local mouseX = math.clamp(mouse.X - sliderBgPos, 0, sliderBgSize)
         local percentage = mouseX / sliderBgSize
+        
         fovRadius = math.floor(10 + (percentage * 90))
         fovSliderFill.Size = UDim2.new(percentage, 0, 1, 0)
         fovSliderButton.Position = UDim2.new(percentage, -8, 0.5, -10)
         fovSliderLabel.Text = "FOV Size: " .. fovRadius
+        
         if fovCircle then
             fovCircle.Size = UDim2.new(0, fovRadius * 2, 0, fovRadius * 2)
         end
     end
+    
     if predictionDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
         local mouse = LocalPlayer:GetMouse()
         local sliderBgPos = predictionSliderBg.AbsolutePosition.X
@@ -1959,6 +1985,7 @@ local function getClosestPlayerInFOV()
     local mouse = LocalPlayer:GetMouse()
     local closestPlayer = nil
     local closestDistance = fovRadius
+    
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character then
             local char = player.Character
@@ -1968,6 +1995,7 @@ local function getClosestPlayerInFOV()
                 if onScreen then
                     local mousePos = Vector2.new(mouse.X, mouse.Y)
                     local distance = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
+                    
                     if distance < closestDistance then
                         closestDistance = distance
                         closestPlayer = player
@@ -1976,6 +2004,7 @@ local function getClosestPlayerInFOV()
             end
         end
     end
+    
     return closestPlayer
 end
 
@@ -1984,7 +2013,11 @@ UserInputService.InputBegan:Connect(function(input)
         isMouseDown = true
         currentLockTarget = getClosestPlayerInFOV()
         if currentLockTarget then
-            targetVelocities[currentLockTarget] = {lastPos = nil, lastTime = nil, velocity = Vector3.new(0, 0, 0)}
+            targetVelocities[currentLockTarget] = {
+                lastPos = nil,
+                lastTime = nil,
+                velocity = Vector3.new(0, 0, 0)
+            }
         end
     end
 end)
@@ -2000,10 +2033,12 @@ RunService:BindToRenderStep("FOVUpdate", 1, function()
     if fovEnabled and fovCircle then
         local mouse = LocalPlayer:GetMouse()
         fovCircle.Position = UDim2.new(0, mouse.X - fovRadius, 0, mouse.Y - fovRadius)
+        
         if isMouseDown and currentLockTarget and currentLockTarget.Character then
             local targetPart = currentLockTarget.Character:FindFirstChild("Head") or currentLockTarget.Character:FindFirstChild("HumanoidRootPart")
             if targetPart then
                 local targetPosition = targetPart.Position
+                
                 if predictionEnabled then
                     local targetVelocity = Vector3.new(0, 0, 0)
                     local rootPart = currentLockTarget.Character:FindFirstChild("HumanoidRootPart")
@@ -2013,6 +2048,7 @@ RunService:BindToRenderStep("FOVUpdate", 1, function()
                             velData = {lastPos = nil, lastTime = nil, velocity = Vector3.new(0, 0, 0)}
                             targetVelocities[currentLockTarget] = velData
                         end
+                        
                         if not velData.lastPos then
                             velData.lastPos = rootPart.Position
                             velData.lastTime = tick()
@@ -2028,12 +2064,15 @@ RunService:BindToRenderStep("FOVUpdate", 1, function()
                             end
                         end
                     end
+                    
                     local cameraPos = workspace.CurrentCamera.CFrame.Position
                     local distance = (targetPosition - cameraPos).Magnitude
                     local bulletSpeed = 3000
                     local travelTime = distance / bulletSpeed
+                    
                     local predictedOffset = targetVelocity * travelTime * predictionStrength
                     local predictedPosition = targetPosition + predictedOffset
+                    
                     workspace.CurrentCamera.CFrame = CFrame.new(workspace.CurrentCamera.CFrame.Position, predictedPosition)
                 else
                     workspace.CurrentCamera.CFrame = CFrame.new(workspace.CurrentCamera.CFrame.Position, targetPosition)
@@ -2043,7 +2082,7 @@ RunService:BindToRenderStep("FOVUpdate", 1, function()
     end
 end)
 
--- ==================== UI STATE FUNCTIONS ====================
+-- UI State Functions
 local currentState = "mainTab"
 
 local function switchToMainTab()
@@ -2249,7 +2288,6 @@ local function switchToMM2UI()
     mm2Content.Visible = true
 end
 
--- Tab click connections
 mainTab.MouseButton1Click:Connect(function()
     if currentState == "mainTab" then return end
     switchToMainTab()
@@ -2298,6 +2336,7 @@ backButton.MouseButton1Click:Connect(function()
     if currentState == "universal" then
         if flying then
             toggleFly()
+            updateFlyUI()
         end
         switchToMainTab()
     elseif currentState == "aimbot" then
@@ -2311,7 +2350,6 @@ backButton.MouseButton1Click:Connect(function()
     end
 end)
 
--- ==================== DRAGGING ====================
 local dragging = false
 local dragStart, startPos
 
@@ -2337,9 +2375,3 @@ end)
 
 mainFrame.BackgroundTransparency = 0.35
 TweenService:Create(mainFrame, TweenInfo.new(0.3), {BackgroundTransparency = 0}):Play()
-
--- ==================== INITIAL UI UPDATES ====================
-updateFlyUI()
-updateNoClipUI()
-updateESPUI()
-updateAutoTPUI()
