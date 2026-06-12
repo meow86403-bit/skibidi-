@@ -1,15 +1,4 @@
--- Safe startup with error handling
-local success, err = pcall(function()
-    wait(0.5)
-end)
-
-if not success then
-    -- Fallback if wait fails
-    local startTime = tick()
-    while tick() - startTime < 0.5 do
-        game:GetService("RunService").RenderStepped:Wait()
-    end
-end
+task.wait(0.5)
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
