@@ -12,9 +12,11 @@ local flySpeed = 150
 local bodyVelocity = nil
 local bodyGyro = nil
 
--- No Clip variables
+-- No Clip variables - FIXED PERSISTENT VERSION
 local noClipEnabled = false
 local originalCanCollide = {}
+local noClipConnections = {}
+local noClipEnforcementConnection = nil
 
 -- Box ESP variables
 local boxEspEnabled = false
@@ -460,7 +462,7 @@ openAimbotButton.MouseLeave:Connect(function()
     TweenService:Create(openAimbotButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
 end)
 
--- ==================== ESP CONTENT WITH DIVIDER LINE ====================
+-- ==================== ESP CONTENT ====================
 local espContent = Instance.new("Frame")
 espContent.Name = "EspContent"
 espContent.Size = UDim2.new(1, -24, 1, -114)
@@ -555,7 +557,6 @@ local boxEspCircleCorner = Instance.new("UICorner")
 boxEspCircleCorner.CornerRadius = UDim.new(1, 0)
 boxEspCircleCorner.Parent = boxEspIndicatorCircle
 
--- Divider Line under Box ESP
 local espDividerLine = Instance.new("Frame")
 espDividerLine.Name = "EspDividerLine"
 espDividerLine.Size = UDim2.new(1, -20, 0, 1)
@@ -840,7 +841,6 @@ breatheGameButton.MouseLeave:Connect(function()
     TweenService:Create(breatheGameButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
 end)
 
--- MM2 Game Button
 local mm2GameButton = Instance.new("TextButton")
 mm2GameButton.Name = "MM2GameButton"
 mm2GameButton.Size = UDim2.new(1, -20, 0, 48)
@@ -1044,7 +1044,6 @@ autoTPToggleButton.MouseLeave:Connect(function()
     TweenService:Create(autoTPToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
 end)
 
--- MM2 Content (EMPTY)
 local mm2Content = Instance.new("Frame")
 mm2Content.Name = "MM2Content"
 mm2Content.Size = UDim2.new(1, -24, 1, -64)
@@ -1053,7 +1052,6 @@ mm2Content.BackgroundTransparency = 1
 mm2Content.Visible = false
 mm2Content.Parent = mainFrame
 
--- Empty placeholder text
 local mm2Placeholder = Instance.new("TextLabel")
 mm2Placeholder.Size = UDim2.new(1, -20, 0, 30)
 mm2Placeholder.Position = UDim2.new(0, 10, 0, 20)
@@ -1432,38 +1430,139 @@ local noClipCircleCorner = Instance.new("UICorner")
 noClipCircleCorner.CornerRadius = UDim.new(1, 0)
 noClipCircleCorner.Parent = noClipIndicatorCircle
 
-local function toggleNoClip()
-    noClipEnabled = not noClipEnabled
+-- ==================== NO CLIP FIX - PERSISTENT FUNCTIONS ====================
+local function applyNoClipToPart(part)
+    if not noClipEnabled then return end
+    if not part:IsA("BasePart") then return end
+    if part:IsA("Terrain") then return end
     
-    if noClipEnabled then
+    if originalCanCollide[part] == nil then
+        originalCanCollide[part] = part.CanCollide
+    end
+    part.CanCollide = false
+end
+
+local function applyNoClipToCharacter(char)
+    if not char or not noClipEnabled then return end
+    
+    for _, part in pairs(char:GetDescendants()) do
+        if part:IsA("BasePart") and not part:IsA("Terrain") then
+            if originalCanCollide[part] == nil then
+                originalCanCollide[part] = part.CanCollide
+            end
+            part.CanCollide = false
+        end
+    end
+    
+    local partAddedConn = char.ChildAdded:Connect(function(child)
+        task.wait(0.05)
+        if noClipEnabled and child:IsA("BasePart") and not child:IsA("Terrain") then
+            if originalCanCollide[child] == nil then
+                originalCanCollide[child] = child.CanCollide
+            end
+            child.CanCollide = false
+        end
+    end)
+    
+    local descendantConn = char.DescendantAdded:Connect(function(descendant)
+        task.wait(0.05)
+        if noClipEnabled and descendant:IsA("BasePart") and not descendant:IsA("Terrain") then
+            if originalCanCollide[descendant] == nil then
+                originalCanCollide[descendant] = descendant.CanCollide
+            end
+            descendant.CanCollide = false
+        end
+    end)
+    
+    if noClipConnections[char] then
+        for _, conn in pairs(noClipConnections[char]) do
+            pcall(function() conn:Disconnect() end)
+        end
+    end
+    noClipConnections[char] = {partAddedConn, descendantConn}
+end
+
+local function restoreAllCollisions()
+    for part, originalValue in pairs(originalCanCollide) do
+        if part and part.Parent then
+            pcall(function()
+                part.CanCollide = originalValue
+            end)
+        end
+    end
+    originalCanCollide = {}
+end
+
+local function clearNoClipConnections()
+    for char, conns in pairs(noClipConnections) do
+        for _, conn in pairs(conns) do
+            pcall(function() conn:Disconnect() end)
+        end
+    end
+    noClipConnections = {}
+end
+
+local function startNoClipEnforcement()
+    if noClipEnforcementConnection then return end
+    
+    noClipEnforcementConnection = RunService.Heartbeat:Connect(function()
+        if not noClipEnabled then return end
+        
         local char = LocalPlayer.Character
-        if char then
-            for _, part in pairs(char:GetDescendants()) do
-                if part:IsA("BasePart") then
-                    if not originalCanCollide[part] then
-                        originalCanCollide[part] = part.CanCollide
+        if not char then return end
+        
+        for _, part in pairs(char:GetDescendants()) do
+            if part:IsA("BasePart") and not part:IsA("Terrain") then
+                if part.CanCollide == true then
+                    if originalCanCollide[part] == nil then
+                        originalCanCollide[part] = true
                     end
                     part.CanCollide = false
                 end
             end
         end
-        
-        noClipToggleButton.Text = "No Clip: ON"
-        noClipIndicator.BackgroundColor3 = Color3.fromRGB(70, 150, 70)
-        noClipIndicatorCircle.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
-        noClipIndicatorCircle.Position = UDim2.new(0, 11, 0.5, -13)
+    end)
+end
+
+local function stopNoClipEnforcement()
+    if noClipEnforcementConnection then
+        noClipEnforcementConnection:Disconnect()
+        noClipEnforcementConnection = nil
+    end
+end
+
+local function enableNoClip()
+    local char = LocalPlayer.Character
+    if char then
+        applyNoClipToCharacter(char)
+    end
+    
+    startNoClipEnforcement()
+    
+    noClipToggleButton.Text = "No Clip: ON"
+    noClipIndicator.BackgroundColor3 = Color3.fromRGB(70, 150, 70)
+    noClipIndicatorCircle.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
+    noClipIndicatorCircle.Position = UDim2.new(0, 11, 0.5, -13)
+end
+
+local function disableNoClip()
+    stopNoClipEnforcement()
+    restoreAllCollisions()
+    clearNoClipConnections()
+    
+    noClipToggleButton.Text = "No Clip: OFF"
+    noClipIndicator.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+    noClipIndicatorCircle.BackgroundColor3 = Color3.fromRGB(200, 70, 70)
+    noClipIndicatorCircle.Position = UDim2.new(0, 3, 0.5, -13)
+end
+
+local function toggleNoClip()
+    noClipEnabled = not noClipEnabled
+    
+    if noClipEnabled then
+        enableNoClip()
     else
-        for part, canCollide in pairs(originalCanCollide) do
-            if part and part.Parent then
-                part.CanCollide = canCollide
-            end
-        end
-        originalCanCollide = {}
-        
-        noClipToggleButton.Text = "No Clip: OFF"
-        noClipIndicator.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
-        noClipIndicatorCircle.BackgroundColor3 = Color3.fromRGB(200, 70, 70)
-        noClipIndicatorCircle.Position = UDim2.new(0, 3, 0.5, -13)
+        disableNoClip()
     end
 end
 
@@ -1478,6 +1577,7 @@ noClipToggleButton.MouseLeave:Connect(function()
     TweenService:Create(noClipToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
 end)
 
+-- ==================== FLY FUNCTIONS ====================
 local function startFly()
     local char = LocalPlayer.Character
     if not char then return end
@@ -1592,25 +1692,9 @@ flyToggleButton.MouseLeave:Connect(function()
 end)
 
 local function onCharacterAddedForNoClip(char)
+    task.wait(0.1)
     if noClipEnabled then
-        task.wait(0.1)
-        for _, part in pairs(char:GetDescendants()) do
-            if part:IsA("BasePart") then
-                if not originalCanCollide[part] then
-                    originalCanCollide[part] = part.CanCollide
-                end
-                part.CanCollide = false
-            end
-        end
-        
-        char.ChildAdded:Connect(function(child)
-            if noClipEnabled and child:IsA("BasePart") then
-                if not originalCanCollide[child] then
-                    originalCanCollide[child] = child.CanCollide
-                end
-                child.CanCollide = false
-            end
-        end)
+        applyNoClipToCharacter(char)
     end
 end
 
@@ -1631,7 +1715,7 @@ LocalPlayer.CharacterAdded:Connect(function(char)
     onCharacterAddedForNoClip(char)
 end)
 
--- ==================== AIMBOT CONTENT WITH PREDICTION ====================
+-- ==================== AIMBOT CONTENT ====================
 local aimbotContent = Instance.new("Frame")
 aimbotContent.Name = "AimbotContent"
 aimbotContent.Size = UDim2.new(1, -24, 1, -64)
@@ -1644,7 +1728,7 @@ local aimbotPlaceholder = Instance.new("TextLabel")
 aimbotPlaceholder.Size = UDim2.new(1, 0, 0, 30)
 aimbotPlaceholder.Position = UDim2.new(0, 0, 0, 20)
 aimbotPlaceholder.BackgroundTransparency = 1
-aimbotPlaceholder.Text = "(gay nigger)"
+aimbotPlaceholder.Text = "Aimbot Settings"
 aimbotPlaceholder.TextColor3 = Color3.fromRGB(200, 200, 210)
 aimbotPlaceholder.TextSize = 16
 aimbotPlaceholder.Font = Enum.Font.Gotham
