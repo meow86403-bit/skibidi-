@@ -672,6 +672,7 @@ end)
 -- ==================== CHARACTER TAB ====================
 local characterContent = contents[3]
 
+-- LEFT PANEL
 local CharLeftPanel = Instance.new("Frame")
 CharLeftPanel.Size = UDim2.new(0.48, -5, 1, 0)
 CharLeftPanel.Position = UDim2.new(0, 0, 0, 0)
@@ -751,18 +752,141 @@ local noclipCheckCorner = Instance.new("UICorner")
 noclipCheckCorner.CornerRadius = UDim.new(0, 8)
 noclipCheckCorner.Parent = NoclipCheckbox
 
-local CharRightPanel = Instance.new("Frame")
-CharRightPanel.Size = UDim2.new(0.48, -5, 1, 0)
-CharRightPanel.Position = UDim2.new(0.52, 0, 0, 0)
-CharRightPanel.BackgroundColor3 = Color3.fromRGB(23, 23, 28)
-CharRightPanel.BorderSizePixel = 0
-CharRightPanel.Parent = characterContent
+-- Speed Checkbox (LEFT PANEL)
+local speedEnabled = false
+local currentSpeedValue = 50
+local speedBodyVelocity = nil
+local speedConnection = nil
 
-local charRightCorner = Instance.new("UICorner")
-charRightCorner.CornerRadius = UDim.new(0, 10)
-charRightCorner.Parent = CharRightPanel
+local SpeedFrame = Instance.new("Frame")
+SpeedFrame.Size = UDim2.new(1, -24, 0, 55)
+SpeedFrame.Position = UDim2.new(0, 12, 0, 150)
+SpeedFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
+SpeedFrame.BorderSizePixel = 0
+SpeedFrame.Parent = CharLeftPanel
 
--- ==================== ATTACH FEATURE WITH 30% PREDICTION ====================
+local speedRowCorner = Instance.new("UICorner")
+speedRowCorner.CornerRadius = UDim.new(0, 8)
+speedRowCorner.Parent = SpeedFrame
+
+local SpeedLabel = Instance.new("TextLabel")
+SpeedLabel.Text = "Speed"
+SpeedLabel.Size = UDim2.new(0.7, 0, 1, 0)
+SpeedLabel.BackgroundTransparency = 1
+SpeedLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
+SpeedLabel.TextSize = 19
+SpeedLabel.Font = Enum.Font.GothamSemibold
+SpeedLabel.TextXAlignment = Enum.TextXAlignment.Left
+SpeedLabel.Position = UDim2.new(0, 16, 0, 0)
+SpeedLabel.Parent = SpeedFrame
+
+local SpeedCheckbox = Instance.new("TextButton")
+SpeedCheckbox.Size = UDim2.new(0, 32, 0, 32)
+SpeedCheckbox.Position = UDim2.new(1, -44, 0.5, -16)
+SpeedCheckbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+SpeedCheckbox.Text = ""
+SpeedCheckbox.Parent = SpeedFrame
+
+local speedCheckCorner = Instance.new("UICorner")
+speedCheckCorner.CornerRadius = UDim.new(0, 8)
+speedCheckCorner.Parent = SpeedCheckbox
+
+-- DA HOOD SMOOTH SPEED MOVEMENT - FIXED
+local function applySmoothSpeed()
+    local character = player.Character
+    if not character then return end
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    local hum = character:FindFirstChild("Humanoid")
+    if not hrp or not hum then return end
+    
+    if speedEnabled then
+        -- Disable normal walk speed
+        hum.WalkSpeed = 0
+        hum.JumpPower = 50
+        hum.AutoRotate = true
+        
+        -- Create BodyVelocity for smooth movement
+        if speedBodyVelocity then speedBodyVelocity:Destroy() end
+        speedBodyVelocity = Instance.new("BodyVelocity")
+        speedBodyVelocity.MaxForce = Vector3.new(1e6, 0, 1e6)
+        speedBodyVelocity.Velocity = Vector3.zero
+        speedBodyVelocity.Parent = hrp
+        
+        -- Movement loop
+        if speedConnection then speedConnection:Disconnect() end
+        speedConnection = RunService.RenderStepped:Connect(function()
+            if not speedEnabled or not player.Character then return end
+            local currentChar = player.Character
+            local currentHrp = currentChar:FindFirstChild("HumanoidRootPart")
+            local currentHum = currentChar:FindFirstChild("Humanoid")
+            if not currentHrp or not currentHum then return end
+            
+            -- Get movement direction from WASD
+            local moveDir = Vector3.zero
+            local cf = Camera.CFrame
+            
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + cf.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - cf.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - cf.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + cf.RightVector end
+            
+            if moveDir.Magnitude > 0.1 then
+                moveDir = moveDir.Unit
+                speedBodyVelocity.Velocity = Vector3.new(moveDir.X * currentSpeedValue, 0, moveDir.Z * currentSpeedValue)
+            else
+                speedBodyVelocity.Velocity = Vector3.zero
+            end
+            
+            -- Prevent falling through floor
+            local currentVel = currentHrp.AssemblyLinearVelocity
+            if currentVel.Y < -30 then
+                currentHrp.AssemblyLinearVelocity = Vector3.new(currentVel.X, 0, currentVel.Z)
+            end
+            
+            currentHum.PlatformStand = false
+        end)
+    else
+        -- Disable speed mode
+        if speedBodyVelocity then 
+            speedBodyVelocity:Destroy()
+            speedBodyVelocity = nil
+        end
+        if speedConnection then 
+            speedConnection:Disconnect()
+            speedConnection = nil
+        end
+        
+        local character = player.Character
+        if character then
+            local hum = character:FindFirstChild("Humanoid")
+            if hum then
+                hum.WalkSpeed = 16
+                hum.JumpPower = 50
+                hum.AutoRotate = true
+            end
+        end
+    end
+end
+
+local function toggleSpeed()
+    speedEnabled = not speedEnabled
+    SpeedCheckbox.BackgroundColor3 = speedEnabled and Color3.fromRGB(140, 60, 200) or Color3.fromRGB(40, 40, 45)
+    applySmoothSpeed()
+end
+
+SpeedCheckbox.MouseButton1Click:Connect(function()
+    toggleSpeed()
+end)
+
+-- Re-apply on respawn
+player.CharacterAdded:Connect(function()
+    if speedEnabled then
+        task.wait(0.3)
+        applySmoothSpeed()
+    end
+end)
+
+-- Attach Mode (LEFT PANEL)
 local attachModeEnabled = false
 local isAttached = false
 local attachedTarget = nil
@@ -770,25 +894,23 @@ local attachConnection = nil
 local originalPosition = nil
 local originalCFrame = nil
 local originalCameraCFrame = nil
-
--- Prediction variables
 local targetLastPos = nil
 local targetVelocity = Vector3.zero
-local PREDICTION_FACTOR = 0.30  -- 30% prediction
+local PREDICTION_FACTOR = 0.35
 
 local AttachFrame = Instance.new("Frame")
 AttachFrame.Size = UDim2.new(1, -24, 0, 55)
-AttachFrame.Position = UDim2.new(0, 12, 0, 20)
+AttachFrame.Position = UDim2.new(0, 12, 0, 215)
 AttachFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
 AttachFrame.BorderSizePixel = 0
-AttachFrame.Parent = CharRightPanel
+AttachFrame.Parent = CharLeftPanel
 
 local attachRowCorner = Instance.new("UICorner")
 attachRowCorner.CornerRadius = UDim.new(0, 8)
 attachRowCorner.Parent = AttachFrame
 
 local AttachLabel = Instance.new("TextLabel")
-AttachLabel.Text = "Attach (H to attach)"
+AttachLabel.Text = "Attach Mode (H to attach)"
 AttachLabel.Size = UDim2.new(0.7, 0, 1, 0)
 AttachLabel.BackgroundTransparency = 1
 AttachLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
@@ -809,34 +931,157 @@ local attachCheckCorner = Instance.new("UICorner")
 attachCheckCorner.CornerRadius = UDim.new(0, 8)
 attachCheckCorner.Parent = AttachCheckbox
 
--- Get player looking at
+-- RIGHT PANEL
+local CharRightPanel = Instance.new("Frame")
+CharRightPanel.Size = UDim2.new(0.48, -5, 1, 0)
+CharRightPanel.Position = UDim2.new(0.52, 0, 0, 0)
+CharRightPanel.BackgroundColor3 = Color3.fromRGB(23, 23, 28)
+CharRightPanel.BorderSizePixel = 0
+CharRightPanel.Parent = characterContent
+
+local charRightCorner = Instance.new("UICorner")
+charRightCorner.CornerRadius = UDim.new(0, 10)
+charRightCorner.Parent = CharRightPanel
+
+-- Speed Slider (RIGHT PANEL)
+local speedSliderDragging = false
+local minSpeed = 16
+local maxSpeed = 250
+
+local SpeedSliderFrame = Instance.new("Frame")
+SpeedSliderFrame.Size = UDim2.new(1, -24, 0, 70)
+SpeedSliderFrame.Position = UDim2.new(0, 12, 0, 20)
+SpeedSliderFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
+SpeedSliderFrame.BorderSizePixel = 0
+SpeedSliderFrame.Parent = CharRightPanel
+
+local speedSliderCorner = Instance.new("UICorner")
+speedSliderCorner.CornerRadius = UDim.new(0, 8)
+speedSliderCorner.Parent = SpeedSliderFrame
+
+local SpeedSliderLabel = Instance.new("TextLabel")
+SpeedSliderLabel.Text = "Speed Amount"
+SpeedSliderLabel.Size = UDim2.new(0.65, 0, 0, 28)
+SpeedSliderLabel.Position = UDim2.new(0, 16, 0, 8)
+SpeedSliderLabel.BackgroundTransparency = 1
+SpeedSliderLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
+SpeedSliderLabel.TextSize = 19
+SpeedSliderLabel.Font = Enum.Font.GothamSemibold
+SpeedSliderLabel.TextXAlignment = Enum.TextXAlignment.Left
+SpeedSliderLabel.Parent = SpeedSliderFrame
+
+local SpeedSliderValue = Instance.new("TextLabel")
+SpeedSliderValue.Text = tostring(currentSpeedValue)
+SpeedSliderValue.Size = UDim2.new(0.3, 0, 0, 28)
+SpeedSliderValue.Position = UDim2.new(0.68, 0, 0, 8)
+SpeedSliderValue.BackgroundTransparency = 1
+SpeedSliderValue.TextColor3 = Color3.fromRGB(255, 100, 255)
+SpeedSliderValue.TextSize = 17
+SpeedSliderValue.Font = Enum.Font.GothamBold
+SpeedSliderValue.TextXAlignment = Enum.TextXAlignment.Right
+SpeedSliderValue.Parent = SpeedSliderFrame
+
+local SpeedSliderTrack = Instance.new("Frame")
+SpeedSliderTrack.Size = UDim2.new(1, -32, 0, 6)
+SpeedSliderTrack.Position = UDim2.new(0, 16, 0, 46)
+SpeedSliderTrack.BackgroundColor3 = Color3.fromRGB(50, 50, 58)
+SpeedSliderTrack.BorderSizePixel = 0
+SpeedSliderTrack.Parent = SpeedSliderFrame
+
+local speedTrackCorner = Instance.new("UICorner")
+speedTrackCorner.CornerRadius = UDim.new(0, 3)
+speedTrackCorner.Parent = SpeedSliderTrack
+
+local SpeedSliderFill = Instance.new("Frame")
+SpeedSliderFill.Size = UDim2.new((currentSpeedValue - minSpeed) / (maxSpeed - minSpeed), 0, 1, 0)
+SpeedSliderFill.BackgroundColor3 = Color3.fromRGB(140, 60, 200)
+SpeedSliderFill.BorderSizePixel = 0
+SpeedSliderFill.Parent = SpeedSliderTrack
+
+local speedFillCorner = Instance.new("UICorner")
+speedFillCorner.CornerRadius = UDim.new(0, 3)
+speedFillCorner.Parent = SpeedSliderFill
+
+local SpeedSliderKnob = Instance.new("Frame")
+SpeedSliderKnob.Size = UDim2.new(0, 14, 0, 14)
+SpeedSliderKnob.AnchorPoint = Vector2.new(0.5, 0.5)
+SpeedSliderKnob.Position = UDim2.new((currentSpeedValue - minSpeed) / (maxSpeed - minSpeed), 0, 0.5, 0)
+SpeedSliderKnob.BackgroundColor3 = Color3.fromRGB(255, 100, 255)
+SpeedSliderKnob.BorderSizePixel = 0
+SpeedSliderKnob.Parent = SpeedSliderTrack
+
+local speedKnobCorner = Instance.new("UICorner")
+speedKnobCorner.CornerRadius = UDim.new(1, 0)
+speedKnobCorner.Parent = SpeedSliderKnob
+
+local function updateSpeedSlider(inputX)
+    local trackPos = SpeedSliderTrack.AbsolutePosition.X
+    local trackSize = SpeedSliderTrack.AbsoluteSize.X
+    local relative = math.clamp((inputX - trackPos) / trackSize, 0, 1)
+    currentSpeedValue = math.floor(minSpeed + relative * (maxSpeed - minSpeed))
+    SpeedSliderFill.Size = UDim2.new(relative, 0, 1, 0)
+    SpeedSliderKnob.Position = UDim2.new(relative, 0, 0.5, 0)
+    SpeedSliderValue.Text = tostring(currentSpeedValue)
+end
+
+SpeedSliderTrack.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        speedSliderDragging = true
+        updateSpeedSlider(input.Position.X)
+    end
+end)
+
+SpeedSliderKnob.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        speedSliderDragging = true
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        speedSliderDragging = false
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if speedSliderDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        updateSpeedSlider(input.Position.X)
+    end
+end)
+
+-- ==================== ATTACH FUNCTIONS ====================
 local function getPlayerLookingAt()
     local camera = workspace.CurrentCamera
     local mouseLocation = UserInputService:GetMouseLocation()
-    local ray = camera:ViewportPointToRay(mouseLocation.X, mouseLocation.Y)
-    local raycastParams = RaycastParams.new()
-    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-    raycastParams.FilterDescendantsInstances = {player.Character}
     
-    local raycastResult = workspace:Raycast(ray.Origin, ray.Direction * 500, raycastParams)
+    local closestPlayer = nil
+    local closestDistance = math.huge
     
-    if raycastResult then
-        local hitPart = raycastResult.Instance
-        local character = hitPart and hitPart.Parent
-        while character and not character:FindFirstChild("Humanoid") do
-            character = character.Parent
-        end
-        if character then
-            local targetPlayer = Players:GetPlayerFromCharacter(character)
-            if targetPlayer and targetPlayer ~= player then
-                return targetPlayer
+    for _, targetPlayer in ipairs(Players:GetPlayers()) do
+        if targetPlayer ~= player then
+            local character = targetPlayer.Character
+            if character then
+                local hrp = character:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    local screenPos, onScreen = camera:WorldToViewportPoint(hrp.Position)
+                    if onScreen then
+                        local mousePos = Vector2.new(mouseLocation.X, mouseLocation.Y)
+                        local screenVector = Vector2.new(screenPos.X, screenPos.Y)
+                        local distance = (screenVector - mousePos).Magnitude
+                        
+                        if distance < 150 and distance < closestDistance then
+                            closestDistance = distance
+                            closestPlayer = targetPlayer
+                        end
+                    end
+                end
             end
         end
     end
-    return nil
+    
+    return closestPlayer
 end
 
--- Save original position and camera
 local function saveOriginalPosition()
     local character = player.Character
     if character then
@@ -849,7 +1094,6 @@ local function saveOriginalPosition()
     originalCameraCFrame = Camera.CFrame
 end
 
--- Teleport back to original position
 local function teleportToOriginalPosition()
     local character = player.Character
     if character and originalPosition then
@@ -874,7 +1118,6 @@ local function teleportToOriginalPosition()
     originalCameraCFrame = nil
 end
 
--- Detach
 local function detach()
     if attachConnection then
         attachConnection:Disconnect()
@@ -898,7 +1141,6 @@ local function detach()
     end
 end
 
--- Attach to target with 35% prediction and 100% accurate fling
 local function attachToTarget(targetPlayer)
     if not targetPlayer or not targetPlayer.Character then return false end
     
@@ -932,7 +1174,6 @@ local function attachToTarget(targetPlayer)
     hum.AutoRotate = false
     hum.PlatformStand = true
     
-    -- Attachment loop with 35% movement prediction
     attachConnection = RunService.Heartbeat:Connect(function()
         if not isAttached or not attachedTarget or not attachedTarget.Character then
             detach()
@@ -965,7 +1206,6 @@ local function attachToTarget(targetPlayer)
             return
         end
         
-        -- Calculate target velocity for prediction (35% factor)
         local currentPos = currentTargetTorso.Position
         if targetLastPos then
             local dt = RunService.Heartbeat:Wait()
@@ -974,20 +1214,16 @@ local function attachToTarget(targetPlayer)
         end
         targetLastPos = currentPos
         
-        -- Apply 35% prediction to target position
         local predictedPos = currentPos + (targetVelocity * PREDICTION_FACTOR)
         
-        -- Calculate torso position with prediction
         local torsoPos = predictedPos
         if currentTargetTorso.Name == "HumanoidRootPart" then
             torsoPos = torsoPos + Vector3.new(0, 1.5, 0)
         end
         
-        -- Attach to predicted torso position
         currentHrp.CFrame = CFrame.new(torsoPos, torsoPos + Vector3.new(0, 1, 0))
         
-        -- HIGH-SPEED FLING (random direction, 100% consistent)
-        local flingPower = 1500
+        local flingPower = 1000
         local randomAngle = math.random(0, 360) * math.pi / 180
         local randomDirX = math.cos(randomAngle)
         local randomDirZ = math.sin(randomAngle)
@@ -1000,7 +1236,6 @@ local function attachToTarget(targetPlayer)
         currentHum.PlatformStand = true
         currentHum.AutoRotate = false
         
-        -- Camera follow
         local cameraOffset = Vector3.new(0, 3, 8)
         local targetCameraPos = currentHrp.Position + cameraOffset
         Camera.CameraType = Enum.CameraType.Scriptable
@@ -1010,7 +1245,6 @@ local function attachToTarget(targetPlayer)
     return true
 end
 
--- Toggle attach mode
 local function toggleAttachMode()
     attachModeEnabled = not attachModeEnabled
     AttachCheckbox.BackgroundColor3 = attachModeEnabled and Color3.fromRGB(140, 60, 200) or Color3.fromRGB(40, 40, 45)
@@ -1020,7 +1254,6 @@ local function toggleAttachMode()
     end
 end
 
--- Press H to attach/detach
 local function onHPressed()
     if not attachModeEnabled then return end
     
@@ -1054,21 +1287,11 @@ player.CharacterAdded:Connect(function()
     end
 end)
 
--- Disable attach mode when fly is enabled
-local originalFlyToggle = FlyCheckbox.MouseButton1Click
-FlyCheckbox.MouseButton1Click:Connect(function()
-    if flyEnabled and attachModeEnabled then
-        attachModeEnabled = false
-        AttachCheckbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
-        if isAttached then detach() end
-    end
-end)
-
 -- ==================== FLY LOGIC ====================
 local flyEnabled = false
 local flySpeed = 150
-local bodyVelocity = nil
-local bodyGyro = nil
+local flyBodyVelocity = nil
+local flyBodyGyro = nil
 
 local function enableFly()
     local character = player.Character
@@ -1079,16 +1302,16 @@ local function enableFly()
 
     hum.PlatformStand = true
 
-    bodyGyro = Instance.new("BodyGyro")
-    bodyGyro.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
-    bodyGyro.P = 1e6
-    bodyGyro.CFrame = hrp.CFrame
-    bodyGyro.Parent = hrp
+    flyBodyGyro = Instance.new("BodyGyro")
+    flyBodyGyro.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
+    flyBodyGyro.P = 1e6
+    flyBodyGyro.CFrame = hrp.CFrame
+    flyBodyGyro.Parent = hrp
 
-    bodyVelocity = Instance.new("BodyVelocity")
-    bodyVelocity.Velocity = Vector3.zero
-    bodyVelocity.MaxForce = Vector3.new(1e6, 1e6, 1e6)
-    bodyVelocity.Parent = hrp
+    flyBodyVelocity = Instance.new("BodyVelocity")
+    flyBodyVelocity.Velocity = Vector3.zero
+    flyBodyVelocity.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+    flyBodyVelocity.Parent = hrp
 end
 
 local function disableFly()
@@ -1105,8 +1328,8 @@ local function disableFly()
             end
         end
     end
-    bodyVelocity = nil
-    bodyGyro = nil
+    flyBodyVelocity = nil
+    flyBodyGyro = nil
 end
 
 FlyCheckbox.MouseButton1Click:Connect(function()
@@ -1117,6 +1340,11 @@ FlyCheckbox.MouseButton1Click:Connect(function()
             attachModeEnabled = false
             AttachCheckbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
             if isAttached then detach() end
+        end
+        if speedEnabled then
+            speedEnabled = false
+            SpeedCheckbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+            applySmoothSpeed()
         end
         enableFly()
     else
@@ -1129,7 +1357,7 @@ RunService.RenderStepped:Connect(function()
     local character = player.Character
     if not character then return end
     local hrp = character:FindFirstChild("HumanoidRootPart")
-    if not hrp or not bodyVelocity or not bodyGyro then return end
+    if not hrp or not flyBodyVelocity or not flyBodyGyro then return end
 
     local moveDir = Vector3.zero
     local cf = Camera.CFrame
@@ -1142,12 +1370,12 @@ RunService.RenderStepped:Connect(function()
     if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then moveDir = moveDir - Vector3.new(0, 1, 0) end
 
     if moveDir.Magnitude > 0 then
-        bodyVelocity.Velocity = moveDir.Unit * flySpeed
+        flyBodyVelocity.Velocity = moveDir.Unit * flySpeed
     else
-        bodyVelocity.Velocity = Vector3.zero
+        flyBodyVelocity.Velocity = Vector3.zero
     end
 
-    bodyGyro.CFrame = cf
+    flyBodyGyro.CFrame = cf
 end)
 
 player.CharacterAdded:Connect(function()
