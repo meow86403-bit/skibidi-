@@ -1,0 +1,1004 @@
+task.wait(0.5)
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+-- AutoTP variables
+local autoTPEnabled = false
+local autoTPConnection = nil
+local autoTPPosition = Vector3.new(5130, 699, -2560)
+local autoTPVelocity = nil
+local autoTPGyro = nil
+
+-- Minimize variables
+local isMinimized = false
+local minimizeCircle = nil
+
+local function disableButtonSounds(button)
+    button.AutoButtonColor = false
+    for _, child in pairs(button:GetChildren()) do
+        if child:IsA("Sound") then
+            child:Destroy()
+        end
+    end
+end
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "UniversalScriptGUI"
+screenGui.ResetOnSpawn = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+pcall(function()
+    screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+end)
+if not screenGui.Parent then
+    pcall(function()
+        screenGui.Parent = game:GetService("CoreGui")
+    end)
+end
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 420, 0, 420)
+mainFrame.Position = UDim2.new(0.5, -210, 0.5, -210)
+mainFrame.BackgroundColor3 = Color3.fromRGB(28, 28, 32)
+mainFrame.BackgroundTransparency = 0
+mainFrame.BorderSizePixel = 0
+mainFrame.ClipsDescendants = true
+mainFrame.Visible = true
+mainFrame.Parent = screenGui
+
+local mainBgImage = Instance.new("ImageLabel")
+mainBgImage.Name = "BackgroundImage"
+mainBgImage.Size = UDim2.new(1, 0, 1, 0)
+mainBgImage.Position = UDim2.new(0, 0, 0, 0)
+mainBgImage.BackgroundTransparency = 1
+mainBgImage.Image = ""
+mainBgImage.ScaleType = Enum.ScaleType.Crop
+mainBgImage.ImageTransparency = 0.15
+mainBgImage.Visible = false
+mainBgImage.Parent = mainFrame
+
+local bgOverlay = Instance.new("Frame")
+bgOverlay.Name = "BgOverlay"
+bgOverlay.Size = UDim2.new(1, 0, 1, 0)
+bgOverlay.Position = UDim2.new(0, 0, 0, 0)
+bgOverlay.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+bgOverlay.BackgroundTransparency = 1
+bgOverlay.BorderSizePixel = 0
+bgOverlay.Visible = true
+bgOverlay.Parent = mainFrame
+
+local defaultBg = Instance.new("Frame")
+defaultBg.Name = "DefaultBg"
+defaultBg.Size = UDim2.new(1, 0, 1, 0)
+defaultBg.Position = UDim2.new(0, 0, 0, 0)
+defaultBg.BackgroundColor3 = Color3.fromRGB(28, 28, 32)
+defaultBg.BackgroundTransparency = 1
+defaultBg.BorderSizePixel = 0
+defaultBg.Parent = mainFrame
+
+local uiCorner = Instance.new("UICorner")
+uiCorner.CornerRadius = UDim.new(0, 12)
+uiCorner.Parent = mainFrame
+
+local uiStroke = Instance.new("UIStroke")
+uiStroke.Color = Color3.fromRGB(70, 70, 80)
+uiStroke.Thickness = 1.2
+uiStroke.Parent = mainFrame
+
+local topBar = Instance.new("Frame")
+topBar.Name = "TopBar"
+topBar.Size = UDim2.new(1, 0, 0, 44)
+topBar.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+topBar.BackgroundTransparency = 0.08
+topBar.BorderSizePixel = 0
+topBar.Parent = mainFrame
+
+local topCorner = Instance.new("UICorner")
+topCorner.CornerRadius = UDim.new(0, 12)
+topCorner.Parent = topBar
+
+local backButton = Instance.new("TextButton")
+backButton.Name = "BackButton"
+backButton.Size = UDim2.new(0, 34, 0, 34)
+backButton.Position = UDim2.new(0, 12, 0.5, -17)
+backButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+backButton.BackgroundTransparency = 0.2
+backButton.Text = "<"
+backButton.TextColor3 = Color3.fromRGB(230, 230, 230)
+backButton.TextSize = 22
+backButton.Font = Enum.Font.SourceSansBold
+backButton.AutoButtonColor = false
+backButton.Visible = false
+backButton.Parent = topBar
+disableButtonSounds(backButton)
+
+local backCorner = Instance.new("UICorner")
+backCorner.CornerRadius = UDim.new(1, 0)
+backCorner.Parent = backButton
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Name = "TitleLabel"
+titleLabel.Size = UDim2.new(0, 200, 1, 0)
+titleLabel.Position = UDim2.new(0.5, -100, 0, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "Universal Script"
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.TextSize = 18
+titleLabel.TextXAlignment = Enum.TextXAlignment.Center
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.Parent = topBar
+
+local minimizeButton = Instance.new("TextButton")
+minimizeButton.Name = "MinimizeButton"
+minimizeButton.Size = UDim2.new(0, 34, 0, 34)
+minimizeButton.Position = UDim2.new(1, -90, 0.5, -17)
+minimizeButton.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+minimizeButton.BackgroundTransparency = 0.1
+minimizeButton.Text = "—"
+minimizeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+minimizeButton.TextSize = 24
+minimizeButton.Font = Enum.Font.SourceSansBold
+minimizeButton.AutoButtonColor = false
+minimizeButton.Parent = topBar
+disableButtonSounds(minimizeButton)
+
+local minimizeCorner = Instance.new("UICorner")
+minimizeCorner.CornerRadius = UDim.new(1, 0)
+minimizeCorner.Parent = minimizeButton
+
+minimizeButton.MouseEnter:Connect(function()
+    TweenService:Create(minimizeButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.05}):Play()
+end)
+minimizeButton.MouseLeave:Connect(function()
+    TweenService:Create(minimizeButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(60, 60, 70), BackgroundTransparency = 0.1}):Play()
+end)
+
+local closeButton = Instance.new("TextButton")
+closeButton.Name = "CloseButton"
+closeButton.Size = UDim2.new(0, 34, 0, 34)
+closeButton.Position = UDim2.new(1, -46, 0.5, -17)
+closeButton.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
+closeButton.BackgroundTransparency = 0.1
+closeButton.Text = "X"
+closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeButton.TextSize = 20
+closeButton.Font = Enum.Font.SourceSansBold
+closeButton.AutoButtonColor = false
+closeButton.Parent = topBar
+disableButtonSounds(closeButton)
+
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(1, 0)
+closeCorner.Parent = closeButton
+
+closeButton.MouseEnter:Connect(function()
+    TweenService:Create(closeButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(220, 50, 50)}):Play()
+end)
+closeButton.MouseLeave:Connect(function()
+    TweenService:Create(closeButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(180, 40, 40)}):Play()
+end)
+
+local function createMinimizeCircle()
+    if minimizeCircle then 
+        minimizeCircle:Destroy()
+        minimizeCircle = nil
+    end
+    
+    minimizeCircle = Instance.new("TextButton")
+    minimizeCircle.Name = "MinimizeCircle"
+    minimizeCircle.Size = UDim2.new(0, 50, 0, 50)
+    minimizeCircle.Position = UDim2.new(0.5, -25, 0, 10)
+    minimizeCircle.BackgroundColor3 = Color3.fromRGB(0, 150, 200)
+    minimizeCircle.BackgroundTransparency = 0.15
+    minimizeCircle.Text = "UN"
+    minimizeCircle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    minimizeCircle.TextSize = 18
+    minimizeCircle.Font = Enum.Font.GothamBold
+    minimizeCircle.AutoButtonColor = false
+    minimizeCircle.Visible = true
+    minimizeCircle.ZIndex = 10
+    minimizeCircle.Parent = screenGui
+    
+    local circleCorner = Instance.new("UICorner")
+    circleCorner.CornerRadius = UDim.new(1, 0)
+    circleCorner.Parent = minimizeCircle
+    
+    local circleStroke = Instance.new("UIStroke")
+    circleStroke.Color = Color3.fromRGB(0, 200, 255)
+    circleStroke.Thickness = 2
+    circleStroke.Parent = minimizeCircle
+    
+    minimizeCircle.MouseButton1Click:Connect(function()
+        if minimizeCircle then
+            minimizeCircle:Destroy()
+            minimizeCircle = nil
+        end
+        mainFrame.Visible = true
+        isMinimized = false
+    end)
+end
+
+local function minimizeGUI()
+    if isMinimized then return end
+    mainFrame.Visible = false
+    createMinimizeCircle()
+    isMinimized = true
+end
+
+minimizeButton.MouseButton1Click:Connect(function()
+    minimizeGUI()
+end)
+
+closeButton.MouseButton1Click:Connect(function()
+    if autoTPEnabled then
+        toggleAutoTP()
+    end
+    
+    if minimizeCircle then
+        minimizeCircle:Destroy()
+        minimizeCircle = nil
+    end
+    
+    screenGui:Destroy()
+end)
+
+local tabBar = Instance.new("Frame")
+tabBar.Name = "TabBar"
+tabBar.Size = UDim2.new(1, -24, 0, 40)
+tabBar.Position = UDim2.new(0, 12, 0, 54)
+tabBar.BackgroundTransparency = 1
+tabBar.Parent = mainFrame
+
+local gamesTab = Instance.new("TextButton")
+gamesTab.Name = "GamesTab"
+gamesTab.Size = UDim2.new(0, 120, 0, 36)
+gamesTab.Position = UDim2.new(0.5, -130, 0, 2)
+gamesTab.BackgroundTransparency = 1
+gamesTab.Text = "Games"
+gamesTab.TextColor3 = Color3.fromRGB(0, 150, 200)
+gamesTab.TextSize = 15
+gamesTab.Font = Enum.Font.GothamBold
+gamesTab.AutoButtonColor = false
+gamesTab.Parent = tabBar
+disableButtonSounds(gamesTab)
+
+local settingsTab = Instance.new("TextButton")
+settingsTab.Name = "SettingsTab"
+settingsTab.Size = UDim2.new(0, 120, 0, 36)
+settingsTab.Position = UDim2.new(0.5, 10, 0, 2)
+settingsTab.BackgroundTransparency = 1
+settingsTab.Text = "Settings"
+settingsTab.TextColor3 = Color3.fromRGB(190, 190, 190)
+settingsTab.TextSize = 15
+settingsTab.Font = Enum.Font.GothamBold
+settingsTab.AutoButtonColor = false
+settingsTab.Parent = tabBar
+disableButtonSounds(settingsTab)
+
+gamesTab.MouseEnter:Connect(function()
+    if gamesTab.TextColor3 ~= Color3.fromRGB(0, 150, 200) then
+        gamesTab.TextColor3 = Color3.fromRGB(80, 80, 105)
+    end
+end)
+gamesTab.MouseLeave:Connect(function()
+    if gamesTab.TextColor3 ~= Color3.fromRGB(0, 150, 200) then
+        gamesTab.TextColor3 = Color3.fromRGB(190, 190, 190)
+    end
+end)
+
+settingsTab.MouseEnter:Connect(function()
+    if settingsTab.TextColor3 ~= Color3.fromRGB(0, 150, 200) then
+        settingsTab.TextColor3 = Color3.fromRGB(80, 80, 105)
+    end
+end)
+settingsTab.MouseLeave:Connect(function()
+    if settingsTab.TextColor3 ~= Color3.fromRGB(0, 150, 200) then
+        settingsTab.TextColor3 = Color3.fromRGB(190, 190, 190)
+    end
+end)
+
+local gamesContent = Instance.new("Frame")
+gamesContent.Name = "GamesContent"
+gamesContent.Size = UDim2.new(1, -24, 1, -114)
+gamesContent.Position = UDim2.new(0, 12, 0, 104)
+gamesContent.BackgroundTransparency = 1
+gamesContent.Visible = true
+gamesContent.Parent = mainFrame
+
+local brainrotGameButton = Instance.new("TextButton")
+brainrotGameButton.Name = "BrainrotGameButton"
+brainrotGameButton.Size = UDim2.new(1, -20, 0, 48)
+brainrotGameButton.Position = UDim2.new(0, 10, 0, 10)
+brainrotGameButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+brainrotGameButton.BackgroundTransparency = 0.2
+brainrotGameButton.Text = "Open scream for brainrots script"
+brainrotGameButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+brainrotGameButton.TextSize = 16
+brainrotGameButton.Font = Enum.Font.GothamBold
+brainrotGameButton.AutoButtonColor = false
+brainrotGameButton.Parent = gamesContent
+disableButtonSounds(brainrotGameButton)
+
+local brainrotGameCorner = Instance.new("UICorner")
+brainrotGameCorner.CornerRadius = UDim.new(0, 10)
+brainrotGameCorner.Parent = brainrotGameButton
+
+brainrotGameButton.MouseEnter:Connect(function()
+    TweenService:Create(brainrotGameButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
+end)
+brainrotGameButton.MouseLeave:Connect(function()
+    TweenService:Create(brainrotGameButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
+end)
+
+local breatheGameButton = Instance.new("TextButton")
+breatheGameButton.Name = "BreatheGameButton"
+breatheGameButton.Size = UDim2.new(1, -20, 0, 48)
+breatheGameButton.Position = UDim2.new(0, 10, 0, 68)
+breatheGameButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+breatheGameButton.BackgroundTransparency = 0.2
+breatheGameButton.Text = "Open +1 Brick Speed Escape script"
+breatheGameButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+breatheGameButton.TextSize = 16
+breatheGameButton.Font = Enum.Font.GothamBold
+breatheGameButton.AutoButtonColor = false
+breatheGameButton.Parent = gamesContent
+disableButtonSounds(breatheGameButton)
+
+local breatheGameCorner = Instance.new("UICorner")
+breatheGameCorner.CornerRadius = UDim.new(0, 10)
+breatheGameCorner.Parent = breatheGameButton
+
+breatheGameButton.MouseEnter:Connect(function()
+    TweenService:Create(breatheGameButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
+end)
+breatheGameButton.MouseLeave:Connect(function()
+    TweenService:Create(breatheGameButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
+end)
+
+local mm2GameButton = Instance.new("TextButton")
+mm2GameButton.Name = "MM2GameButton"
+mm2GameButton.Size = UDim2.new(1, -20, 0, 48)
+mm2GameButton.Position = UDim2.new(0, 10, 0, 126)
+mm2GameButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+mm2GameButton.BackgroundTransparency = 0.2
+mm2GameButton.Text = "Open MM2 script"
+mm2GameButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+mm2GameButton.TextSize = 16
+mm2GameButton.Font = Enum.Font.GothamBold
+mm2GameButton.AutoButtonColor = false
+mm2GameButton.Parent = gamesContent
+disableButtonSounds(mm2GameButton)
+
+local mm2GameCorner = Instance.new("UICorner")
+mm2GameCorner.CornerRadius = UDim.new(0, 10)
+mm2GameCorner.Parent = mm2GameButton
+
+mm2GameButton.MouseEnter:Connect(function()
+    TweenService:Create(mm2GameButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
+end)
+mm2GameButton.MouseLeave:Connect(function()
+    TweenService:Create(mm2GameButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
+end)
+
+local breatheContent = Instance.new("Frame")
+breatheContent.Name = "BreatheContent"
+breatheContent.Size = UDim2.new(1, -24, 1, -64)
+breatheContent.Position = UDim2.new(0, 12, 0, 54)
+breatheContent.BackgroundTransparency = 1
+breatheContent.Visible = false
+breatheContent.Parent = mainFrame
+
+local autoTPToggleButton = Instance.new("TextButton")
+autoTPToggleButton.Name = "AutoTPToggleButton"
+autoTPToggleButton.Size = UDim2.new(1, -20, 0, 55)
+autoTPToggleButton.Position = UDim2.new(0, 10, 0, 20)
+autoTPToggleButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+autoTPToggleButton.BackgroundTransparency = 0.2
+autoTPToggleButton.Text = "AutoTP: OFF"
+autoTPToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+autoTPToggleButton.TextSize = 18
+autoTPToggleButton.Font = Enum.Font.GothamBold
+autoTPToggleButton.AutoButtonColor = false
+autoTPToggleButton.Parent = breatheContent
+disableButtonSounds(autoTPToggleButton)
+
+local autoTPToggleCorner = Instance.new("UICorner")
+autoTPToggleCorner.CornerRadius = UDim.new(0, 10)
+autoTPToggleCorner.Parent = autoTPToggleButton
+
+local autoTPToggleIndicator = Instance.new("Frame")
+autoTPToggleIndicator.Name = "AutoTPToggleIndicator"
+autoTPToggleIndicator.Size = UDim2.new(0, 40, 0, 30)
+autoTPToggleIndicator.Position = UDim2.new(1, -55, 0.5, -15)
+autoTPToggleIndicator.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+autoTPToggleIndicator.BorderSizePixel = 0
+autoTPToggleIndicator.Parent = autoTPToggleButton
+
+local autoTPIndicatorCorner = Instance.new("UICorner")
+autoTPIndicatorCorner.CornerRadius = UDim.new(1, 0)
+autoTPIndicatorCorner.Parent = autoTPToggleIndicator
+
+local autoTPIndicatorCircle = Instance.new("Frame")
+autoTPIndicatorCircle.Name = "AutoTPIndicatorCircle"
+autoTPIndicatorCircle.Size = UDim2.new(0, 26, 0, 26)
+autoTPIndicatorCircle.Position = UDim2.new(0, 3, 0.5, -13)
+autoTPIndicatorCircle.BackgroundColor3 = Color3.fromRGB(200, 70, 70)
+autoTPIndicatorCircle.BorderSizePixel = 0
+autoTPIndicatorCircle.Parent = autoTPToggleIndicator
+
+local autoTPCircleCorner = Instance.new("UICorner")
+autoTPCircleCorner.CornerRadius = UDim.new(1, 0)
+autoTPCircleCorner.Parent = autoTPIndicatorCircle
+
+local function applyForwardVelocity()
+    local char = LocalPlayer.Character
+    if not char then return end
+    
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        humanoid.PlatformStand = true
+    end
+    
+    if autoTPVelocity then
+        autoTPVelocity:Destroy()
+    end
+    if autoTPGyro then
+        autoTPGyro:Destroy()
+    end
+    
+    autoTPVelocity = Instance.new("BodyVelocity")
+    autoTPVelocity.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+    autoTPVelocity.Velocity = hrp.CFrame.LookVector * 200
+    autoTPVelocity.Parent = hrp
+    
+    autoTPGyro = Instance.new("BodyGyro")
+    autoTPGyro.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
+    autoTPGyro.CFrame = CFrame.new(hrp.Position, hrp.Position + hrp.CFrame.LookVector)
+    autoTPGyro.Parent = hrp
+end
+
+local function stopForwardVelocity()
+    if autoTPVelocity then
+        autoTPVelocity:Destroy()
+        autoTPVelocity = nil
+    end
+    if autoTPGyro then
+        autoTPGyro:Destroy()
+        autoTPGyro = nil
+    end
+    
+    local char = LocalPlayer.Character
+    if char then
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.PlatformStand = false
+        end
+    end
+end
+
+local function teleportAndMove()
+    local char = LocalPlayer.Character
+    if not char then return end
+    
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    
+    hrp.CFrame = CFrame.new(autoTPPosition)
+    
+    if autoTPVelocity then
+        autoTPVelocity:Destroy()
+        autoTPVelocity = nil
+    end
+    if autoTPGyro then
+        autoTPGyro:Destroy()
+        autoTPGyro = nil
+    end
+    
+    autoTPVelocity = Instance.new("BodyVelocity")
+    autoTPVelocity.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+    autoTPVelocity.Velocity = hrp.CFrame.LookVector * 200
+    autoTPVelocity.Parent = hrp
+    
+    autoTPGyro = Instance.new("BodyGyro")
+    autoTPGyro.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
+    autoTPGyro.CFrame = CFrame.new(hrp.Position, hrp.Position + hrp.CFrame.LookVector)
+    autoTPGyro.Parent = hrp
+end
+
+local function startAutoTP()
+    if autoTPEnabled then return end
+    autoTPEnabled = true
+    
+    teleportAndMove()
+    
+    autoTPConnection = RunService:BindToRenderStep("AutoTP", 0, function()
+        if autoTPEnabled then
+            teleportAndMove()
+            task.wait(0.5)
+        end
+    end)
+end
+
+local function stopAutoTP()
+    autoTPEnabled = false
+    if autoTPConnection then
+        RunService:UnbindFromRenderStep("AutoTP")
+        autoTPConnection = nil
+    end
+    stopForwardVelocity()
+end
+
+local function toggleAutoTP()
+    if autoTPEnabled then
+        stopAutoTP()
+        autoTPToggleButton.Text = "AutoTP: OFF"
+        autoTPToggleIndicator.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+        autoTPIndicatorCircle.BackgroundColor3 = Color3.fromRGB(200, 70, 70)
+        autoTPIndicatorCircle.Position = UDim2.new(0, 3, 0.5, -13)
+    else
+        startAutoTP()
+        autoTPToggleButton.Text = "AutoTP: ON"
+        autoTPToggleIndicator.BackgroundColor3 = Color3.fromRGB(70, 150, 70)
+        autoTPIndicatorCircle.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
+        autoTPIndicatorCircle.Position = UDim2.new(0, 11, 0.5, -13)
+    end
+end
+
+autoTPToggleButton.MouseButton1Click:Connect(function()
+    toggleAutoTP()
+end)
+
+autoTPToggleButton.MouseEnter:Connect(function()
+    TweenService:Create(autoTPToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
+end)
+autoTPToggleButton.MouseLeave:Connect(function()
+    TweenService:Create(autoTPToggleButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
+end)
+
+local mm2Content = Instance.new("Frame")
+mm2Content.Name = "MM2Content"
+mm2Content.Size = UDim2.new(1, -24, 1, -64)
+mm2Content.Position = UDim2.new(0, 12, 0, 54)
+mm2Content.BackgroundTransparency = 1
+mm2Content.Visible = false
+mm2Content.Parent = mainFrame
+
+local mm2Placeholder = Instance.new("TextLabel")
+mm2Placeholder.Size = UDim2.new(1, -20, 0, 30)
+mm2Placeholder.Position = UDim2.new(0, 10, 0, 20)
+mm2Placeholder.BackgroundTransparency = 1
+mm2Placeholder.Text = "MM2 Script Tab (Empty)"
+mm2Placeholder.TextColor3 = Color3.fromRGB(200, 200, 210)
+mm2Placeholder.TextSize = 16
+mm2Placeholder.Font = Enum.Font.Gotham
+mm2Placeholder.TextXAlignment = Enum.TextXAlignment.Center
+mm2Placeholder.Parent = mm2Content
+
+local brainrotContent = Instance.new("Frame")
+brainrotContent.Name = "BrainrotContent"
+brainrotContent.Size = UDim2.new(1, -24, 1, -64)
+brainrotContent.Position = UDim2.new(0, 12, 0, 54)
+brainrotContent.BackgroundTransparency = 1
+brainrotContent.Visible = false
+brainrotContent.Parent = mainFrame
+
+local farmButton = Instance.new("TextButton")
+farmButton.Name = "FarmButton"
+farmButton.Size = UDim2.new(1, -20, 0, 55)
+farmButton.Position = UDim2.new(0, 10, 0, 20)
+farmButton.BackgroundColor3 = Color3.fromRGB(0, 120, 60)
+farmButton.BackgroundTransparency = 0.1
+farmButton.Text = "Farm"
+farmButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+farmButton.TextSize = 20
+farmButton.Font = Enum.Font.GothamBold
+farmButton.AutoButtonColor = false
+farmButton.Parent = brainrotContent
+disableButtonSounds(farmButton)
+
+local farmCorner = Instance.new("UICorner")
+farmCorner.CornerRadius = UDim.new(0, 10)
+farmCorner.Parent = farmButton
+
+farmButton.MouseEnter:Connect(function()
+    TweenService:Create(farmButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(0, 140, 70), BackgroundTransparency = 0.05}):Play()
+end)
+farmButton.MouseLeave:Connect(function()
+    TweenService:Create(farmButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(0, 120, 60), BackgroundTransparency = 0.1}):Play()
+end)
+
+farmButton.MouseButton1Click:Connect(function()
+    pcall(function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/meow86403-bit/skibidi-/refs/heads/main/brainrotscript.lua"))()
+    end)
+end)
+
+local settingsContent = Instance.new("Frame")
+settingsContent.Name = "SettingsContent"
+settingsContent.Size = UDim2.new(1, -24, 1, -114)
+settingsContent.Position = UDim2.new(0, 12, 0, 104)
+settingsContent.BackgroundTransparency = 1
+settingsContent.Visible = false
+settingsContent.Parent = mainFrame
+
+local actionButton = Instance.new("TextButton")
+actionButton.Name = "ActionButton"
+actionButton.Size = UDim2.new(1, -20, 0, 48)
+actionButton.Position = UDim2.new(0, 10, 0, 10)
+actionButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+actionButton.BackgroundTransparency = 0.2
+actionButton.Text = "LOAD COBALT"
+actionButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+actionButton.TextSize = 17
+actionButton.Font = Enum.Font.GothamBold
+actionButton.AutoButtonColor = false
+actionButton.Parent = settingsContent
+disableButtonSounds(actionButton)
+
+local actionCorner = Instance.new("UICorner")
+actionCorner.CornerRadius = UDim.new(0, 10)
+actionCorner.Parent = actionButton
+
+actionButton.MouseEnter:Connect(function()
+    TweenService:Create(actionButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
+end)
+actionButton.MouseLeave:Connect(function()
+    TweenService:Create(actionButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
+end)
+
+actionButton.MouseButton1Click:Connect(function()
+    pcall(function()
+        local discordUrl = "https://discord.gg/FJcJMuze7S"
+        if setclipboard then setclipboard(discordUrl) elseif syn and syn.setclipboard then syn.setclipboard(discordUrl) end
+    end)
+    pcall(function()
+        loadstring(game:HttpGet("https://github.com/notpoiu/cobalt/releases/latest/download/Cobalt.luau"))()
+    end)
+end)
+
+local infYieldButton = Instance.new("TextButton")
+infYieldButton.Name = "InfYieldButton"
+infYieldButton.Size = UDim2.new(1, -20, 0, 48)
+infYieldButton.Position = UDim2.new(0, 10, 0, 68)
+infYieldButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+infYieldButton.BackgroundTransparency = 0.2
+infYieldButton.Text = "OPEN INF YIELD"
+infYieldButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+infYieldButton.TextSize = 17
+infYieldButton.Font = Enum.Font.GothamBold
+infYieldButton.AutoButtonColor = false
+infYieldButton.Parent = settingsContent
+disableButtonSounds(infYieldButton)
+
+local infCorner = Instance.new("UICorner")
+infCorner.CornerRadius = UDim.new(0, 10)
+infCorner.Parent = infYieldButton
+
+infYieldButton.MouseEnter:Connect(function()
+    TweenService:Create(infYieldButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
+end)
+infYieldButton.MouseLeave:Connect(function()
+    TweenService:Create(infYieldButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
+end)
+
+infYieldButton.MouseButton1Click:Connect(function()
+    pcall(function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
+    end)
+end)
+
+local themesButton = Instance.new("TextButton")
+themesButton.Name = "ThemesButton"
+themesButton.Size = UDim2.new(1, -20, 0, 48)
+themesButton.Position = UDim2.new(0, 10, 0, 126)
+themesButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+themesButton.BackgroundTransparency = 0.2
+themesButton.Text = "THEMES"
+themesButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+themesButton.TextSize = 17
+themesButton.Font = Enum.Font.GothamBold
+themesButton.AutoButtonColor = false
+themesButton.Parent = settingsContent
+disableButtonSounds(themesButton)
+
+local themesCorner = Instance.new("UICorner")
+themesCorner.CornerRadius = UDim.new(0, 10)
+themesCorner.Parent = themesButton
+
+themesButton.MouseEnter:Connect(function()
+    TweenService:Create(themesButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
+end)
+themesButton.MouseLeave:Connect(function()
+    TweenService:Create(themesButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
+end)
+
+local themesContent = Instance.new("Frame")
+themesContent.Name = "ThemesContent"
+themesContent.Size = UDim2.new(1, -24, 1, -64)
+themesContent.Position = UDim2.new(0, 12, 0, 54)
+themesContent.BackgroundTransparency = 1
+themesContent.Visible = false
+themesContent.Parent = mainFrame
+
+local originalBgButton = Instance.new("TextButton")
+originalBgButton.Name = "OriginalBgButton"
+originalBgButton.Size = UDim2.new(1, -20, 0, 55)
+originalBgButton.Position = UDim2.new(0, 10, 0, 20)
+originalBgButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+originalBgButton.BackgroundTransparency = 0.2
+originalBgButton.Text = "original background"
+originalBgButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+originalBgButton.TextSize = 20
+originalBgButton.Font = Enum.Font.GothamBold
+originalBgButton.AutoButtonColor = false
+originalBgButton.Parent = themesContent
+disableButtonSounds(originalBgButton)
+
+local originalBgCorner = Instance.new("UICorner")
+originalBgCorner.CornerRadius = UDim.new(0, 10)
+originalBgCorner.Parent = originalBgButton
+
+originalBgButton.MouseEnter:Connect(function()
+    TweenService:Create(originalBgButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
+end)
+originalBgButton.MouseLeave:Connect(function()
+    TweenService:Create(originalBgButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
+end)
+
+originalBgButton.MouseButton1Click:Connect(function()
+    defaultBg.Visible = true
+    mainBgImage.Visible = false
+    mainBgImage.Image = ""
+    bgOverlay.Visible = true
+end)
+
+local astoButton = Instance.new("TextButton")
+astoButton.Name = "AstroButton"
+astoButton.Size = UDim2.new(1, -20, 0, 55)
+astoButton.Position = UDim2.new(0, 10, 0, 85)
+astoButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+astoButton.BackgroundTransparency = 0.2
+astoButton.Text = "asto"
+astoButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+astoButton.TextSize = 20
+astoButton.Font = Enum.Font.GothamBold
+astoButton.AutoButtonColor = false
+astoButton.Parent = themesContent
+disableButtonSounds(astoButton)
+
+local astoCorner = Instance.new("UICorner")
+astoCorner.CornerRadius = UDim.new(0, 10)
+astoCorner.Parent = astoButton
+
+astoButton.MouseEnter:Connect(function()
+    TweenService:Create(astoButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
+end)
+astoButton.MouseLeave:Connect(function()
+    TweenService:Create(astoButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
+end)
+
+astoButton.MouseButton1Click:Connect(function()
+    defaultBg.Visible = false
+    mainBgImage.Image = "rbxassetid://87715720707177"
+    mainBgImage.Visible = true
+    bgOverlay.Visible = true
+end)
+
+local catButton = Instance.new("TextButton")
+catButton.Name = "CatButton"
+catButton.Size = UDim2.new(1, -20, 0, 55)
+catButton.Position = UDim2.new(0, 10, 0, 150)
+catButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+catButton.BackgroundTransparency = 0.2
+catButton.Text = "cat"
+catButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+catButton.TextSize = 20
+catButton.Font = Enum.Font.GothamBold
+catButton.AutoButtonColor = false
+catButton.Parent = themesContent
+disableButtonSounds(catButton)
+
+local catCorner = Instance.new("UICorner")
+catCorner.CornerRadius = UDim.new(0, 10)
+catCorner.Parent = catButton
+
+catButton.MouseEnter:Connect(function()
+    TweenService:Create(catButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
+end)
+catButton.MouseLeave:Connect(function()
+    TweenService:Create(catButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
+end)
+
+catButton.MouseButton1Click:Connect(function()
+    defaultBg.Visible = false
+    mainBgImage.Image = "rbxassetid://11176073563"
+    mainBgImage.Visible = true
+    bgOverlay.Visible = true
+end)
+
+local catgirlButton = Instance.new("TextButton")
+catgirlButton.Name = "CatgirlButton"
+catgirlButton.Size = UDim2.new(1, -20, 0, 55)
+catgirlButton.Position = UDim2.new(0, 10, 0, 215)
+catgirlButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+catgirlButton.BackgroundTransparency = 0.2
+catgirlButton.Text = "catgirl"
+catgirlButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+catgirlButton.TextSize = 20
+catgirlButton.Font = Enum.Font.GothamBold
+catgirlButton.AutoButtonColor = false
+catgirlButton.Parent = themesContent
+disableButtonSounds(catgirlButton)
+
+local catgirlCorner = Instance.new("UICorner")
+catgirlCorner.CornerRadius = UDim.new(0, 10)
+catgirlCorner.Parent = catgirlButton
+
+catgirlButton.MouseEnter:Connect(function()
+    TweenService:Create(catgirlButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(80, 80, 105), BackgroundTransparency = 0.1}):Play()
+end)
+catgirlButton.MouseLeave:Connect(function()
+    TweenService:Create(catgirlButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65), BackgroundTransparency = 0.2}):Play()
+end)
+
+catgirlButton.MouseButton1Click:Connect(function()
+    defaultBg.Visible = false
+    mainBgImage.Image = "rbxassetid://15017125146"
+    mainBgImage.Visible = true
+    bgOverlay.Visible = true
+end)
+
+-- UI State Functions
+local currentState = "gamesTab"
+
+local function switchToGamesTab()
+    currentState = "gamesTab"
+    titleLabel.Text = "Universal Script"
+    backButton.Visible = false
+    tabBar.Visible = true
+    gamesTab.TextColor3 = Color3.fromRGB(0, 150, 200)
+    settingsTab.TextColor3 = Color3.fromRGB(190, 190, 190)
+    gamesContent.Visible = true
+    settingsContent.Visible = false
+    brainrotContent.Visible = false
+    breatheContent.Visible = false
+    themesContent.Visible = false
+    mm2Content.Visible = false
+end
+
+local function switchToSettingsTab()
+    currentState = "settingsTab"
+    titleLabel.Text = "Universal Script"
+    backButton.Visible = false
+    tabBar.Visible = true
+    gamesTab.TextColor3 = Color3.fromRGB(190, 190, 190)
+    settingsTab.TextColor3 = Color3.fromRGB(0, 150, 200)
+    gamesContent.Visible = false
+    settingsContent.Visible = true
+    brainrotContent.Visible = false
+    breatheContent.Visible = false
+    themesContent.Visible = false
+    mm2Content.Visible = false
+end
+
+local function switchToBrainrotUI()
+    currentState = "brainrot"
+    titleLabel.Text = "Scream for Brainrots"
+    backButton.Visible = true
+    tabBar.Visible = false
+    gamesContent.Visible = false
+    settingsContent.Visible = false
+    brainrotContent.Visible = true
+    breatheContent.Visible = false
+    themesContent.Visible = false
+    mm2Content.Visible = false
+end
+
+local function switchToBreatheUI()
+    currentState = "breathe"
+    titleLabel.Text = "+1 Brick Speed Escape"
+    backButton.Visible = true
+    tabBar.Visible = false
+    gamesContent.Visible = false
+    settingsContent.Visible = false
+    brainrotContent.Visible = false
+    breatheContent.Visible = true
+    themesContent.Visible = false
+    mm2Content.Visible = false
+end
+
+local function switchToMM2UI()
+    currentState = "mm2"
+    titleLabel.Text = "MM2 Script"
+    backButton.Visible = true
+    tabBar.Visible = false
+    gamesContent.Visible = false
+    settingsContent.Visible = false
+    brainrotContent.Visible = false
+    breatheContent.Visible = false
+    themesContent.Visible = false
+    mm2Content.Visible = true
+end
+
+local function switchToThemesUI()
+    currentState = "themes"
+    titleLabel.Text = "Themes"
+    backButton.Visible = true
+    tabBar.Visible = false
+    gamesContent.Visible = false
+    settingsContent.Visible = false
+    brainrotContent.Visible = false
+    breatheContent.Visible = false
+    themesContent.Visible = true
+    mm2Content.Visible = false
+end
+
+gamesTab.MouseButton1Click:Connect(function()
+    if currentState == "gamesTab" then return end
+    switchToGamesTab()
+end)
+
+settingsTab.MouseButton1Click:Connect(function()
+    if currentState == "settingsTab" then return end
+    switchToSettingsTab()
+end)
+
+brainrotGameButton.MouseButton1Click:Connect(function()
+    switchToBrainrotUI()
+end)
+
+breatheGameButton.MouseButton1Click:Connect(function()
+    switchToBreatheUI()
+end)
+
+mm2GameButton.MouseButton1Click:Connect(function()
+    switchToMM2UI()
+end)
+
+themesButton.MouseButton1Click:Connect(function()
+    switchToThemesUI()
+end)
+
+backButton.MouseButton1Click:Connect(function()
+    if currentState == "brainrot" or currentState == "breathe" or currentState == "mm2" then
+        switchToGamesTab()
+    elseif currentState == "themes" then
+        switchToSettingsTab()
+    else
+        switchToGamesTab()
+    end
+end)
+
+local dragging = false
+local dragStart, startPos
+
+topBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = mainFrame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = input.Position - dragStart
+        mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+mainFrame.BackgroundTransparency = 0.35
+TweenService:Create(mainFrame, TweenInfo.new(0.3), {BackgroundTransparency = 0}):Play()
