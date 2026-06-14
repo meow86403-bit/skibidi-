@@ -2,9 +2,11 @@ local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
+local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
+local mouse = player:GetMouse()
 
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "UniversalGUI"
@@ -115,6 +117,57 @@ for i, name in ipairs(tabNames) do
     table.insert(contents, content)
 end
 
+-- ==================== FOV CIRCLE (Native Roblox GUI) ====================
+local fovCircleFrame = nil
+local fovEnabled = false
+local fovRadius = 120
+
+local function createFOVCircle()
+    if fovCircleFrame then fovCircleFrame:Destroy() end
+    
+    fovCircleFrame = Instance.new("Frame")
+    fovCircleFrame.Name = "FOVCircle"
+    fovCircleFrame.Size = UDim2.new(0, fovRadius * 2, 0, fovRadius * 2)
+    fovCircleFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+    fovCircleFrame.BackgroundTransparency = 1
+    fovCircleFrame.BorderSizePixel = 0
+    fovCircleFrame.Visible = fovEnabled
+    fovCircleFrame.Parent = ScreenGui
+    
+    local circleImage = Instance.new("ImageLabel")
+    circleImage.Size = UDim2.new(1, 0, 1, 0)
+    circleImage.BackgroundTransparency = 1
+    circleImage.Image = "rbxasset://textures/ui/PlayerSearch/radial.png"
+    circleImage.ImageColor3 = Color3.fromRGB(255, 255, 255)
+    circleImage.ImageTransparency = 0.7
+    circleImage.Parent = fovCircleFrame
+    
+    local outline = Instance.new("Frame")
+    outline.Size = UDim2.new(1, 0, 1, 0)
+    outline.BackgroundTransparency = 1
+    outline.BorderSizePixel = 2
+    outline.BorderColor3 = Color3.fromRGB(255, 100, 255)
+    outline.Parent = fovCircleFrame
+    
+    return fovCircleFrame
+end
+
+local function updateFOVCirclePosition()
+    if fovCircleFrame then
+        local mousePos = UserInputService:GetMouseLocation()
+        fovCircleFrame.Position = UDim2.new(0, mousePos.X, 0, mousePos.Y)
+    end
+end
+
+local function updateFOVCircleRadius()
+    if fovCircleFrame then
+        fovCircleFrame.Size = UDim2.new(0, fovRadius * 2, 0, fovRadius * 2)
+    end
+end
+
+-- Create initial circle
+createFOVCircle()
+
 -- ==================== MAIN TAB ====================
 local mainContent = contents[1]
 
@@ -196,7 +249,7 @@ local predCheckCorner = Instance.new("UICorner")
 predCheckCorner.CornerRadius = UDim.new(0, 8)
 predCheckCorner.Parent = PredCheckbox
 
--- Divider line inside Main tab (between Prediction and NPC Check)
+-- Divider line inside Main tab
 local mainTabDivider = Instance.new("Frame")
 mainTabDivider.Name = "MainTabDivider"
 mainTabDivider.Size = UDim2.new(0.92, 0, 0, 1)
@@ -205,7 +258,7 @@ mainTabDivider.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
 mainTabDivider.BorderSizePixel = 0
 mainTabDivider.Parent = MainLeftPanel
 
--- NPC Check Row (below divider)
+-- NPC Check Row
 local NPCFrame = Instance.new("Frame")
 NPCFrame.Size = UDim2.new(1, -24, 0, 55)
 NPCFrame.Position = UDim2.new(0, 12, 0, 165)
@@ -383,77 +436,7 @@ local predKnobCorner = Instance.new("UICorner")
 predKnobCorner.CornerRadius = UDim.new(1, 0)
 predKnobCorner.Parent = PredSliderKnob
 
--- ==================== FOV CIRCLE & AIMBOT WITH NPC SUPPORT ====================
-local fovEnabled = false
-local fovRadius = 120
-local fovCircle = Drawing.new("Circle")
-fovCircle.Visible = false
-fovCircle.Thickness = 1.5
-fovCircle.Color = Color3.fromRGB(255, 255, 255)
-fovCircle.Filled = false
-fovCircle.NumSides = 64
-fovCircle.Radius = fovRadius
-
-local npcEnabled = false
-local npcList = {} -- Cache for NPCs to avoid repeated scanning
-
--- Efficient NPC detection - updates every 2 seconds instead of every frame
-local function updateNPCList()
-    local newNPCList = {}
-    
-    -- Look for common NPC model names and humanoid-containing NPCs
-    for _, obj in ipairs(Workspace:GetDescendants()) do
-        if obj:IsA("Model") and obj ~= player.Character then
-            local humanoid = obj:FindFirstChild("Humanoid")
-            if humanoid and humanoid.Health > 0 then
-                local hrp = obj:FindFirstChild("HumanoidRootPart") or obj:FindFirstChild("Torso") or obj:FindFirstChild("UpperTorso")
-                if hrp then
-                    -- Check if it's NOT a player (no Player instance associated)
-                    local isPlayer = false
-                    for _, plr in ipairs(Players:GetPlayers()) do
-                        if plr.Character == obj then
-                            isPlayer = true
-                            break
-                        end
-                    end
-                    if not isPlayer then
-                        table.insert(newNPCList, {
-                            Model = obj,
-                            Humanoid = humanoid,
-                            RootPart = hrp
-                        })
-                    end
-                end
-            end
-        end
-    end
-    
-    npcList = newNPCList
-end
-
--- Update NPC list periodically (every 2 seconds to reduce lag)
-local npcUpdateConnection = nil
-if RunService.Stepped then
-    npcUpdateConnection = RunService.Stepped:Connect(function()
-        if fovEnabled and npcEnabled then
-            -- Throttle updates to every ~60 frames (about 1 second)
-            if tick() % 1 < 0.05 then
-                updateNPCList()
-            end
-        end
-    end)
-end
-
--- Initial NPC list update
-task.spawn(function()
-    while true do
-        if fovEnabled and npcEnabled then
-            updateNPCList()
-        end
-        task.wait(2) -- Update every 2 seconds only when needed
-    end
-end)
-
+-- ==================== SLIDER LOGIC ====================
 local sliderDragging = false
 local minFOV, maxFOV = 30, 350
 
@@ -465,7 +448,7 @@ local function updateSlider(inputX)
     SliderFill.Size = UDim2.new(relative, 0, 1, 0)
     SliderKnob.Position = UDim2.new(relative, 0, 0.5, 0)
     FOVSizeValue.Text = tostring(fovRadius)
-    fovCircle.Radius = fovRadius
+    updateFOVCircleRadius()
 end
 
 SliderTrack.InputBegan:Connect(function(input)
@@ -481,25 +464,7 @@ SliderKnob.InputBegan:Connect(function(input)
     end
 end)
 
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        sliderDragging = false
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if sliderDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-        updateSlider(input.Position.X)
-    end
-end)
-
-FOVCheckbox.MouseButton1Click:Connect(function()
-    fovEnabled = not fovEnabled
-    FOVCheckbox.BackgroundColor3 = fovEnabled and Color3.fromRGB(140, 60, 200) or Color3.fromRGB(40, 40, 45)
-    fovCircle.Visible = fovEnabled
-end)
-
--- ==================== PREDICTION SLIDER LOGIC ====================
+-- Prediction slider
 local predEnabled = false
 local predAmount = 0.10
 local predSliderDragging = false
@@ -527,15 +492,27 @@ PredSliderKnob.InputBegan:Connect(function(input)
     end
 end)
 
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        sliderDragging = false
+        predSliderDragging = false
+    end
+end)
+
 UserInputService.InputChanged:Connect(function(input)
+    if sliderDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        updateSlider(input.Position.X)
+    end
     if predSliderDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
         updatePredSlider(input.Position.X)
     end
 end)
 
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        predSliderDragging = false
+FOVCheckbox.MouseButton1Click:Connect(function()
+    fovEnabled = not fovEnabled
+    FOVCheckbox.BackgroundColor3 = fovEnabled and Color3.fromRGB(140, 60, 200) or Color3.fromRGB(40, 40, 45)
+    if fovCircleFrame then
+        fovCircleFrame.Visible = fovEnabled
     end
 end)
 
@@ -544,40 +521,19 @@ PredCheckbox.MouseButton1Click:Connect(function()
     PredCheckbox.BackgroundColor3 = predEnabled and Color3.fromRGB(140, 60, 200) or Color3.fromRGB(40, 40, 45)
 end)
 
--- NPC Checkbox handler
+-- NPC Checkbox
+local npcEnabled = false
 NPCCheckbox.MouseButton1Click:Connect(function()
     npcEnabled = not npcEnabled
     NPCCheckbox.BackgroundColor3 = npcEnabled and Color3.fromRGB(140, 60, 200) or Color3.fromRGB(40, 40, 45)
-    if npcEnabled and fovEnabled then
-        updateNPCList() -- Refresh NPC list immediately when enabled
-    end
 end)
 
--- ==================== FOV AIMBOT (with NPC support) ====================
+-- ==================== FOV AIMBOT ====================
 local lockedTarget = nil
-local lockedTargetType = nil -- "player" or "npc"
 local predVelocity = Vector3.zero
 local lastPredPos = nil
 local lastPredTime = nil
 local PRED_SMOOTH = 0.2
-
--- Cache for player list to avoid creating tables every frame
-local cachedPlayers = {}
-local lastPlayerUpdate = 0
-
-local function updateCachedPlayers()
-    local now = tick()
-    if now - lastPlayerUpdate > 0.5 then -- Update player list every 0.5 seconds max
-        cachedPlayers = {}
-        for _, plr in ipairs(Players:GetPlayers()) do
-            if plr ~= player then
-                table.insert(cachedPlayers, plr)
-            end
-        end
-        lastPlayerUpdate = now
-    end
-    return cachedPlayers
-end
 
 local function isValidTarget(plr)
     if not plr or plr == player then return false end
@@ -587,186 +543,84 @@ local function isValidTarget(plr)
     return hrp and hum and hum.Health > 0
 end
 
-local function isValidNPCTarget(npc)
-    if not npc or not npc.Model or not npc.Humanoid then return false end
-    if npc.Humanoid.Health <= 0 then return false end
-    if not npc.RootPart or not npc.RootPart.Parent then return false end
-    return true
-end
-
-local function getClosestTargetInFOV()
-    local closestTarget = nil
+local function getClosestPlayerInFOV()
+    local closestPlayer = nil
     local closestDistance = math.huge
-    local closestType = nil
     local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    local mousePos = UserInputService:GetMouseLocation()
     
-    -- Check players first (or along with NPCs)
-    local playersList = updateCachedPlayers()
-    for _, plr in ipairs(playersList) do
+    for _, plr in ipairs(Players:GetPlayers()) do
         if isValidTarget(plr) then
             local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
             if hrp then
                 local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
                 if onScreen then
-                    local dist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+                    local dist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
                     if dist < fovRadius and dist < closestDistance then
                         closestDistance = dist
-                        closestTarget = plr
-                        closestType = "player"
+                        closestPlayer = plr
                     end
                 end
             end
         end
     end
-    
-    -- Check NPCs if enabled
-    if npcEnabled then
-        for _, npc in ipairs(npcList) do
-            if isValidNPCTarget(npc) then
-                local screenPos, onScreen = Camera:WorldToViewportPoint(npc.RootPart.Position)
-                if onScreen then
-                    local dist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
-                    if dist < fovRadius and dist < closestDistance then
-                        closestDistance = dist
-                        closestTarget = npc
-                        closestType = "npc"
-                    end
-                end
-            end
-        end
-    end
-    
-    return closestTarget, closestType
-end
-
-local function getTargetPosition(target, targetType)
-    if targetType == "player" then
-        local hrp = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
-        return hrp and hrp.Position or nil
-    elseif targetType == "npc" then
-        return target.RootPart and target.RootPart.Position or nil
-    end
-    return nil
-end
-
-local function getTargetVelocity(target, targetType)
-    if targetType == "player" then
-        local hrp = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
-        if hrp then return hrp.AssemblyLinearVelocity end
-    elseif targetType == "npc" then
-        if target.RootPart then return target.RootPart.AssemblyLinearVelocity end
-    end
-    return Vector3.zero
-end
-
-local function getTargetHumanoid(target, targetType)
-    if targetType == "player" then
-        return target.Character and target.Character:FindFirstChild("Humanoid")
-    elseif targetType == "npc" then
-        return target.Humanoid
-    end
-    return nil
+    return closestPlayer
 end
 
 local function clearLock()
     lockedTarget = nil
-    lockedTargetType = nil
     predVelocity = Vector3.zero
     lastPredPos = nil
     lastPredTime = nil
 end
 
--- Optimization: Only run heavy operations when right mouse button is held
-local rightMouseHeld = false
-local aimFrameSkip = 0
-
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    if input.UserInputType == Enum.UserInputType.MouseButton2 then
-        rightMouseHeld = true
-    end
-end)
-
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton2 then
-        rightMouseHeld = false
-        clearLock()
+-- Update FOV circle position every frame
+RunService.RenderStepped:Connect(function()
+    if fovEnabled then
+        updateFOVCirclePosition()
     end
 end)
 
 RunService.RenderStepped:Connect(function(dt)
-    local mousePos = UserInputService:GetMouseLocation()
-    
     if fovEnabled then
-        fovCircle.Position = mousePos
-        fovCircle.Visible = true
-        
-        if rightMouseHeld then
-            -- Frame skipping for performance (update target every 2 frames)
-            aimFrameSkip = aimFrameSkip + 1
-            
-            -- Check if current target is still valid
-            local targetValid = false
-            if lockedTarget and lockedTargetType then
-                if lockedTargetType == "player" then
-                    targetValid = isValidTarget(lockedTarget)
-                elseif lockedTargetType == "npc" then
-                    targetValid = isValidNPCTarget(lockedTarget)
-                end
-            end
-            
-            if not targetValid then
+        if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+            if not isValidTarget(lockedTarget) then
                 clearLock()
-                -- Get new target (only every few frames to reduce load)
-                if aimFrameSkip >= 2 then
-                    local newTarget, newType = getClosestTargetInFOV()
-                    if newTarget then
-                        lockedTarget = newTarget
-                        lockedTargetType = newType
-                    end
-                    aimFrameSkip = 0
-                end
+                lockedTarget = getClosestPlayerInFOV()
             end
-            
-            -- Aim at target if valid
-            if lockedTarget and lockedTargetType then
-                local targetPos = getTargetPosition(lockedTarget, lockedTargetType)
-                if targetPos then
-                    local aimPos = targetPos
-                    
+
+            if isValidTarget(lockedTarget) then
+                local hrp = lockedTarget.Character:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    local aimPos = hrp.Position
+
                     if predEnabled then
                         local now = tick()
-                        local targetVel = getTargetVelocity(lockedTarget, lockedTargetType)
-                        
                         if lastPredPos and lastPredTime then
-                            local frameDt = math.min(now - lastPredTime, 0.033) -- Cap dt to prevent spikes
-                            if frameDt > 0 and targetVel.Magnitude > 0 then
-                                predVelocity = predVelocity:Lerp(targetVel, PRED_SMOOTH)
+                            local frameDt = now - lastPredTime
+                            if frameDt > 0 then
+                                local rawVel = (hrp.Position - lastPredPos) / frameDt
+                                predVelocity = predVelocity:Lerp(rawVel, PRED_SMOOTH)
                             end
                         end
-                        lastPredPos = targetPos
+                        lastPredPos = hrp.Position
                         lastPredTime = tick()
-                        aimPos = targetPos + predVelocity * (predAmount * 0.12) -- Reduced factor for smoother aim
+                        aimPos = hrp.Position + predVelocity * (predAmount * 0.15)
                     else
                         predVelocity = Vector3.zero
                         lastPredPos = nil
                         lastPredTime = nil
                     end
-                    
+
                     local _, onScreen = Camera:WorldToViewportPoint(aimPos)
                     if onScreen then
-                        -- Smooth camera movement to reduce jitter
-                        local targetCFrame = CFrame.new(Camera.CFrame.Position, aimPos)
-                        Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, 0.85)
+                        Camera.CFrame = CFrame.new(Camera.CFrame.Position, aimPos)
                     end
                 end
             end
         else
             clearLock()
         end
-    else
-        fovCircle.Visible = false
-        clearLock()
     end
 end)
 
@@ -854,7 +708,7 @@ local function addESPToPlayer(plr)
         local highlight = Instance.new("Highlight")
         highlight.FillColor = Color3.fromRGB(255, 255, 255)
         highlight.FillTransparency = 1
-        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+        highlight.OutlineColor = Color3.fromRGB(255, 100, 255)
         highlight.OutlineTransparency = 0
         highlight.Adornee = character
         highlight.Parent = character
@@ -909,7 +763,6 @@ end)
 -- ==================== CHARACTER TAB ====================
 local characterContent = contents[3]
 
--- LEFT PANEL
 local CharLeftPanel = Instance.new("Frame")
 CharLeftPanel.Size = UDim2.new(0.48, -5, 1, 0)
 CharLeftPanel.Position = UDim2.new(0, 0, 0, 0)
@@ -989,7 +842,7 @@ local noclipCheckCorner = Instance.new("UICorner")
 noclipCheckCorner.CornerRadius = UDim.new(0, 8)
 noclipCheckCorner.Parent = NoclipCheckbox
 
--- Speed Checkbox (LEFT PANEL)
+-- Speed Checkbox
 local speedEnabled = false
 local currentSpeedValue = 50
 local speedBodyVelocity = nil
@@ -1028,7 +881,6 @@ local speedCheckCorner = Instance.new("UICorner")
 speedCheckCorner.CornerRadius = UDim.new(0, 8)
 speedCheckCorner.Parent = SpeedCheckbox
 
--- DA HOOD SMOOTH SPEED MOVEMENT - FIXED
 local function applySmoothSpeed()
     local character = player.Character
     if not character then return end
@@ -1037,19 +889,16 @@ local function applySmoothSpeed()
     if not hrp or not hum then return end
     
     if speedEnabled then
-        -- Disable normal walk speed
         hum.WalkSpeed = 0
         hum.JumpPower = 50
         hum.AutoRotate = true
         
-        -- Create BodyVelocity for smooth movement
         if speedBodyVelocity then speedBodyVelocity:Destroy() end
         speedBodyVelocity = Instance.new("BodyVelocity")
         speedBodyVelocity.MaxForce = Vector3.new(1e6, 0, 1e6)
         speedBodyVelocity.Velocity = Vector3.zero
         speedBodyVelocity.Parent = hrp
         
-        -- Movement loop
         if speedConnection then speedConnection:Disconnect() end
         speedConnection = RunService.RenderStepped:Connect(function()
             if not speedEnabled or not player.Character then return end
@@ -1058,7 +907,6 @@ local function applySmoothSpeed()
             local currentHum = currentChar:FindFirstChild("Humanoid")
             if not currentHrp or not currentHum then return end
             
-            -- Get movement direction from WASD
             local moveDir = Vector3.zero
             local cf = Camera.CFrame
             
@@ -1074,7 +922,6 @@ local function applySmoothSpeed()
                 speedBodyVelocity.Velocity = Vector3.zero
             end
             
-            -- Prevent falling through floor
             local currentVel = currentHrp.AssemblyLinearVelocity
             if currentVel.Y < -30 then
                 currentHrp.AssemblyLinearVelocity = Vector3.new(currentVel.X, 0, currentVel.Z)
@@ -1083,7 +930,6 @@ local function applySmoothSpeed()
             currentHum.PlatformStand = false
         end)
     else
-        -- Disable speed mode
         if speedBodyVelocity then 
             speedBodyVelocity:Destroy()
             speedBodyVelocity = nil
@@ -1115,7 +961,6 @@ SpeedCheckbox.MouseButton1Click:Connect(function()
     toggleSpeed()
 end)
 
--- Re-apply on respawn
 player.CharacterAdded:Connect(function()
     if speedEnabled then
         task.wait(0.3)
@@ -1123,7 +968,7 @@ player.CharacterAdded:Connect(function()
     end
 end)
 
--- Attach Mode (LEFT PANEL)
+-- Attach Mode
 local attachModeEnabled = false
 local isAttached = false
 local attachedTarget = nil
@@ -1180,7 +1025,7 @@ local charRightCorner = Instance.new("UICorner")
 charRightCorner.CornerRadius = UDim.new(0, 10)
 charRightCorner.Parent = CharRightPanel
 
--- Speed Slider (RIGHT PANEL)
+-- Speed Slider
 local speedSliderDragging = false
 local minSpeed = 16
 local maxSpeed = 250
@@ -1274,19 +1119,13 @@ SpeedSliderKnob.InputBegan:Connect(function(input)
     end
 end)
 
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        speedSliderDragging = false
-    end
-end)
-
 UserInputService.InputChanged:Connect(function(input)
     if speedSliderDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
         updateSpeedSlider(input.Position.X)
     end
 end)
 
--- ==================== ATTACH FUNCTIONS ====================
+-- Attach Functions
 local function getPlayerLookingAt()
     local camera = workspace.CurrentCamera
     local mouseLocation = UserInputService:GetMouseLocation()
@@ -1524,7 +1363,7 @@ player.CharacterAdded:Connect(function()
     end
 end)
 
--- ==================== FLY LOGIC ====================
+-- Fly Logic
 local flyEnabled = false
 local flySpeed = 150
 local flyBodyVelocity = nil
@@ -1622,7 +1461,7 @@ player.CharacterAdded:Connect(function()
     end
 end)
 
--- ==================== NOCLIP LOGIC ====================
+-- Noclip Logic
 local noclipEnabled = false
 local noclipConnection = nil
 
@@ -1752,7 +1591,7 @@ local notifCheckCorner = Instance.new("UICorner")
 notifCheckCorner.CornerRadius = UDim.new(0, 8)
 notifCheckCorner.Parent = NotifCheckbox
 
--- ==================== ANTI FLING LOGIC ====================
+-- Anti Fling Logic
 local antiFlingEnabled = false
 local antiFlingConnection = nil
 
@@ -1818,7 +1657,7 @@ player.CharacterAdded:Connect(function(char)
     end
 end)
 
--- ==================== NOTIFICATIONS LOGIC ====================
+-- Notifications Logic
 local notifEnabled = false
 
 local function sendNotif(title, text, duration)
@@ -2047,7 +1886,9 @@ for i, tab in ipairs(tabs) do
 end
 
 -- Draggable
-local dragging, dragStart, startPos
+local dragging = false
+local dragStart = nil
+local startPos = nil
 
 TopBar.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
