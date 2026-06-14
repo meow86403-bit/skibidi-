@@ -27,6 +27,7 @@ TopBar.BackgroundColor3 = Color3.fromRGB(13, 13, 18)
 TopBar.BorderSizePixel = 0
 TopBar.Parent = MainFrame
 
+
 local Title = Instance.new("TextLabel")
 Title.Name = "Title"
 Title.Text = "UNIVERSAL"
@@ -38,6 +39,29 @@ Title.Font = Enum.Font.GothamBold
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Position = UDim2.new(0, 25, 0, 0)
 Title.Parent = TopBar
+
+local TitleImage = Instance.new("ImageLabel")
+TitleImage.Name = "TitleImage"
+TitleImage.Size = UDim2.new(0, 30, 0, 30)
+TitleImage.Position = UDim2.new(0.045, 143, 0, 11)
+TitleImage.BackgroundTransparency = 1
+TitleImage.Image = "rbxassetid://12014037690"
+TitleImage.Rotation = 13
+TitleImage.Parent = TopBar
+
+
+local TitleImageGlow = Instance.new("ImageLabel")
+TitleImageGlow.Position = UDim2.new(0, 140, 0, 8)
+TitleImageGlow.BackgroundTransparency = 1
+TitleImageGlow.Image = "rbxassetid://12014037690"
+TitleImageGlow.ImageColor3 = Color3.fromRGB(255, 90, 255)
+TitleImageGlow.ImageTransparency = 0.5
+TitleImageGlow.Rotation = 15
+TitleImageGlow.ZIndex = 0
+TitleImageGlow.Parent = TopBar
+
+-- Bring the main image to front
+TitleImage.ZIndex = 2
 
 -- Close Button
 local CloseButton = Instance.new("TextButton")
