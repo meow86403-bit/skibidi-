@@ -195,6 +195,53 @@ local predCheckCorner = Instance.new("UICorner")
 predCheckCorner.CornerRadius = UDim.new(0, 8)
 predCheckCorner.Parent = PredCheckbox
 
+-- ==================== DIVIDER LINE UNDER PREDICTION ====================
+local MainDivider = Instance.new("Frame")
+MainDivider.Name = "MainDivider"
+MainDivider.Size = UDim2.new(1, -24, 0, 2)
+MainDivider.Position = UDim2.new(0, 12, 0, 150)
+MainDivider.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+MainDivider.BorderSizePixel = 0
+MainDivider.Parent = MainLeftPanel
+
+local dividerCorner = Instance.new("UICorner")
+dividerCorner.CornerRadius = UDim.new(0, 2)
+dividerCorner.Parent = MainDivider
+
+-- ==================== NPC/PLAYER LOCK SECTION ====================
+local NpcFrame = Instance.new("Frame")
+NpcFrame.Size = UDim2.new(1, -24, 0, 55)
+NpcFrame.Position = UDim2.new(0, 12, 0, 160)
+NpcFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
+NpcFrame.BorderSizePixel = 0
+NpcFrame.Parent = MainLeftPanel
+
+local npcRowCorner = Instance.new("UICorner")
+npcRowCorner.CornerRadius = UDim.new(0, 8)
+npcRowCorner.Parent = NpcFrame
+
+local NpcLabel = Instance.new("TextLabel")
+NpcLabel.Text = "Npc Check"
+NpcLabel.Size = UDim2.new(0.7, 0, 1, 0)
+NpcLabel.BackgroundTransparency = 1
+NpcLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
+NpcLabel.TextSize = 19
+NpcLabel.Font = Enum.Font.GothamSemibold
+NpcLabel.TextXAlignment = Enum.TextXAlignment.Left
+NpcLabel.Position = UDim2.new(0, 16, 0, 0)
+NpcLabel.Parent = NpcFrame
+
+local NpcCheckbox = Instance.new("TextButton")
+NpcCheckbox.Size = UDim2.new(0, 32, 0, 32)
+NpcCheckbox.Position = UDim2.new(1, -44, 0.5, -16)
+NpcCheckbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+NpcCheckbox.Text = ""
+NpcCheckbox.Parent = NpcFrame
+
+local npcCheckCorner = Instance.new("UICorner")
+npcCheckCorner.CornerRadius = UDim.new(0, 8)
+npcCheckCorner.Parent = NpcCheckbox
+
 local MainRightPanel = Instance.new("Frame")
 MainRightPanel.Size = UDim2.new(0.48, -5, 1, 0)
 MainRightPanel.Position = UDim2.new(0.52, 0, 0, 0)
@@ -440,11 +487,13 @@ PredCheckbox.MouseButton1Click:Connect(function()
     PredCheckbox.BackgroundColor3 = predEnabled and Color3.fromRGB(140, 60, 200) or Color3.fromRGB(40, 40, 45)
 end)
 
--- ==================== FOV AIMBOT ====================
-local lockedTarget = nil
-local predVelocity = Vector3.zero
-local lastPredPos = nil
-local lastPredTime = nil
+-- ==================== UNIVERSAL LOCK (PLAYERS + NPCs) ====================
+local universalLockEnabled = false
+local lockedEntity = nil
+local universalPredVelocity = Vector3.zero
+local universalLastPos = nil
+local universalLastTime = nil
+local entityType = nil -- "player" or "npc"
 local PRED_SMOOTH = 0.2
 
 local function isValidTarget(plr)
@@ -475,12 +524,94 @@ local function getClosestPlayerInFOV()
     return closestPlayer
 end
 
-local function clearLock()
-    lockedTarget = nil
-    predVelocity = Vector3.zero
-    lastPredPos = nil
-    lastPredTime = nil
+local function getAllNPCs()
+    local npcs = {}
+    local allDescendants = workspace:GetDescendants()
+    for _, obj in ipairs(allDescendants) do
+        if obj:IsA("Model") or obj:IsA("BasePart") then
+            local hum = obj:FindFirstChild("Humanoid")
+            if hum and hum.Health and hum.Health > 0 then
+                local rootPart = obj:FindFirstChild("HumanoidRootPart") or obj:FindFirstChild("Torso") or obj:FindFirstChild("UpperTorso")
+                if rootPart then
+                    local isPlayer = false
+                    for _, plr in ipairs(Players:GetPlayers()) do
+                        if plr.Character == obj then
+                            isPlayer = true
+                            break
+                        end
+                    end
+                    if not isPlayer then
+                        table.insert(npcs, {
+                            model = obj,
+                            hum = hum,
+                            rootPart = rootPart
+                        })
+                    end
+                end
+            end
+        end
+    end
+    return npcs
 end
+
+local function getClosestEntityInFOV()
+    if not universalLockEnabled then
+        return getClosestPlayerInFOV(), "player"
+    end
+    
+    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    local closestEntity = nil
+    local closestDistance = math.huge
+    local closestType = nil
+    
+    -- Check players
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if isValidTarget(plr) then
+            local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+            local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+            if onScreen then
+                local dist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+                if dist < fovRadius and dist < closestDistance then
+                    closestDistance = dist
+                    closestEntity = plr
+                    closestType = "player"
+                end
+            end
+        end
+    end
+    
+    -- Check NPCs
+    local npcs = getAllNPCs()
+    for _, npc in ipairs(npcs) do
+        if npc.rootPart and npc.hum and npc.hum.Health > 0 then
+            local screenPos, onScreen = Camera:WorldToViewportPoint(npc.rootPart.Position)
+            if onScreen then
+                local dist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+                if dist < fovRadius and dist < closestDistance then
+                    closestDistance = dist
+                    closestEntity = npc
+                    closestType = "npc"
+                end
+            end
+        end
+    end
+    
+    return closestEntity, closestType
+end
+
+local function clearUniversalLock()
+    lockedEntity = nil
+    universalPredVelocity = Vector3.zero
+    universalLastPos = nil
+    universalLastTime = nil
+    entityType = nil
+end
+
+NpcCheckbox.MouseButton1Click:Connect(function()
+    universalLockEnabled = not universalLockEnabled
+    NpcCheckbox.BackgroundColor3 = universalLockEnabled and Color3.fromRGB(140, 60, 200) or Color3.fromRGB(40, 40, 45)
+    clearUniversalLock()
+end)
 
 RunService.RenderStepped:Connect(function(dt)
     local mousePos = UserInputService:GetMouseLocation()
@@ -490,46 +621,105 @@ RunService.RenderStepped:Connect(function(dt)
         fovCircle.Visible = true
 
         if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
-            if not isValidTarget(lockedTarget) then
-                clearLock()
-                lockedTarget = getClosestPlayerInFOV()
-            end
+            if not universalLockEnabled then
+                -- Normal player-only targeting
+                if not isValidTarget(lockedEntity) then
+                    clearUniversalLock()
+                    lockedEntity = getClosestPlayerInFOV()
+                    entityType = "player"
+                end
 
-            if isValidTarget(lockedTarget) then
-                local hrp = lockedTarget.Character:FindFirstChild("HumanoidRootPart")
-                if hrp then
-                    local aimPos = hrp.Position
+                if isValidTarget(lockedEntity) then
+                    local hrp = lockedEntity.Character:FindFirstChild("HumanoidRootPart")
+                    if hrp then
+                        local aimPos = hrp.Position
 
-                    if predEnabled then
-                        local now = tick()
-                        if lastPredPos and lastPredTime then
-                            local frameDt = now - lastPredTime
-                            if frameDt > 0 then
-                                local rawVel = (hrp.Position - lastPredPos) / frameDt
-                                predVelocity = predVelocity:Lerp(rawVel, PRED_SMOOTH)
+                        if predEnabled then
+                            local now = tick()
+                            if universalLastPos and universalLastTime then
+                                local frameDt = now - universalLastTime
+                                if frameDt > 0 then
+                                    local rawVel = (hrp.Position - universalLastPos) / frameDt
+                                    universalPredVelocity = universalPredVelocity:Lerp(rawVel, PRED_SMOOTH)
+                                end
+                            end
+                            universalLastPos = hrp.Position
+                            universalLastTime = tick()
+                            aimPos = hrp.Position + universalPredVelocity * (predAmount * 0.15)
+                        else
+                            universalPredVelocity = Vector3.zero
+                            universalLastPos = nil
+                            universalLastTime = nil
+                        end
+
+                        local _, onScreen = Camera:WorldToViewportPoint(aimPos)
+                        if onScreen then
+                            Camera.CFrame = CFrame.new(Camera.CFrame.Position, aimPos)
+                        end
+                    end
+                end
+            else
+                -- Universal targeting (players + NPCs)
+                if not lockedEntity or (entityType == "player" and not isValidTarget(lockedEntity)) or (entityType == "npc" and (not lockedEntity.rootPart or not lockedEntity.hum or lockedEntity.hum.Health <= 0)) then
+                    clearUniversalLock()
+                    local entity, eType = getClosestEntityInFOV()
+                    if entity then
+                        lockedEntity = entity
+                        entityType = eType
+                    end
+                end
+
+                if lockedEntity then
+                    local aimPos = nil
+                    local rootPart = nil
+                    
+                    if entityType == "player" then
+                        local plr = lockedEntity
+                        if plr.Character then
+                            rootPart = plr.Character:FindFirstChild("HumanoidRootPart")
+                            if rootPart then
+                                aimPos = rootPart.Position
                             end
                         end
-                        lastPredPos = hrp.Position
-                        lastPredTime = tick()
-                        aimPos = hrp.Position + predVelocity * (predAmount * 0.15)
-                    else
-                        predVelocity = Vector3.zero
-                        lastPredPos = nil
-                        lastPredTime = nil
+                    else -- NPC
+                        rootPart = lockedEntity.rootPart
+                        if rootPart then
+                            aimPos = rootPart.Position
+                        end
                     end
+                    
+                    if aimPos and rootPart then
+                        if predEnabled then
+                            local now = tick()
+                            if universalLastPos and universalLastTime then
+                                local frameDt = now - universalLastTime
+                                if frameDt > 0 then
+                                    local rawVel = (rootPart.Position - universalLastPos) / frameDt
+                                    universalPredVelocity = universalPredVelocity:Lerp(rawVel, PRED_SMOOTH)
+                                end
+                            end
+                            universalLastPos = rootPart.Position
+                            universalLastTime = tick()
+                            aimPos = rootPart.Position + universalPredVelocity * (predAmount * 0.15)
+                        else
+                            universalPredVelocity = Vector3.zero
+                            universalLastPos = nil
+                            universalLastTime = nil
+                        end
 
-                    local _, onScreen = Camera:WorldToViewportPoint(aimPos)
-                    if onScreen then
-                        Camera.CFrame = CFrame.new(Camera.CFrame.Position, aimPos)
+                        local _, onScreen = Camera:WorldToViewportPoint(aimPos)
+                        if onScreen then
+                            Camera.CFrame = CFrame.new(Camera.CFrame.Position, aimPos)
+                        end
                     end
                 end
             end
         else
-            clearLock()
+            clearUniversalLock()
         end
     else
         fovCircle.Visible = false
-        clearLock()
+        clearUniversalLock()
     end
 end)
 
@@ -1481,40 +1671,6 @@ local antiFlingCheckCorner = Instance.new("UICorner")
 antiFlingCheckCorner.CornerRadius = UDim.new(0, 8)
 antiFlingCheckCorner.Parent = AntiFlingCheckbox
 
--- Notifications Row
-local NotifFrame = Instance.new("Frame")
-NotifFrame.Size = UDim2.new(1, -24, 0, 55)
-NotifFrame.Position = UDim2.new(0, 12, 0, 85)
-NotifFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
-NotifFrame.BorderSizePixel = 0
-NotifFrame.Parent = OptLeftPanel
-
-local notifRowCorner = Instance.new("UICorner")
-notifRowCorner.CornerRadius = UDim.new(0, 8)
-notifRowCorner.Parent = NotifFrame
-
-local NotifLabel = Instance.new("TextLabel")
-NotifLabel.Text = "Notifications"
-NotifLabel.Size = UDim2.new(0.7, 0, 1, 0)
-NotifLabel.BackgroundTransparency = 1
-NotifLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
-NotifLabel.TextSize = 19
-NotifLabel.Font = Enum.Font.GothamSemibold
-NotifLabel.TextXAlignment = Enum.TextXAlignment.Left
-NotifLabel.Position = UDim2.new(0, 16, 0, 0)
-NotifLabel.Parent = NotifFrame
-
-local NotifCheckbox = Instance.new("TextButton")
-NotifCheckbox.Size = UDim2.new(0, 32, 0, 32)
-NotifCheckbox.Position = UDim2.new(1, -44, 0.5, -16)
-NotifCheckbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
-NotifCheckbox.Text = ""
-NotifCheckbox.Parent = NotifFrame
-
-local notifCheckCorner = Instance.new("UICorner")
-notifCheckCorner.CornerRadius = UDim.new(0, 8)
-notifCheckCorner.Parent = NotifCheckbox
-
 -- ==================== ANTI FLING LOGIC ====================
 local antiFlingEnabled = false
 local antiFlingConnection = nil
@@ -1579,34 +1735,6 @@ player.CharacterAdded:Connect(function(char)
         task.wait(0.5)
         enableAntiFling()
     end
-end)
-
--- ==================== NOTIFICATIONS LOGIC ====================
-local notifEnabled = false
-
-local function sendNotif(title, text, duration)
-    if not notifEnabled then return end
-    game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = title,
-        Text = text,
-        Duration = duration or 3,
-    })
-end
-
-NotifCheckbox.MouseButton1Click:Connect(function()
-    notifEnabled = not notifEnabled
-    NotifCheckbox.BackgroundColor3 = notifEnabled and Color3.fromRGB(140, 60, 200) or Color3.fromRGB(40, 40, 45)
-    if notifEnabled then
-        sendNotif("Universal", "Notifications enabled", 2)
-    end
-end)
-
-Players.PlayerAdded:Connect(function(plr)
-    sendNotif("Player Joined", plr.DisplayName .. " joined the game", 3)
-end)
-
-Players.PlayerRemoving:Connect(function(plr)
-    sendNotif("Player Left", plr.DisplayName .. " left the game", 3)
 end)
 
 -- ==================== PLAYERS TAB ====================
