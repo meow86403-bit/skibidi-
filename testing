@@ -28,7 +28,6 @@ TopBar.BackgroundColor3 = Color3.fromRGB(13, 13, 18)
 TopBar.BorderSizePixel = 0
 TopBar.Parent = MainFrame
 
-
 local Title = Instance.new("TextLabel")
 Title.Name = "Title"
 Title.Text = "UNIVERSAL"
@@ -50,18 +49,17 @@ TitleImage.Image = "rbxassetid://12014037690"
 TitleImage.Rotation = 13
 TitleImage.Parent = TopBar
 
-
 local TitleImageGlow = Instance.new("ImageLabel")
-TitleImageGlow.Position = UDim2.new(0, 140, 0, 8)
+TitleImageGlow.Size = UDim2.new(0, 36, 0, 36)
+TitleImageGlow.Position = UDim2.new(0.043, 141, 0, 8)
 TitleImageGlow.BackgroundTransparency = 1
 TitleImageGlow.Image = "rbxassetid://12014037690"
 TitleImageGlow.ImageColor3 = Color3.fromRGB(255, 90, 255)
 TitleImageGlow.ImageTransparency = 0.5
-TitleImageGlow.Rotation = 15
+TitleImageGlow.Rotation = 13
 TitleImageGlow.ZIndex = 0
 TitleImageGlow.Parent = TopBar
 
--- Bring the main image to front
 TitleImage.ZIndex = 2
 
 -- Close Button
@@ -219,163 +217,6 @@ PredCheckbox.Parent = PredFrame
 local predCheckCorner = Instance.new("UICorner")
 predCheckCorner.CornerRadius = UDim.new(0, 8)
 predCheckCorner.Parent = PredCheckbox
-
--- ==================== TRIGGER BOT SECTION ====================
-local TriggerFrame = Instance.new("Frame")
-TriggerFrame.Size = UDim2.new(1, -24, 0, 55)
-TriggerFrame.Position = UDim2.new(0, 12, 0, 180)
-TriggerFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
-TriggerFrame.BorderSizePixel = 0
-TriggerFrame.Parent = MainRightPanel
-
-local triggerRowCorner = Instance.new("UICorner")
-triggerRowCorner.CornerRadius = UDim.new(0, 8)
-triggerRowCorner.Parent = TriggerFrame
-
-local TriggerLabel = Instance.new("TextLabel")
-TriggerLabel.Text = "Trigger Bot"
-TriggerLabel.Size = UDim2.new(0.7, 0, 1, 0)
-TriggerLabel.BackgroundTransparency = 1
-TriggerLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
-TriggerLabel.TextSize = 19
-TriggerLabel.Font = Enum.Font.GothamSemibold
-TriggerLabel.TextXAlignment = Enum.TextXAlignment.Left
-TriggerLabel.Position = UDim2.new(0, 16, 0, 0)
-TriggerLabel.Parent = TriggerFrame
-
-local TriggerCheckbox = Instance.new("TextButton")
-TriggerCheckbox.Size = UDim2.new(0, 32, 0, 32)
-TriggerCheckbox.Position = UDim2.new(1, -44, 0.5, -16)
-TriggerCheckbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
-TriggerCheckbox.Text = ""
-TriggerCheckbox.Parent = TriggerFrame
-
-local triggerCheckCorner = Instance.new("UICorner")
-triggerCheckCorner.CornerRadius = UDim.new(0, 8)
-triggerCheckCorner.Parent = TriggerCheckbox
-
--- ==================== TRIGGER BOT LOGIC ====================
-local triggerBotEnabled = false
-local triggerKey = Enum.UserInputType.MouseButton1 -- Left click by default
-
-local function getTargetAtMouse()
-    local mouseLocation = UserInputService:GetMouseLocation()
-    local targetPlayer = nil
-    local targetNpc = nil
-    
-    if universalLockEnabled then
-        -- Check players first
-        for _, plr in ipairs(Players:GetPlayers()) do
-            if isValidTarget(plr) then
-                local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
-                if hrp then
-                    local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
-                    if onScreen then
-                        local mousePos = Vector2.new(mouseLocation.X, mouseLocation.Y)
-                        local screenVector = Vector2.new(screenPos.X, screenPos.Y)
-                        local distance = (screenVector - mousePos).Magnitude
-                        
-                        if distance < 50 then
-                            targetPlayer = plr
-                            break
-                        end
-                    end
-                end
-            end
-        end
-        
-        -- If no player found, check NPCs
-        if not targetPlayer then
-            local npcs = getAllNPCs()
-            for _, npc in ipairs(npcs) do
-                if npc.rootPart and npc.hum and npc.hum.Health > 0 then
-                    local screenPos, onScreen = Camera:WorldToViewportPoint(npc.rootPart.Position)
-                    if onScreen then
-                        local mousePos = Vector2.new(mouseLocation.X, mouseLocation.Y)
-                        local screenVector = Vector2.new(screenPos.X, screenPos.Y)
-                        local distance = (screenVector - mousePos).Magnitude
-                        
-                        if distance < 50 then
-                            targetNpc = npc
-                            break
-                        end
-                    end
-                end
-            end
-        end
-    else
-        -- Only players
-        for _, plr in ipairs(Players:GetPlayers()) do
-            if isValidTarget(plr) then
-                local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
-                if hrp then
-                    local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
-                    if onScreen then
-                        local mousePos = Vector2.new(mouseLocation.X, mouseLocation.Y)
-                        local screenVector = Vector2.new(screenPos.X, screenPos.Y)
-                        local distance = (screenVector - mousePos).Magnitude
-                        
-                        if distance < 50 then
-                            targetPlayer = plr
-                            break
-                        end
-                    end
-                end
-            end
-        end
-    end
-    
-    return targetPlayer, targetNpc
-end
-
-local function shoot()
-    -- Simulate mouse click for shooting
-    local VirtualInputManager = game:GetService("VirtualInputManager")
-    VirtualInputManager:SendMouseButtonEvent(triggerKey, 0, true, game, 0)
-    task.wait(0.05)
-    VirtualInputManager:SendMouseButtonEvent(triggerKey, 0, false, game, 0)
-end
-
-local triggerBotConnection = nil
-
-local function enableTriggerBot()
-    if triggerBotConnection then return end
-    
-    triggerBotConnection = RunService.RenderStepped:Connect(function()
-        if not triggerBotEnabled then return end
-        
-        local targetPlayer, targetNpc = getTargetAtMouse()
-        
-        if targetPlayer or targetNpc then
-            shoot()
-        end
-    end)
-end
-
-local function disableTriggerBot()
-    if triggerBotConnection then
-        triggerBotConnection:Disconnect()
-        triggerBotConnection = nil
-    end
-end
-
-TriggerCheckbox.MouseButton1Click:Connect(function()
-    triggerBotEnabled = not triggerBotEnabled
-    TriggerCheckbox.BackgroundColor3 = triggerBotEnabled and Color3.fromRGB(140, 60, 200) or Color3.fromRGB(40, 40, 45)
-    
-    if triggerBotEnabled then
-        enableTriggerBot()
-    else
-        disableTriggerBot()
-    end
-end)
-
--- Clean up on GUI destroy
-ScreenGui.AncestryChanged:Connect(function()
-    if not ScreenGui.Parent then
-        disableTriggerBot()
-    end
-end)
 
 -- ==================== DIVIDER LINE UNDER PREDICTION ====================
 local MainDivider = Instance.new("Frame")
@@ -568,6 +409,40 @@ local predKnobCorner = Instance.new("UICorner")
 predKnobCorner.CornerRadius = UDim.new(1, 0)
 predKnobCorner.Parent = PredSliderKnob
 
+-- ==================== TRIGGER BOT SECTION ====================
+local TriggerFrame = Instance.new("Frame")
+TriggerFrame.Size = UDim2.new(1, -24, 0, 55)
+TriggerFrame.Position = UDim2.new(0, 12, 0, 180)
+TriggerFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
+TriggerFrame.BorderSizePixel = 0
+TriggerFrame.Parent = MainRightPanel
+
+local triggerRowCorner = Instance.new("UICorner")
+triggerRowCorner.CornerRadius = UDim.new(0, 8)
+triggerRowCorner.Parent = TriggerFrame
+
+local TriggerLabel = Instance.new("TextLabel")
+TriggerLabel.Text = "Trigger Bot"
+TriggerLabel.Size = UDim2.new(0.7, 0, 1, 0)
+TriggerLabel.BackgroundTransparency = 1
+TriggerLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
+TriggerLabel.TextSize = 19
+TriggerLabel.Font = Enum.Font.GothamSemibold
+TriggerLabel.TextXAlignment = Enum.TextXAlignment.Left
+TriggerLabel.Position = UDim2.new(0, 16, 0, 0)
+TriggerLabel.Parent = TriggerFrame
+
+local TriggerCheckbox = Instance.new("TextButton")
+TriggerCheckbox.Size = UDim2.new(0, 32, 0, 32)
+TriggerCheckbox.Position = UDim2.new(1, -44, 0.5, -16)
+TriggerCheckbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+TriggerCheckbox.Text = ""
+TriggerCheckbox.Parent = TriggerFrame
+
+local triggerCheckCorner = Instance.new("UICorner")
+triggerCheckCorner.CornerRadius = UDim.new(0, 8)
+triggerCheckCorner.Parent = TriggerCheckbox
+
 -- ==================== FOV CIRCLE ====================
 local fovEnabled = false
 local fovRadius = 120
@@ -675,7 +550,7 @@ local lockedEntity = nil
 local universalPredVelocity = Vector3.zero
 local universalLastPos = nil
 local universalLastTime = nil
-local entityType = nil -- "player" or "npc"
+local entityType = nil
 local PRED_SMOOTH = 0.2
 
 local function isValidTarget(plr)
@@ -746,7 +621,6 @@ local function getClosestEntityInFOV()
     local closestDistance = math.huge
     local closestType = nil
     
-    -- Check players
     for _, plr in ipairs(Players:GetPlayers()) do
         if isValidTarget(plr) then
             local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
@@ -762,7 +636,6 @@ local function getClosestEntityInFOV()
         end
     end
     
-    -- Check NPCs
     local npcs = getAllNPCs()
     for _, npc in ipairs(npcs) do
         if npc.rootPart and npc.hum and npc.hum.Health > 0 then
@@ -804,7 +677,6 @@ RunService.RenderStepped:Connect(function(dt)
 
         if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
             if not universalLockEnabled then
-                -- Normal player-only targeting
                 if not isValidTarget(lockedEntity) then
                     clearUniversalLock()
                     lockedEntity = getClosestPlayerInFOV()
@@ -841,7 +713,6 @@ RunService.RenderStepped:Connect(function(dt)
                     end
                 end
             else
-                -- Universal targeting (players + NPCs)
                 if not lockedEntity or (entityType == "player" and not isValidTarget(lockedEntity)) or (entityType == "npc" and (not lockedEntity.rootPart or not lockedEntity.hum or lockedEntity.hum.Health <= 0)) then
                     clearUniversalLock()
                     local entity, eType = getClosestEntityInFOV()
@@ -863,7 +734,7 @@ RunService.RenderStepped:Connect(function(dt)
                                 aimPos = rootPart.Position
                             end
                         end
-                    else -- NPC
+                    else
                         rootPart = lockedEntity.rootPart
                         if rootPart then
                             aimPos = rootPart.Position
@@ -902,6 +773,122 @@ RunService.RenderStepped:Connect(function(dt)
     else
         fovCircle.Visible = false
         clearUniversalLock()
+    end
+end)
+
+-- ==================== TRIGGER BOT LOGIC ====================
+local triggerBotEnabled = false
+local triggerKey = Enum.UserInputType.MouseButton1
+local triggerBotConnection = nil
+
+local function getTargetAtMouse()
+    local mouseLocation = UserInputService:GetMouseLocation()
+    local targetPlayer = nil
+    local targetNpc = nil
+    
+    if universalLockEnabled then
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if isValidTarget(plr) then
+                local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+                    if onScreen then
+                        local mousePos = Vector2.new(mouseLocation.X, mouseLocation.Y)
+                        local screenVector = Vector2.new(screenPos.X, screenPos.Y)
+                        local distance = (screenVector - mousePos).Magnitude
+                        
+                        if distance < 50 then
+                            targetPlayer = plr
+                            break
+                        end
+                    end
+                end
+            end
+        end
+        
+        if not targetPlayer then
+            local npcs = getAllNPCs()
+            for _, npc in ipairs(npcs) do
+                if npc.rootPart and npc.hum and npc.hum.Health > 0 then
+                    local screenPos, onScreen = Camera:WorldToViewportPoint(npc.rootPart.Position)
+                    if onScreen then
+                        local mousePos = Vector2.new(mouseLocation.X, mouseLocation.Y)
+                        local screenVector = Vector2.new(screenPos.X, screenPos.Y)
+                        local distance = (screenVector - mousePos).Magnitude
+                        
+                        if distance < 50 then
+                            targetNpc = npc
+                            break
+                        end
+                    end
+                end
+            end
+        end
+    else
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if isValidTarget(plr) then
+                local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+                    if onScreen then
+                        local mousePos = Vector2.new(mouseLocation.X, mouseLocation.Y)
+                        local screenVector = Vector2.new(screenPos.X, screenPos.Y)
+                        local distance = (screenVector - mousePos).Magnitude
+                        
+                        if distance < 50 then
+                            targetPlayer = plr
+                            break
+                        end
+                    end
+                end
+            end
+        end
+    end
+    
+    return targetPlayer, targetNpc
+end
+
+local function shoot()
+    VirtualInputManager:SendMouseButtonEvent(triggerKey, 0, true, game, 0)
+    task.wait(0.05)
+    VirtualInputManager:SendMouseButtonEvent(triggerKey, 0, false, game, 0)
+end
+
+local function enableTriggerBot()
+    if triggerBotConnection then return end
+    
+    triggerBotConnection = RunService.RenderStepped:Connect(function()
+        if not triggerBotEnabled then return end
+        
+        local targetPlayer, targetNpc = getTargetAtMouse()
+        
+        if targetPlayer or targetNpc then
+            shoot()
+        end
+    end)
+end
+
+local function disableTriggerBot()
+    if triggerBotConnection then
+        triggerBotConnection:Disconnect()
+        triggerBotConnection = nil
+    end
+end
+
+TriggerCheckbox.MouseButton1Click:Connect(function()
+    triggerBotEnabled = not triggerBotEnabled
+    TriggerCheckbox.BackgroundColor3 = triggerBotEnabled and Color3.fromRGB(140, 60, 200) or Color3.fromRGB(40, 40, 45)
+    
+    if triggerBotEnabled then
+        enableTriggerBot()
+    else
+        disableTriggerBot()
+    end
+end)
+
+ScreenGui.AncestryChanged:Connect(function()
+    if not ScreenGui.Parent then
+        disableTriggerBot()
     end
 end)
 
@@ -1163,7 +1150,6 @@ local speedCheckCorner = Instance.new("UICorner")
 speedCheckCorner.CornerRadius = UDim.new(0, 8)
 speedCheckCorner.Parent = SpeedCheckbox
 
--- DA HOOD SMOOTH SPEED MOVEMENT - FIXED
 local function applySmoothSpeed()
     local character = player.Character
     if not character then return end
@@ -1172,19 +1158,16 @@ local function applySmoothSpeed()
     if not hrp or not hum then return end
     
     if speedEnabled then
-        -- Disable normal walk speed
         hum.WalkSpeed = 0
         hum.JumpPower = 50
         hum.AutoRotate = true
         
-        -- Create BodyVelocity for smooth movement
         if speedBodyVelocity then speedBodyVelocity:Destroy() end
         speedBodyVelocity = Instance.new("BodyVelocity")
         speedBodyVelocity.MaxForce = Vector3.new(1e6, 0, 1e6)
         speedBodyVelocity.Velocity = Vector3.zero
         speedBodyVelocity.Parent = hrp
         
-        -- Movement loop
         if speedConnection then speedConnection:Disconnect() end
         speedConnection = RunService.RenderStepped:Connect(function()
             if not speedEnabled or not player.Character then return end
@@ -1193,7 +1176,6 @@ local function applySmoothSpeed()
             local currentHum = currentChar:FindFirstChild("Humanoid")
             if not currentHrp or not currentHum then return end
             
-            -- Get movement direction from WASD
             local moveDir = Vector3.zero
             local cf = Camera.CFrame
             
@@ -1209,7 +1191,6 @@ local function applySmoothSpeed()
                 speedBodyVelocity.Velocity = Vector3.zero
             end
             
-            -- Prevent falling through floor
             local currentVel = currentHrp.AssemblyLinearVelocity
             if currentVel.Y < -30 then
                 currentHrp.AssemblyLinearVelocity = Vector3.new(currentVel.X, 0, currentVel.Z)
@@ -1218,7 +1199,6 @@ local function applySmoothSpeed()
             currentHum.PlatformStand = false
         end)
     else
-        -- Disable speed mode
         if speedBodyVelocity then 
             speedBodyVelocity:Destroy()
             speedBodyVelocity = nil
@@ -1250,7 +1230,6 @@ SpeedCheckbox.MouseButton1Click:Connect(function()
     toggleSpeed()
 end)
 
--- Re-apply on respawn
 player.CharacterAdded:Connect(function()
     if speedEnabled then
         task.wait(0.3)
@@ -1302,6 +1281,229 @@ AttachCheckbox.Parent = AttachFrame
 local attachCheckCorner = Instance.new("UICorner")
 attachCheckCorner.CornerRadius = UDim.new(0, 8)
 attachCheckCorner.Parent = AttachCheckbox
+
+-- ==================== ORBIT MODE SECTION ====================
+local OrbitFrame = Instance.new("Frame")
+OrbitFrame.Size = UDim2.new(1, -24, 0, 55)
+OrbitFrame.Position = UDim2.new(0, 12, 0, 280)
+OrbitFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
+OrbitFrame.BorderSizePixel = 0
+OrbitFrame.Parent = CharLeftPanel
+
+local orbitRowCorner = Instance.new("UICorner")
+orbitRowCorner.CornerRadius = UDim.new(0, 8)
+orbitRowCorner.Parent = OrbitFrame
+
+local OrbitLabel = Instance.new("TextLabel")
+OrbitLabel.Text = "Orbit Mode (H to orbit)"
+OrbitLabel.Size = UDim2.new(0.7, 0, 1, 0)
+OrbitLabel.BackgroundTransparency = 1
+OrbitLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
+OrbitLabel.TextSize = 19
+OrbitLabel.Font = Enum.Font.GothamSemibold
+OrbitLabel.TextXAlignment = Enum.TextXAlignment.Left
+OrbitLabel.Position = UDim2.new(0, 16, 0, 0)
+OrbitLabel.Parent = OrbitFrame
+
+local OrbitCheckbox = Instance.new("TextButton")
+OrbitCheckbox.Size = UDim2.new(0, 32, 0, 32)
+OrbitCheckbox.Position = UDim2.new(1, -44, 0.5, -16)
+OrbitCheckbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+OrbitCheckbox.Text = ""
+OrbitCheckbox.Parent = OrbitFrame
+
+local orbitCheckCorner = Instance.new("UICorner")
+orbitCheckCorner.CornerRadius = UDim.new(0, 8)
+orbitCheckCorner.Parent = OrbitCheckbox
+
+-- ==================== ORBIT MODE LOGIC ====================
+local orbitEnabled = false
+local isOrbiting = false
+local orbitTarget = nil
+local orbitConnection = nil
+local orbitAngle = 0
+local orbitRadius = 8
+local orbitHeight = 3
+local orbitSpeed = 2.5
+local originalOrbitPos = nil
+local originalOrbitCFrame = nil
+
+local function getClosestPlayerToCursor()
+    local camera = workspace.CurrentCamera
+    local mouseLocation = UserInputService:GetMouseLocation()
+    
+    local closestPlayer = nil
+    local closestDistance = math.huge
+    
+    for _, targetPlayer in ipairs(Players:GetPlayers()) do
+        if targetPlayer ~= player then
+            local character = targetPlayer.Character
+            if character then
+                local hrp = character:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    local screenPos, onScreen = camera:WorldToViewportPoint(hrp.Position)
+                    if onScreen then
+                        local mousePos = Vector2.new(mouseLocation.X, mouseLocation.Y)
+                        local screenVector = Vector2.new(screenPos.X, screenPos.Y)
+                        local distance = (screenVector - mousePos).Magnitude
+                        
+                        if distance < 200 and distance < closestDistance then
+                            closestDistance = distance
+                            closestPlayer = targetPlayer
+                        end
+                    end
+                end
+            end
+        end
+    end
+    
+    return closestPlayer
+end
+
+local function saveOrbitOriginalPosition()
+    local character = player.Character
+    if character then
+        local hrp = character:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            originalOrbitPos = hrp.Position
+            originalOrbitCFrame = hrp.CFrame
+        end
+    end
+end
+
+local function restoreOrbitPosition()
+    local character = player.Character
+    if character and originalOrbitPos then
+        local hrp = character:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            hrp.CFrame = originalOrbitCFrame or CFrame.new(originalOrbitPos)
+            hrp.AssemblyLinearVelocity = Vector3.zero
+            hrp.AssemblyAngularVelocity = Vector3.zero
+        end
+        local hum = character:FindFirstChild("Humanoid")
+        if hum then
+            hum.AutoRotate = true
+            hum.PlatformStand = false
+        end
+    end
+    originalOrbitPos = nil
+    originalOrbitCFrame = nil
+end
+
+local function stopOrbit()
+    if orbitConnection then
+        orbitConnection:Disconnect()
+        orbitConnection = nil
+    end
+    isOrbiting = false
+    orbitTarget = nil
+    orbitAngle = 0
+    
+    restoreOrbitPosition()
+    
+    local character = player.Character
+    if character then
+        local hum = character:FindFirstChild("Humanoid")
+        if hum then
+            hum.AutoRotate = true
+            hum.PlatformStand = false
+        end
+    end
+    
+    Camera.CameraType = Enum.CameraType.Custom
+end
+
+local function startOrbit(targetPlayer)
+    if not targetPlayer or not targetPlayer.Character then return false end
+    
+    saveOrbitOriginalPosition()
+    
+    local targetChar = targetPlayer.Character
+    local targetHrp = targetChar:FindFirstChild("HumanoidRootPart")
+    
+    if not targetHrp then return false end
+    
+    local character = player.Character
+    if not character then return false end
+    
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    local hum = character:FindFirstChild("Humanoid")
+    
+    if not hrp or not hum then return false end
+    
+    orbitTarget = targetPlayer
+    isOrbiting = true
+    orbitAngle = 0
+    
+    hum.AutoRotate = false
+    hum.PlatformStand = true
+    
+    orbitConnection = RunService.Heartbeat:Connect(function(dt)
+        if not isOrbiting or not orbitTarget or not orbitTarget.Character then
+            stopOrbit()
+            return
+        end
+        
+        local currentTarget = orbitTarget.Character
+        local currentTargetHrp = currentTarget:FindFirstChild("HumanoidRootPart")
+        
+        if not currentTargetHrp then
+            stopOrbit()
+            return
+        end
+        
+        local currentChar = player.Character
+        if not currentChar then
+            stopOrbit()
+            return
+        end
+        
+        local currentHrp = currentChar:FindFirstChild("HumanoidRootPart")
+        local currentHum = currentChar:FindFirstChild("Humanoid")
+        
+        if not currentHrp or not currentHum then
+            stopOrbit()
+            return
+        end
+        
+        orbitAngle = orbitAngle + (orbitSpeed * (dt or 0.016))
+        if orbitAngle > math.pi * 2 then
+            orbitAngle = orbitAngle - (math.pi * 2)
+        end
+        
+        local orbitX = math.cos(orbitAngle) * orbitRadius
+        local orbitZ = math.sin(orbitAngle) * orbitRadius
+        local targetPos = currentTargetHrp.Position
+        local newPos = targetPos + Vector3.new(orbitX, orbitHeight, orbitZ)
+        
+        currentHrp.CFrame = CFrame.new(newPos, targetPos)
+        currentHrp.AssemblyLinearVelocity = Vector3.zero
+        currentHrp.AssemblyAngularVelocity = Vector3.zero
+        
+        currentHum.PlatformStand = true
+        currentHum.AutoRotate = false
+        
+        local cameraOffset = Vector3.new(0, 2, 10)
+        local cameraPos = newPos + cameraOffset
+        Camera.CameraType = Enum.CameraType.Scriptable
+        Camera.CFrame = CFrame.new(cameraPos, targetPos)
+    end)
+    
+    return true
+end
+
+local function toggleOrbitMode()
+    orbitEnabled = not orbitEnabled
+    OrbitCheckbox.BackgroundColor3 = orbitEnabled and Color3.fromRGB(140, 60, 200) or Color3.fromRGB(40, 40, 45)
+    
+    if not orbitEnabled and isOrbiting then
+        stopOrbit()
+    end
+end
+
+OrbitCheckbox.MouseButton1Click:Connect(function()
+    toggleOrbitMode()
+end)
 
 -- RIGHT PANEL
 local CharRightPanel = Instance.new("Frame")
@@ -1626,27 +1828,46 @@ local function toggleAttachMode()
     end
 end
 
-local function onHPressed()
-    if not attachModeEnabled then return end
-    
-    if isAttached then
-        detach()
-    else
-        local target = getPlayerLookingAt()
-        if target then
-            attachToTarget(target)
-        end
-    end
-end
-
 AttachCheckbox.MouseButton1Click:Connect(function()
     toggleAttachMode()
 end)
 
+-- Modified H key handler that supports both attach and orbit
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
     if input.KeyCode == Enum.KeyCode.H then
-        onHPressed()
+        if orbitEnabled then
+            if isOrbiting then
+                stopOrbit()
+            else
+                if isAttached then
+                    detach()
+                end
+                if flyEnabled then
+                    flyEnabled = false
+                    FlyCheckbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+                    disableFly()
+                end
+                if speedEnabled then
+                    speedEnabled = false
+                    SpeedCheckbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+                    applySmoothSpeed()
+                end
+                local target = getClosestPlayerToCursor()
+                if target then
+                    startOrbit(target)
+                end
+            end
+        elseif attachModeEnabled then
+            if isAttached then
+                detach()
+            else
+                local target = getPlayerLookingAt()
+                if target then
+                    attachToTarget(target)
+                end
+            end
+        end
     end
 end)
 
@@ -1712,6 +1933,11 @@ FlyCheckbox.MouseButton1Click:Connect(function()
             attachModeEnabled = false
             AttachCheckbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
             if isAttached then detach() end
+        end
+        if orbitEnabled then
+            orbitEnabled = false
+            OrbitCheckbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+            if isOrbiting then stopOrbit() end
         end
         if speedEnabled then
             speedEnabled = false
