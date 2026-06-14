@@ -1,8 +1,7 @@
--- FIXED VERSION - No bugs, guaranteed to open
+-- FULLY WORKING VERSION - Attach Mode Restored, NPC Check OFF by default
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
@@ -27,15 +26,6 @@ MainFrame.Parent = ScreenGui
 local mainCorner = Instance.new("UICorner")
 mainCorner.CornerRadius = UDim.new(0, 12)
 mainCorner.Parent = MainFrame
-
--- Shadow
-local Shadow = Instance.new("Frame")
-Shadow.Size = UDim2.new(1, 20, 1, 20)
-Shadow.Position = UDim2.new(0, -10, 0, -10)
-Shadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-Shadow.BackgroundTransparency = 0.8
-Shadow.BorderSizePixel = 0
-Shadow.Parent = MainFrame
 
 -- Top Bar
 local TopBar = Instance.new("Frame")
@@ -216,7 +206,7 @@ MainDivider.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
 MainDivider.BorderSizePixel = 0
 MainDivider.Parent = MainLeftPanel
 
--- NPC Check
+-- NPC Check (OFF by default)
 local NPCFrame = Instance.new("Frame")
 NPCFrame.Size = UDim2.new(1, -24, 0, 55)
 NPCFrame.Position = UDim2.new(0, 12, 0, 162)
@@ -242,7 +232,7 @@ NPCLabel.Parent = NPCFrame
 local NPCCheckbox = Instance.new("TextButton")
 NPCCheckbox.Size = UDim2.new(0, 32, 0, 32)
 NPCCheckbox.Position = UDim2.new(1, -44, 0.5, -16)
-NPCCheckbox.BackgroundColor3 = Color3.fromRGB(140, 60, 200)
+NPCCheckbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45) -- OFF by default
 NPCCheckbox.Text = ""
 NPCCheckbox.Parent = NPCFrame
 
@@ -401,7 +391,7 @@ local fovEnabled = false
 local fovRadius = 120
 local predEnabled = false
 local predAmount = 0.1
-local npcCheckEnabled = true
+local npcCheckEnabled = false -- OFF by default
 
 local lockedTarget = nil
 local predVelocity = Vector3.zero
@@ -662,12 +652,23 @@ local espCheckCorner = Instance.new("UICorner")
 espCheckCorner.CornerRadius = UDim.new(0, 8)
 espCheckCorner.Parent = ESPCheckbox
 
+local VisRightPanel = Instance.new("Frame")
+VisRightPanel.Size = UDim2.new(0.48, -5, 1, 0)
+VisRightPanel.Position = UDim2.new(0.52, 0, 0, 0)
+VisRightPanel.BackgroundColor3 = Color3.fromRGB(23, 23, 28)
+VisRightPanel.BorderSizePixel = 0
+VisRightPanel.Parent = visualsContent
+
+local visRightCorner = Instance.new("UICorner")
+visRightCorner.CornerRadius = UDim.new(0, 10)
+visRightCorner.Parent = VisRightPanel
+
 local espEnabled = false
 local highlights = {}
 
 local function updateESP()
     for _, h in pairs(highlights) do
-        if h then h:Destroy() end
+        if h then pcall(function() h:Destroy() end) end
     end
     highlights = {}
     
@@ -814,6 +815,52 @@ local speedCheckCorner = Instance.new("UICorner")
 speedCheckCorner.CornerRadius = UDim.new(0, 8)
 speedCheckCorner.Parent = SpeedCheckbox
 
+-- Attach Mode (RESTORED)
+local attachModeEnabled = false
+local isAttached = false
+local attachedTarget = nil
+local attachConnection = nil
+local originalPosition = nil
+local originalCFrame = nil
+local originalCameraCFrame = nil
+local targetLastPos = nil
+local targetVelocity = Vector3.zero
+local ATTACH_PREDICTION = 0.35
+
+local AttachFrame = Instance.new("Frame")
+AttachFrame.Size = UDim2.new(1, -24, 0, 55)
+AttachFrame.Position = UDim2.new(0, 12, 0, 215)
+AttachFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
+AttachFrame.BorderSizePixel = 0
+AttachFrame.Parent = CharLeftPanel
+
+local attachRowCorner = Instance.new("UICorner")
+attachRowCorner.CornerRadius = UDim.new(0, 8)
+attachRowCorner.Parent = AttachFrame
+
+local AttachLabel = Instance.new("TextLabel")
+AttachLabel.Text = "Attach Mode (H to attach/fling)"
+AttachLabel.Size = UDim2.new(0.7, 0, 1, 0)
+AttachLabel.BackgroundTransparency = 1
+AttachLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
+AttachLabel.TextSize = 18
+AttachLabel.Font = Enum.Font.GothamSemibold
+AttachLabel.TextXAlignment = Enum.TextXAlignment.Left
+AttachLabel.Position = UDim2.new(0, 16, 0, 0)
+AttachLabel.Parent = AttachFrame
+
+local AttachCheckbox = Instance.new("TextButton")
+AttachCheckbox.Size = UDim2.new(0, 32, 0, 32)
+AttachCheckbox.Position = UDim2.new(1, -44, 0.5, -16)
+AttachCheckbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+AttachCheckbox.Text = ""
+AttachCheckbox.Parent = AttachFrame
+
+local attachCheckCorner = Instance.new("UICorner")
+attachCheckCorner.CornerRadius = UDim.new(0, 8)
+attachCheckCorner.Parent = AttachCheckbox
+
+-- Char Right Panel
 local CharRightPanel = Instance.new("Frame")
 CharRightPanel.Size = UDim2.new(0.48, -5, 1, 0)
 CharRightPanel.Position = UDim2.new(0.52, 0, 0, 0)
@@ -892,28 +939,193 @@ local speedAmountKnobCorner = Instance.new("UICorner")
 speedAmountKnobCorner.CornerRadius = UDim.new(1, 0)
 speedAmountKnobCorner.Parent = SpeedAmountKnob
 
-local speedAmountDragging = false
-
-local function updateSpeedAmount(inputX)
-    local trackPos = SpeedAmountTrack.AbsolutePosition.X
-    local trackSize = SpeedAmountTrack.AbsoluteSize.X
-    local relative = math.clamp((inputX - trackPos) / trackSize, 0, 1)
-    currentSpeed = math.floor(16 + relative * (250 - 16))
-    SpeedAmountFill.Size = UDim2.new(relative, 0, 1, 0)
-    SpeedAmountKnob.Position = UDim2.new(relative, 0, 0.5, 0)
-    SpeedAmountValue.Text = tostring(currentSpeed)
+-- ==================== ATTACH MODE FUNCTIONS ====================
+local function getPlayerLookingAt()
+    local mouseLoc = UserInputService:GetMouseLocation()
+    local closest = nil
+    local closestDist = 200
+    
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= player and plr.Character then
+            local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+                if onScreen then
+                    local dist = (Vector2.new(pos.X, pos.Y) - Vector2.new(mouseLoc.X, mouseLoc.Y)).Magnitude
+                    if dist < closestDist then
+                        closestDist = dist
+                        closest = plr
+                    end
+                end
+            end
+        end
+    end
+    return closest
 end
 
-SpeedAmountTrack.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        speedAmountDragging = true
-        updateSpeedAmount(input.Position.X)
+local function saveOriginal()
+    local char = player.Character
+    if char then
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            originalPosition = hrp.Position
+            originalCFrame = hrp.CFrame
+        end
     end
-end)
+    originalCameraCFrame = Camera.CFrame
+end
 
-SpeedAmountKnob.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        speedAmountDragging = true
+local function teleportBack()
+    local char = player.Character
+    if char and originalPosition then
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            hrp.CFrame = originalCFrame or CFrame.new(originalPosition)
+            hrp.AssemblyLinearVelocity = Vector3.zero
+        end
+        local hum = char:FindFirstChild("Humanoid")
+        if hum then
+            hum.AutoRotate = true
+            hum.PlatformStand = false
+        end
+    end
+    if originalCameraCFrame then
+        Camera.CFrame = originalCameraCFrame
+    end
+    originalPosition = nil
+    originalCFrame = nil
+    originalCameraCFrame = nil
+end
+
+local function detachFromTarget()
+    if attachConnection then
+        attachConnection:Disconnect()
+        attachConnection = nil
+    end
+    attachedTarget = nil
+    isAttached = false
+    targetLastPos = nil
+    targetVelocity = Vector3.zero
+    
+    teleportBack()
+    
+    local char = player.Character
+    if char then
+        local hum = char:FindFirstChild("Humanoid")
+        if hum then
+            hum.AutoRotate = true
+            hum.PlatformStand = false
+        end
+    end
+end
+
+local function attachToPlayer(target)
+    if not target or not target.Character then return false end
+    
+    saveOriginal()
+    
+    local targetChar = target.Character
+    local targetPart = targetChar:FindFirstChild("HumanoidRootPart") or targetChar:FindFirstChild("UpperTorso") or targetChar:FindFirstChild("Torso")
+    if not targetPart then return false end
+    
+    local char = player.Character
+    if not char then return false end
+    
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    local hum = char:FindFirstChild("Humanoid")
+    if not hrp or not hum then return false end
+    
+    attachedTarget = target
+    isAttached = true
+    targetLastPos = targetPart.Position
+    
+    hum.AutoRotate = false
+    hum.PlatformStand = true
+    
+    attachConnection = RunService.Heartbeat:Connect(function()
+        if not isAttached or not attachedTarget or not attachedTarget.Character then
+            detachFromTarget()
+            return
+        end
+        
+        local currTarget = attachedTarget.Character
+        local currTargetPart = currTarget:FindFirstChild("HumanoidRootPart") or currTarget:FindFirstChild("UpperTorso") or currTarget:FindFirstChild("Torso")
+        if not currTargetPart then
+            detachFromTarget()
+            return
+        end
+        
+        local currChar = player.Character
+        if not currChar then
+            detachFromTarget()
+            return
+        end
+        
+        local currHrp = currChar:FindFirstChild("HumanoidRootPart")
+        local currHum = currChar:FindFirstChild("Humanoid")
+        if not currHrp or not currHum then
+            detachFromTarget()
+            return
+        end
+        
+        local currPos = currTargetPart.Position
+        if targetLastPos then
+            local dt = RunService.Heartbeat:Wait()
+            local rawVel = (currPos - targetLastPos) / (dt + 0.016)
+            targetVelocity = targetVelocity:Lerp(rawVel, 0.3)
+        end
+        targetLastPos = currPos
+        
+        local predictedPos = currPos + (targetVelocity * ATTACH_PREDICTION)
+        local attachPos = predictedPos
+        if currTargetPart.Name == "HumanoidRootPart" then
+            attachPos = attachPos + Vector3.new(0, 1.5, 0)
+        end
+        
+        currHrp.CFrame = CFrame.new(attachPos, attachPos + Vector3.new(0, 1, 0))
+        
+        local fling = 1200
+        local angle = math.random(0, 360) * math.pi / 180
+        local dir = Vector3.new(math.cos(angle), 0, math.sin(angle)).Unit
+        currHrp.AssemblyLinearVelocity = (dir * fling) + Vector3.new(0, fling * 0.7, 0)
+        currHrp.AssemblyAngularVelocity = Vector3.zero
+        currHum.PlatformStand = true
+        
+        local camOffset = Vector3.new(0, 3, 8)
+        Camera.CFrame = CFrame.new(currHrp.Position + camOffset, currHrp.Position + Vector3.new(0, 1.5, 0))
+    end)
+    
+    return true
+end
+
+local function toggleAttach()
+    attachModeEnabled = not attachModeEnabled
+    AttachCheckbox.BackgroundColor3 = attachModeEnabled and Color3.fromRGB(140, 60, 200) or Color3.fromRGB(40, 40, 45)
+    
+    if not attachModeEnabled and isAttached then
+        detachFromTarget()
+    end
+end
+
+local function onHPress()
+    if not attachModeEnabled then return end
+    
+    if isAttached then
+        detachFromTarget()
+    else
+        local target = getPlayerLookingAt()
+        if target then
+            attachToPlayer(target)
+        end
+    end
+end
+
+AttachCheckbox.MouseButton1Click:Connect(toggleAttach)
+
+UserInputService.InputBegan:Connect(function(input, gameProc)
+    if gameProc then return end
+    if input.KeyCode == Enum.KeyCode.H then
+        onHPress()
     end
 end)
 
@@ -930,6 +1142,16 @@ local function toggleFly()
     if not hrp or not hum then return end
     
     if flyEnabled then
+        if attachModeEnabled then
+            attachModeEnabled = false
+            AttachCheckbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+            if isAttached then detachFromTarget() end
+        end
+        if speedEnabled then
+            speedEnabled = false
+            SpeedCheckbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+            toggleSpeed()
+        end
         hum.PlatformStand = true
         if flyBG then flyBG:Destroy() end
         if flyBV then flyBV:Destroy() end
@@ -988,6 +1210,7 @@ local noclipConn = nil
 
 local function toggleNoclip()
     if noclipEnabled then
+        if noclipConn then noclipConn:Disconnect() end
         noclipConn = RunService.Stepped:Connect(function()
             local char = player.Character
             if char then
@@ -1029,6 +1252,16 @@ local function toggleSpeed()
     if not hrp or not hum then return end
     
     if speedEnabled then
+        if flyEnabled then
+            flyEnabled = false
+            FlyCheckbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+            toggleFly()
+        end
+        if attachModeEnabled then
+            attachModeEnabled = false
+            AttachCheckbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+            if isAttached then detachFromTarget() end
+        end
         hum.WalkSpeed = 0
         if speedBV then speedBV:Destroy() end
         speedBV = Instance.new("BodyVelocity")
@@ -1077,6 +1310,32 @@ player.CharacterAdded:Connect(function()
     if flyEnabled then toggleFly() end
     if noclipEnabled then toggleNoclip() end
     if speedEnabled then toggleSpeed() end
+    if isAttached and attachedTarget then attachToPlayer(attachedTarget) end
+end)
+
+local speedAmountDragging = false
+
+local function updateSpeedAmount(inputX)
+    local trackPos = SpeedAmountTrack.AbsolutePosition.X
+    local trackSize = SpeedAmountTrack.AbsoluteSize.X
+    local relative = math.clamp((inputX - trackPos) / trackSize, 0, 1)
+    currentSpeed = math.floor(16 + relative * (250 - 16))
+    SpeedAmountFill.Size = UDim2.new(relative, 0, 1, 0)
+    SpeedAmountKnob.Position = UDim2.new(relative, 0, 0.5, 0)
+    SpeedAmountValue.Text = tostring(currentSpeed)
+end
+
+SpeedAmountTrack.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        speedAmountDragging = true
+        updateSpeedAmount(input.Position.X)
+    end
+end)
+
+SpeedAmountKnob.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        speedAmountDragging = true
+    end
 end)
 
 UserInputService.InputEnded:Connect(function(input)
@@ -1088,9 +1347,9 @@ end)
 UserInputService.InputChanged:Connect(function(input)
     if speedAmountDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
         updateSpeedAmount(input.Position.X)
-        if speedEnabled then
+        if speedEnabled and speedBV then
             local char = player.Character
-            if char and speedBV then
+            if char then
                 local dir = Vector3.zero
                 local cf = Camera.CFrame
                 if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir = dir + cf.LookVector end
@@ -1473,4 +1732,4 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
-print("GUI Loaded Successfully")
+print("GUI Loaded - Attach Mode Restored - NPC Check OFF by default")
