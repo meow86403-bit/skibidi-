@@ -352,6 +352,145 @@ local predKnobCorner = Instance.new("UICorner")
 predKnobCorner.CornerRadius = UDim.new(1, 0)
 predKnobCorner.Parent = PredSliderKnob
 
+-- ==================== NPC CHECK ROW ====================
+local NPCFrame = Instance.new("Frame")
+NPCFrame.Size = UDim2.new(1, -24, 0, 55)
+NPCFrame.Position = UDim2.new(0, 12, 0, 162)
+NPCFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
+NPCFrame.BorderSizePixel = 0
+NPCFrame.Parent = MainLeftPanel
+
+local npcRowCorner = Instance.new("UICorner")
+npcRowCorner.CornerRadius = UDim.new(0, 8)
+npcRowCorner.Parent = NPCFrame
+
+local NPCLabel = Instance.new("TextLabel")
+NPCLabel.Text = "NPC Check"
+NPCLabel.Size = UDim2.new(0.7, 0, 1, 0)
+NPCLabel.BackgroundTransparency = 1
+NPCLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
+NPCLabel.TextSize = 19
+NPCLabel.Font = Enum.Font.GothamSemibold
+NPCLabel.TextXAlignment = Enum.TextXAlignment.Left
+NPCLabel.Position = UDim2.new(0, 16, 0, 0)
+NPCLabel.Parent = NPCFrame
+
+local NPCCheckbox = Instance.new("TextButton")
+NPCCheckbox.Size = UDim2.new(0, 32, 0, 32)
+NPCCheckbox.Position = UDim2.new(1, -44, 0.5, -16)
+NPCCheckbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+NPCCheckbox.Text = ""
+NPCCheckbox.Parent = NPCFrame
+
+local npcCheckCorner = Instance.new("UICorner")
+npcCheckCorner.CornerRadius = UDim.new(0, 8)
+npcCheckCorner.Parent = NPCCheckbox
+
+-- ==================== NPC CHECK LOGIC ====================
+local npcCheckEnabled = true  -- Default: ON (can lock onto NPCs/bots)
+-- When ON: can lock onto bots
+-- When OFF: cannot lock onto bots
+
+-- NPC/Bot detection function
+local function isNPC(playerObject)
+    -- Common bot/NPC indicators in Roblox games
+    local character = playerObject.Character
+    if not character then return false end
+    
+    -- Check for bot-specific name patterns (case insensitive)
+    local name = playerObject.Name:lower()
+    local displayName = playerObject.DisplayName:lower()
+    
+    -- Common bot name patterns
+    local botPatterns = {
+        "bot", "npc", "ai", "test", "dummy", "zombie", "enemy", 
+        "target", "training", "practice", "civilian", "guard", 
+        "soldier", "cop", "police", "criminal", "zombie", "infected"
+    }
+    
+    for _, pattern in ipairs(botPatterns) do
+        if name:find(pattern) or displayName:find(pattern) then
+            return true
+        end
+    end
+    
+    -- Check for default Roblox guest/placeholder names
+    if name:match("^guest%d*$") or name:match("^player%d*$") or name:match("^user%d*$") then
+        return true
+    end
+    
+    -- Check for missing UserId or invalid UserId (NPCs sometimes have 0 or negative)
+    if playerObject.UserId <= 0 then
+        return true
+    end
+    
+    -- Check character has no Humanoid (unlikely but possible for NPCs)
+    local hum = character:FindFirstChild("Humanoid")
+    if not hum then
+        return true
+    end
+    
+    return false
+end
+
+-- Modified isValidTarget function to respect NPC Check
+local originalIsValidTarget = isValidTarget
+isValidTarget = function(plr)
+    if not plr or plr == player then return false end
+    if not plr.Character then return false end
+    local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+    local hum = plr.Character:FindFirstChild("Humanoid")
+    if not hrp or not hum then return false end
+    if hum.Health <= 0 then return false end
+    
+    -- NPC Check logic
+    if not npcCheckEnabled then
+        -- NPC Check is OFF - only target real players, ignore bots
+        if isNPC(plr) then
+            return false
+        end
+    end
+    -- If NPC Check is ON, allow all targets (players and bots)
+    
+    return true
+end
+
+-- NPC Checkbox toggle
+NPCCheckbox.MouseButton1Click:Connect(function()
+    npcCheckEnabled = not npcCheckEnabled
+    NPCCheckbox.BackgroundColor3 = npcCheckEnabled and Color3.fromRGB(140, 60, 200) or Color3.fromRGB(40, 40, 45)
+    
+    -- Clear current lock when toggling to avoid invalid targeting
+    clearLock()
+end)
+
+-- Set default state (enabled)
+NPCCheckbox.BackgroundColor3 = Color3.fromRGB(140, 60, 200)
+
+-- Also update the getClosestPlayerInFOV function to use the new isValidTarget
+-- Replace the existing getClosestPlayerInFOV with this:
+local function getClosestPlayerInFOV()
+    local closestPlayer = nil
+    local closestDistance = math.huge
+    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if isValidTarget(plr) then
+            local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+                if onScreen then
+                    local dist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+                    if dist < fovRadius and dist < closestDistance then
+                        closestDistance = dist
+                        closestPlayer = plr
+                    end
+                end
+            end
+        end
+    end
+    return closestPlayer
+end
+
 -- ==================== FOV CIRCLE ====================
 local fovEnabled = false
 local fovRadius = 120
