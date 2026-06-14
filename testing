@@ -221,7 +221,7 @@ npcRowCorner.CornerRadius = UDim.new(0, 8)
 npcRowCorner.Parent = NpcFrame
 
 local NpcLabel = Instance.new("TextLabel")
-NpcLabel.Text = "NPC Lock (Includes Players)"
+NpcLabel.Text = "Npc Check"
 NpcLabel.Size = UDim2.new(0.7, 0, 1, 0)
 NpcLabel.BackgroundTransparency = 1
 NpcLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
