@@ -27,7 +27,6 @@ TopBar.BackgroundColor3 = Color3.fromRGB(13, 13, 18)
 TopBar.BorderSizePixel = 0
 TopBar.Parent = MainFrame
 
-
 local Title = Instance.new("TextLabel")
 Title.Name = "Title"
 Title.Text = "UNIVERSAL"
@@ -49,18 +48,17 @@ TitleImage.Image = "rbxassetid://12014037690"
 TitleImage.Rotation = 13
 TitleImage.Parent = TopBar
 
-
 local TitleImageGlow = Instance.new("ImageLabel")
-TitleImageGlow.Position = UDim2.new(0, 140, 0, 8)
+TitleImageGlow.Size = UDim2.new(0, 36, 0, 36)
+TitleImageGlow.Position = UDim2.new(0.043, 141, 0, 8)
 TitleImageGlow.BackgroundTransparency = 1
 TitleImageGlow.Image = "rbxassetid://12014037690"
 TitleImageGlow.ImageColor3 = Color3.fromRGB(255, 90, 255)
 TitleImageGlow.ImageTransparency = 0.5
-TitleImageGlow.Rotation = 15
+TitleImageGlow.Rotation = 13
 TitleImageGlow.ZIndex = 0
 TitleImageGlow.Parent = TopBar
 
--- Bring the main image to front
 TitleImage.ZIndex = 2
 
 -- Close Button
@@ -96,7 +94,8 @@ Divider.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
 Divider.BorderSizePixel = 0
 Divider.Parent = MainFrame
 
-local tabNames = {"Main", "Visuals", "Character", "Options", "Players", "Games"}
+-- Tab names without "Games"
+local tabNames = {"Main", "Visuals", "Character", "Options", "Players"}
 local tabs = {}
 local contents = {}
 
@@ -517,7 +516,7 @@ local lockedEntity = nil
 local universalPredVelocity = Vector3.zero
 local universalLastPos = nil
 local universalLastTime = nil
-local entityType = nil -- "player" or "npc"
+local entityType = nil
 local PRED_SMOOTH = 0.2
 
 local function isValidTarget(plr)
@@ -588,7 +587,6 @@ local function getClosestEntityInFOV()
     local closestDistance = math.huge
     local closestType = nil
     
-    -- Check players
     for _, plr in ipairs(Players:GetPlayers()) do
         if isValidTarget(plr) then
             local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
@@ -604,7 +602,6 @@ local function getClosestEntityInFOV()
         end
     end
     
-    -- Check NPCs
     local npcs = getAllNPCs()
     for _, npc in ipairs(npcs) do
         if npc.rootPart and npc.hum and npc.hum.Health > 0 then
@@ -646,7 +643,6 @@ RunService.RenderStepped:Connect(function(dt)
 
         if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
             if not universalLockEnabled then
-                -- Normal player-only targeting
                 if not isValidTarget(lockedEntity) then
                     clearUniversalLock()
                     lockedEntity = getClosestPlayerInFOV()
@@ -683,7 +679,6 @@ RunService.RenderStepped:Connect(function(dt)
                     end
                 end
             else
-                -- Universal targeting (players + NPCs)
                 if not lockedEntity or (entityType == "player" and not isValidTarget(lockedEntity)) or (entityType == "npc" and (not lockedEntity.rootPart or not lockedEntity.hum or lockedEntity.hum.Health <= 0)) then
                     clearUniversalLock()
                     local entity, eType = getClosestEntityInFOV()
@@ -705,7 +700,7 @@ RunService.RenderStepped:Connect(function(dt)
                                 aimPos = rootPart.Position
                             end
                         end
-                    else -- NPC
+                    else
                         rootPart = lockedEntity.rootPart
                         if rootPart then
                             aimPos = rootPart.Position
@@ -1005,7 +1000,6 @@ local speedCheckCorner = Instance.new("UICorner")
 speedCheckCorner.CornerRadius = UDim.new(0, 8)
 speedCheckCorner.Parent = SpeedCheckbox
 
--- DA HOOD SMOOTH SPEED MOVEMENT - FIXED
 local function applySmoothSpeed()
     local character = player.Character
     if not character then return end
@@ -1014,19 +1008,16 @@ local function applySmoothSpeed()
     if not hrp or not hum then return end
     
     if speedEnabled then
-        -- Disable normal walk speed
         hum.WalkSpeed = 0
         hum.JumpPower = 50
         hum.AutoRotate = true
         
-        -- Create BodyVelocity for smooth movement
         if speedBodyVelocity then speedBodyVelocity:Destroy() end
         speedBodyVelocity = Instance.new("BodyVelocity")
         speedBodyVelocity.MaxForce = Vector3.new(1e6, 0, 1e6)
         speedBodyVelocity.Velocity = Vector3.zero
         speedBodyVelocity.Parent = hrp
         
-        -- Movement loop
         if speedConnection then speedConnection:Disconnect() end
         speedConnection = RunService.RenderStepped:Connect(function()
             if not speedEnabled or not player.Character then return end
@@ -1035,7 +1026,6 @@ local function applySmoothSpeed()
             local currentHum = currentChar:FindFirstChild("Humanoid")
             if not currentHrp or not currentHum then return end
             
-            -- Get movement direction from WASD
             local moveDir = Vector3.zero
             local cf = Camera.CFrame
             
@@ -1051,7 +1041,6 @@ local function applySmoothSpeed()
                 speedBodyVelocity.Velocity = Vector3.zero
             end
             
-            -- Prevent falling through floor
             local currentVel = currentHrp.AssemblyLinearVelocity
             if currentVel.Y < -30 then
                 currentHrp.AssemblyLinearVelocity = Vector3.new(currentVel.X, 0, currentVel.Z)
@@ -1060,7 +1049,6 @@ local function applySmoothSpeed()
             currentHum.PlatformStand = false
         end)
     else
-        -- Disable speed mode
         if speedBodyVelocity then 
             speedBodyVelocity:Destroy()
             speedBodyVelocity = nil
@@ -1092,7 +1080,6 @@ SpeedCheckbox.MouseButton1Click:Connect(function()
     toggleSpeed()
 end)
 
--- Re-apply on respawn
 player.CharacterAdded:Connect(function()
     if speedEnabled then
         task.wait(0.3)
