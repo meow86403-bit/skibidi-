@@ -508,24 +508,6 @@ SliderKnob.InputBegan:Connect(function(input)
     end
 end)
 
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        sliderDragging = false
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if sliderDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-        updateSlider(input.Position.X)
-    end
-end)
-
-FOVCheckbox.MouseButton1Click:Connect(function()
-    fovEnabled = not fovEnabled
-    FOVCheckbox.BackgroundColor3 = fovEnabled and Color3.fromRGB(140, 60, 200) or Color3.fromRGB(40, 40, 45)
-    fovCircle.Visible = fovEnabled
-end)
-
 local predSliderDragging = false
 
 local function updatePredSlider(inputX)
@@ -551,16 +533,25 @@ PredSliderKnob.InputBegan:Connect(function(input)
     end
 end)
 
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        sliderDragging = false
+        predSliderDragging = false
+    end
+end)
+
 UserInputService.InputChanged:Connect(function(input)
-    if predSliderDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+    if sliderDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        updateSlider(input.Position.X)
+    elseif predSliderDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
         updatePredSlider(input.Position.X)
     end
 end)
 
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        predSliderDragging = false
-    end
+FOVCheckbox.MouseButton1Click:Connect(function()
+    fovEnabled = not fovEnabled
+    FOVCheckbox.BackgroundColor3 = fovEnabled and Color3.fromRGB(140, 60, 200) or Color3.fromRGB(40, 40, 45)
+    fovCircle.Visible = fovEnabled
 end)
 
 PredCheckbox.MouseButton1Click:Connect(function()
@@ -715,7 +706,9 @@ ESPCheckbox.MouseButton1Click:Connect(function()
     espEnabled = not espEnabled
     ESPCheckbox.BackgroundColor3 = espEnabled and Color3.fromRGB(140, 60, 200) or Color3.fromRGB(40, 40, 45)
     if espEnabled then
-        for _, plr in ipairs(Players:GetPlayers()) do addESPToPlayer(plr) end
+        for _, plr in ipairs(Players:GetPlayers()) do
+            addESPToPlayer(plr)
+        end
     else
         removeESP()
     end
@@ -1163,7 +1156,10 @@ local function teleportToOriginalPosition()
 end
 
 local function detach()
-    if attachConnection then attachConnection:Disconnect() attachConnection = nil end
+    if attachConnection then
+        attachConnection:Disconnect()
+        attachConnection = nil
+    end
     attachedTarget = nil
     isAttached = false
     targetLastPos = nil
@@ -1247,7 +1243,9 @@ end
 
 local function onHPressed()
     if not attachModeEnabled then return end
-    if isAttached then detach() else
+    if isAttached then
+        detach()
+    else
         local target = getPlayerLookingAt()
         if target then attachToTarget(target) end
     end
@@ -1261,7 +1259,10 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 end)
 
 player.CharacterAdded:Connect(function()
-    if isAttached and attachedTarget then task.wait(0.3) attachToTarget(attachedTarget) end
+    if isAttached and attachedTarget then
+        task.wait(0.3)
+        attachToTarget(attachedTarget)
+    end
 end)
 
 local flyEnabled = false
@@ -1277,6 +1278,7 @@ local function enableFly()
     if not hrp or not hum then return end
 
     hum.PlatformStand = true
+
     flyBodyGyro = Instance.new("BodyGyro")
     flyBodyGyro.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
     flyBodyGyro.P = 1e6
@@ -1297,7 +1299,9 @@ local function disableFly()
         local hrp = character:FindFirstChild("HumanoidRootPart")
         if hrp then
             for _, v in ipairs(hrp:GetChildren()) do
-                if v:IsA("BodyGyro") or v:IsA("BodyVelocity") then v:Destroy() end
+                if v:IsA("BodyGyro") or v:IsA("BodyVelocity") then
+                    v:Destroy()
+                end
             end
         end
     end
@@ -1309,8 +1313,16 @@ FlyCheckbox.MouseButton1Click:Connect(function()
     flyEnabled = not flyEnabled
     FlyCheckbox.BackgroundColor3 = flyEnabled and Color3.fromRGB(140, 60, 200) or Color3.fromRGB(40, 40, 45)
     if flyEnabled then
-        if attachModeEnabled then attachModeEnabled = false AttachCheckbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45) if isAttached then detach() end end
-        if speedEnabled then speedEnabled = false SpeedCheckbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45) applySmoothSpeed() end
+        if attachModeEnabled then
+            attachModeEnabled = false
+            AttachCheckbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+            if isAttached then detach() end
+        end
+        if speedEnabled then
+            speedEnabled = false
+            SpeedCheckbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+            applySmoothSpeed()
+        end
         enableFly()
     else
         disableFly()
@@ -1344,7 +1356,10 @@ RunService.RenderStepped:Connect(function()
 end)
 
 player.CharacterAdded:Connect(function()
-    if flyEnabled then task.wait(0.5) enableFly() end
+    if flyEnabled then
+        task.wait(0.5)
+        enableFly()
+    end
 end)
 
 local noclipEnabled = false
@@ -1355,17 +1370,24 @@ local function enableNoclip()
         local char = player.Character
         if not char then return end
         for _, part in ipairs(char:GetDescendants()) do
-            if part:IsA("BasePart") then part.CanCollide = false end
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
         end
     end)
 end
 
 local function disableNoclip()
-    if noclipConnection then noclipConnection:Disconnect() noclipConnection = nil end
+    if noclipConnection then
+        noclipConnection:Disconnect()
+        noclipConnection = nil
+    end
     local char = player.Character
     if char then
         for _, part in ipairs(char:GetDescendants()) do
-            if part:IsA("BasePart") then part.CanCollide = true end
+            if part:IsA("BasePart") then
+                part.CanCollide = true
+            end
         end
     end
 end
@@ -1373,11 +1395,18 @@ end
 NoclipCheckbox.MouseButton1Click:Connect(function()
     noclipEnabled = not noclipEnabled
     NoclipCheckbox.BackgroundColor3 = noclipEnabled and Color3.fromRGB(140, 60, 200) or Color3.fromRGB(40, 40, 45)
-    if noclipEnabled then enableNoclip() else disableNoclip() end
+    if noclipEnabled then
+        enableNoclip()
+    else
+        disableNoclip()
+    end
 end)
 
 player.CharacterAdded:Connect(function()
-    if noclipEnabled then task.wait(0.5) enableNoclip() end
+    if noclipEnabled then
+        task.wait(0.5)
+        enableNoclip()
+    end
 end)
 
 -- ==================== OPTIONS TAB ====================
@@ -1466,7 +1495,9 @@ local antiFlingConnection = nil
 local function setCharacterNoCollide(character, enabled)
     if not character then return end
     for _, part in ipairs(character:GetDescendants()) do
-        if part:IsA("BasePart") then part.CanCollide = not enabled end
+        if part:IsA("BasePart") then
+            part.CanCollide = not enabled
+        end
     end
 end
 
@@ -1504,24 +1535,38 @@ AntiFlingCheckbox.MouseButton1Click:Connect(function()
 end)
 
 player.CharacterAdded:Connect(function(char)
-    if antiFlingEnabled then task.wait(0.5) enableAntiFling() end
+    if antiFlingEnabled then
+        task.wait(0.5)
+        enableAntiFling()
+    end
 end)
 
 local notifEnabled = false
 
 local function sendNotif(title, text, duration)
     if not notifEnabled then return end
-    game:GetService("StarterGui"):SetCore("SendNotification", {Title = title, Text = text, Duration = duration or 3})
+    game:GetService("StarterGui"):SetCore("SendNotification", {
+        Title = title,
+        Text = text,
+        Duration = duration or 3,
+    })
 end
 
 NotifCheckbox.MouseButton1Click:Connect(function()
     notifEnabled = not notifEnabled
     NotifCheckbox.BackgroundColor3 = notifEnabled and Color3.fromRGB(140, 60, 200) or Color3.fromRGB(40, 40, 45)
-    if notifEnabled then sendNotif("Universal", "Notifications enabled", 2) end
+    if notifEnabled then
+        sendNotif("Universal", "Notifications enabled", 2)
+    end
 end)
 
-Players.PlayerAdded:Connect(function(plr) sendNotif("Player Joined", plr.DisplayName .. " joined the game", 3) end)
-Players.PlayerRemoving:Connect(function(plr) sendNotif("Player Left", plr.DisplayName .. " left the game", 3) end)
+Players.PlayerAdded:Connect(function(plr)
+    sendNotif("Player Joined", plr.DisplayName .. " joined the game", 3)
+end)
+
+Players.PlayerRemoving:Connect(function(plr)
+    sendNotif("Player Left", plr.DisplayName .. " left the game", 3)
+end)
 
 -- ==================== PLAYERS TAB ====================
 local playersContent = contents[5]
@@ -1655,7 +1700,9 @@ local function createPlayerEntry(plr)
             selectedPlayer = plr
             selectedLabel.Text = "Selected: " .. plr.DisplayName .. " (@" .. plr.Name .. ")"
             for _, child in ipairs(Scrolling:GetChildren()) do
-                if child:IsA("Frame") and child ~= entry then child.BackgroundColor3 = Color3.fromRGB(32, 32, 38) end
+                if child:IsA("Frame") and child ~= entry then
+                    child.BackgroundColor3 = Color3.fromRGB(32, 32, 38)
+                end
             end
             entry.BackgroundColor3 = Color3.fromRGB(70, 30, 85)
         end
@@ -1667,7 +1714,9 @@ local function refreshPlayers()
         if child:IsA("Frame") then child:Destroy() end
     end
     for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= player then createPlayerEntry(plr) end
+        if plr ~= player then
+            createPlayerEntry(plr)
+        end
     end
     Scrolling.CanvasSize = UDim2.new(0, 0, 0, UIList.AbsoluteContentSize.Y + 20)
 end
@@ -1679,7 +1728,9 @@ Players.PlayerRemoving:Connect(refreshPlayers)
 teleportBtn.MouseButton1Click:Connect(function()
     if selectedPlayer and selectedPlayer.Character and selectedPlayer.Character:FindFirstChild("HumanoidRootPart") then
         local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-        if root then root.CFrame = selectedPlayer.Character.HumanoidRootPart.CFrame + Vector3.new(0, 4, 0) end
+        if root then
+            root.CFrame = selectedPlayer.Character.HumanoidRootPart.CFrame + Vector3.new(0, 4, 0)
+        end
     end
 end)
 
