@@ -208,7 +208,7 @@ local dividerCorner = Instance.new("UICorner")
 dividerCorner.CornerRadius = UDim.new(0, 2)
 dividerCorner.Parent = MainDivider
 
--- ==================== NPC LOCK SECTION ====================
+-- ==================== NPC/PLAYER LOCK SECTION ====================
 local NpcFrame = Instance.new("Frame")
 NpcFrame.Size = UDim2.new(1, -24, 0, 55)
 NpcFrame.Position = UDim2.new(0, 12, 0, 160)
@@ -221,7 +221,7 @@ npcRowCorner.CornerRadius = UDim.new(0, 8)
 npcRowCorner.Parent = NpcFrame
 
 local NpcLabel = Instance.new("TextLabel")
-NpcLabel.Text = "NPC Lock"
+NpcLabel.Text = "NPC Lock (Includes Players)"
 NpcLabel.Size = UDim2.new(0.7, 0, 1, 0)
 NpcLabel.BackgroundTransparency = 1
 NpcLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
@@ -487,18 +487,14 @@ PredCheckbox.MouseButton1Click:Connect(function()
     PredCheckbox.BackgroundColor3 = predEnabled and Color3.fromRGB(140, 60, 200) or Color3.fromRGB(40, 40, 45)
 end)
 
--- ==================== FOV AIMBOT + NPC LOCK ====================
-local lockedTarget = nil
-local predVelocity = Vector3.zero
-local lastPredPos = nil
-local lastPredTime = nil
+-- ==================== UNIVERSAL LOCK (PLAYERS + NPCs) ====================
+local universalLockEnabled = false
+local lockedEntity = nil
+local universalPredVelocity = Vector3.zero
+local universalLastPos = nil
+local universalLastTime = nil
+local entityType = nil -- "player" or "npc"
 local PRED_SMOOTH = 0.2
-
-local npcLockEnabled = false
-local lockedNpc = nil
-local npcPredVelocity = Vector3.zero
-local npcLastPos = nil
-local npcLastTime = nil
 
 local function isValidTarget(plr)
     if not plr or plr == player then return false end
@@ -526,13 +522,6 @@ local function getClosestPlayerInFOV()
         end
     end
     return closestPlayer
-end
-
-local function clearLock()
-    lockedTarget = nil
-    predVelocity = Vector3.zero
-    lastPredPos = nil
-    lastPredTime = nil
 end
 
 local function getAllNPCs()
@@ -565,11 +554,33 @@ local function getAllNPCs()
     return npcs
 end
 
-local function getClosestNpcInFOV()
-    local closestNpc = nil
-    local closestDistance = math.huge
-    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+local function getClosestEntityInFOV()
+    if not universalLockEnabled then
+        return getClosestPlayerInFOV(), "player"
+    end
     
+    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    local closestEntity = nil
+    local closestDistance = math.huge
+    local closestType = nil
+    
+    -- Check players
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if isValidTarget(plr) then
+            local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+            local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+            if onScreen then
+                local dist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+                if dist < fovRadius and dist < closestDistance then
+                    closestDistance = dist
+                    closestEntity = plr
+                    closestType = "player"
+                end
+            end
+        end
+    end
+    
+    -- Check NPCs
     local npcs = getAllNPCs()
     for _, npc in ipairs(npcs) do
         if npc.rootPart and npc.hum and npc.hum.Health > 0 then
@@ -578,26 +589,28 @@ local function getClosestNpcInFOV()
                 local dist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
                 if dist < fovRadius and dist < closestDistance then
                     closestDistance = dist
-                    closestNpc = npc
+                    closestEntity = npc
+                    closestType = "npc"
                 end
             end
         end
     end
-    return closestNpc
+    
+    return closestEntity, closestType
 end
 
-local function clearNpcLock()
-    lockedNpc = nil
-    npcPredVelocity = Vector3.zero
-    npcLastPos = nil
-    npcLastTime = nil
+local function clearUniversalLock()
+    lockedEntity = nil
+    universalPredVelocity = Vector3.zero
+    universalLastPos = nil
+    universalLastTime = nil
+    entityType = nil
 end
 
 NpcCheckbox.MouseButton1Click:Connect(function()
-    npcLockEnabled = not npcLockEnabled
-    NpcCheckbox.BackgroundColor3 = npcLockEnabled and Color3.fromRGB(140, 60, 200) or Color3.fromRGB(40, 40, 45)
-    clearLock()
-    clearNpcLock()
+    universalLockEnabled = not universalLockEnabled
+    NpcCheckbox.BackgroundColor3 = universalLockEnabled and Color3.fromRGB(140, 60, 200) or Color3.fromRGB(40, 40, 45)
+    clearUniversalLock()
 end)
 
 RunService.RenderStepped:Connect(function(dt)
@@ -608,34 +621,35 @@ RunService.RenderStepped:Connect(function(dt)
         fovCircle.Visible = true
 
         if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
-            if not npcLockEnabled then
-                -- Player targeting
-                if not isValidTarget(lockedTarget) then
-                    clearLock()
-                    lockedTarget = getClosestPlayerInFOV()
+            if not universalLockEnabled then
+                -- Normal player-only targeting
+                if not isValidTarget(lockedEntity) then
+                    clearUniversalLock()
+                    lockedEntity = getClosestPlayerInFOV()
+                    entityType = "player"
                 end
 
-                if isValidTarget(lockedTarget) then
-                    local hrp = lockedTarget.Character:FindFirstChild("HumanoidRootPart")
+                if isValidTarget(lockedEntity) then
+                    local hrp = lockedEntity.Character:FindFirstChild("HumanoidRootPart")
                     if hrp then
                         local aimPos = hrp.Position
 
                         if predEnabled then
                             local now = tick()
-                            if lastPredPos and lastPredTime then
-                                local frameDt = now - lastPredTime
+                            if universalLastPos and universalLastTime then
+                                local frameDt = now - universalLastTime
                                 if frameDt > 0 then
-                                    local rawVel = (hrp.Position - lastPredPos) / frameDt
-                                    predVelocity = predVelocity:Lerp(rawVel, PRED_SMOOTH)
+                                    local rawVel = (hrp.Position - universalLastPos) / frameDt
+                                    universalPredVelocity = universalPredVelocity:Lerp(rawVel, PRED_SMOOTH)
                                 end
                             end
-                            lastPredPos = hrp.Position
-                            lastPredTime = tick()
-                            aimPos = hrp.Position + predVelocity * (predAmount * 0.15)
+                            universalLastPos = hrp.Position
+                            universalLastTime = tick()
+                            aimPos = hrp.Position + universalPredVelocity * (predAmount * 0.15)
                         else
-                            predVelocity = Vector3.zero
-                            lastPredPos = nil
-                            lastPredTime = nil
+                            universalPredVelocity = Vector3.zero
+                            universalLastPos = nil
+                            universalLastTime = nil
                         end
 
                         local _, onScreen = Camera:WorldToViewportPoint(aimPos)
@@ -645,47 +659,67 @@ RunService.RenderStepped:Connect(function(dt)
                     end
                 end
             else
-                -- NPC targeting
-                if not lockedNpc or not lockedNpc.rootPart or not lockedNpc.hum or lockedNpc.hum.Health <= 0 then
-                    clearNpcLock()
-                    lockedNpc = getClosestNpcInFOV()
+                -- Universal targeting (players + NPCs)
+                if not lockedEntity or (entityType == "player" and not isValidTarget(lockedEntity)) or (entityType == "npc" and (not lockedEntity.rootPart or not lockedEntity.hum or lockedEntity.hum.Health <= 0)) then
+                    clearUniversalLock()
+                    local entity, eType = getClosestEntityInFOV()
+                    if entity then
+                        lockedEntity = entity
+                        entityType = eType
+                    end
                 end
 
-                if lockedNpc and lockedNpc.rootPart then
-                    local aimPos = lockedNpc.rootPart.Position
-
-                    if predEnabled then
-                        local now = tick()
-                        if npcLastPos and npcLastTime then
-                            local frameDt = now - npcLastTime
-                            if frameDt > 0 then
-                                local rawVel = (lockedNpc.rootPart.Position - npcLastPos) / frameDt
-                                npcPredVelocity = npcPredVelocity:Lerp(rawVel, PRED_SMOOTH)
+                if lockedEntity then
+                    local aimPos = nil
+                    local rootPart = nil
+                    
+                    if entityType == "player" then
+                        local plr = lockedEntity
+                        if plr.Character then
+                            rootPart = plr.Character:FindFirstChild("HumanoidRootPart")
+                            if rootPart then
+                                aimPos = rootPart.Position
                             end
                         end
-                        npcLastPos = lockedNpc.rootPart.Position
-                        npcLastTime = tick()
-                        aimPos = lockedNpc.rootPart.Position + npcPredVelocity * (predAmount * 0.15)
-                    else
-                        npcPredVelocity = Vector3.zero
-                        npcLastPos = nil
-                        npcLastTime = nil
+                    else -- NPC
+                        rootPart = lockedEntity.rootPart
+                        if rootPart then
+                            aimPos = rootPart.Position
+                        end
                     end
+                    
+                    if aimPos and rootPart then
+                        if predEnabled then
+                            local now = tick()
+                            if universalLastPos and universalLastTime then
+                                local frameDt = now - universalLastTime
+                                if frameDt > 0 then
+                                    local rawVel = (rootPart.Position - universalLastPos) / frameDt
+                                    universalPredVelocity = universalPredVelocity:Lerp(rawVel, PRED_SMOOTH)
+                                end
+                            end
+                            universalLastPos = rootPart.Position
+                            universalLastTime = tick()
+                            aimPos = rootPart.Position + universalPredVelocity * (predAmount * 0.15)
+                        else
+                            universalPredVelocity = Vector3.zero
+                            universalLastPos = nil
+                            universalLastTime = nil
+                        end
 
-                    local _, onScreen = Camera:WorldToViewportPoint(aimPos)
-                    if onScreen then
-                        Camera.CFrame = CFrame.new(Camera.CFrame.Position, aimPos)
+                        local _, onScreen = Camera:WorldToViewportPoint(aimPos)
+                        if onScreen then
+                            Camera.CFrame = CFrame.new(Camera.CFrame.Position, aimPos)
+                        end
                     end
                 end
             end
         else
-            clearLock()
-            clearNpcLock()
+            clearUniversalLock()
         end
     else
         fovCircle.Visible = false
-        clearLock()
-        clearNpcLock()
+        clearUniversalLock()
     end
 end)
 
