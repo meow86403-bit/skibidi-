@@ -1,12 +1,9 @@
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
-local Workspace = game:GetService("Workspace")
-local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
-local mouse = player:GetMouse()
 
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "UniversalGUI"
@@ -117,57 +114,6 @@ for i, name in ipairs(tabNames) do
     table.insert(contents, content)
 end
 
--- ==================== FOV CIRCLE (Native Roblox GUI) ====================
-local fovCircleFrame = nil
-local fovEnabled = false
-local fovRadius = 120
-
-local function createFOVCircle()
-    if fovCircleFrame then fovCircleFrame:Destroy() end
-    
-    fovCircleFrame = Instance.new("Frame")
-    fovCircleFrame.Name = "FOVCircle"
-    fovCircleFrame.Size = UDim2.new(0, fovRadius * 2, 0, fovRadius * 2)
-    fovCircleFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-    fovCircleFrame.BackgroundTransparency = 1
-    fovCircleFrame.BorderSizePixel = 0
-    fovCircleFrame.Visible = fovEnabled
-    fovCircleFrame.Parent = ScreenGui
-    
-    local circleImage = Instance.new("ImageLabel")
-    circleImage.Size = UDim2.new(1, 0, 1, 0)
-    circleImage.BackgroundTransparency = 1
-    circleImage.Image = "rbxasset://textures/ui/PlayerSearch/radial.png"
-    circleImage.ImageColor3 = Color3.fromRGB(255, 255, 255)
-    circleImage.ImageTransparency = 0.7
-    circleImage.Parent = fovCircleFrame
-    
-    local outline = Instance.new("Frame")
-    outline.Size = UDim2.new(1, 0, 1, 0)
-    outline.BackgroundTransparency = 1
-    outline.BorderSizePixel = 2
-    outline.BorderColor3 = Color3.fromRGB(255, 100, 255)
-    outline.Parent = fovCircleFrame
-    
-    return fovCircleFrame
-end
-
-local function updateFOVCirclePosition()
-    if fovCircleFrame then
-        local mousePos = UserInputService:GetMouseLocation()
-        fovCircleFrame.Position = UDim2.new(0, mousePos.X, 0, mousePos.Y)
-    end
-end
-
-local function updateFOVCircleRadius()
-    if fovCircleFrame then
-        fovCircleFrame.Size = UDim2.new(0, fovRadius * 2, 0, fovRadius * 2)
-    end
-end
-
--- Create initial circle
-createFOVCircle()
-
 -- ==================== MAIN TAB ====================
 local mainContent = contents[1]
 
@@ -249,48 +195,18 @@ local predCheckCorner = Instance.new("UICorner")
 predCheckCorner.CornerRadius = UDim.new(0, 8)
 predCheckCorner.Parent = PredCheckbox
 
--- Divider line inside Main tab
-local mainTabDivider = Instance.new("Frame")
-mainTabDivider.Name = "MainTabDivider"
-mainTabDivider.Size = UDim2.new(0.92, 0, 0, 1)
-mainTabDivider.Position = UDim2.new(0.04, 0, 0, 150)
-mainTabDivider.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
-mainTabDivider.BorderSizePixel = 0
-mainTabDivider.Parent = MainLeftPanel
+-- ==================== DIVIDER LINE UNDER PREDICTION ====================
+local MainDivider = Instance.new("Frame")
+MainDivider.Name = "MainDivider"
+MainDivider.Size = UDim2.new(1, -24, 0, 2)
+MainDivider.Position = UDim2.new(0, 12, 0, 150)
+MainDivider.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+MainDivider.BorderSizePixel = 0
+MainDivider.Parent = MainLeftPanel
 
--- NPC Check Row
-local NPCFrame = Instance.new("Frame")
-NPCFrame.Size = UDim2.new(1, -24, 0, 55)
-NPCFrame.Position = UDim2.new(0, 12, 0, 165)
-NPCFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
-NPCFrame.BorderSizePixel = 0
-NPCFrame.Parent = MainLeftPanel
-
-local npcRowCorner = Instance.new("UICorner")
-npcRowCorner.CornerRadius = UDim.new(0, 8)
-npcRowCorner.Parent = NPCFrame
-
-local NPCLabel = Instance.new("TextLabel")
-NPCLabel.Text = "NPC Check"
-NPCLabel.Size = UDim2.new(0.7, 0, 1, 0)
-NPCLabel.BackgroundTransparency = 1
-NPCLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
-NPCLabel.TextSize = 19
-NPCLabel.Font = Enum.Font.GothamSemibold
-NPCLabel.TextXAlignment = Enum.TextXAlignment.Left
-NPCLabel.Position = UDim2.new(0, 16, 0, 0)
-NPCLabel.Parent = NPCFrame
-
-local NPCCheckbox = Instance.new("TextButton")
-NPCCheckbox.Size = UDim2.new(0, 32, 0, 32)
-NPCCheckbox.Position = UDim2.new(1, -44, 0.5, -16)
-NPCCheckbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
-NPCCheckbox.Text = ""
-NPCCheckbox.Parent = NPCFrame
-
-local npcCheckCorner = Instance.new("UICorner")
-npcCheckCorner.CornerRadius = UDim.new(0, 8)
-npcCheckCorner.Parent = NPCCheckbox
+local dividerCorner = Instance.new("UICorner")
+dividerCorner.CornerRadius = UDim.new(0, 2)
+dividerCorner.Parent = MainDivider
 
 local MainRightPanel = Instance.new("Frame")
 MainRightPanel.Size = UDim2.new(0.48, -5, 1, 0)
@@ -436,7 +352,17 @@ local predKnobCorner = Instance.new("UICorner")
 predKnobCorner.CornerRadius = UDim.new(1, 0)
 predKnobCorner.Parent = PredSliderKnob
 
--- ==================== SLIDER LOGIC ====================
+-- ==================== FOV CIRCLE ====================
+local fovEnabled = false
+local fovRadius = 120
+local fovCircle = Drawing.new("Circle")
+fovCircle.Visible = false
+fovCircle.Thickness = 1.5
+fovCircle.Color = Color3.fromRGB(255, 255, 255)
+fovCircle.Filled = false
+fovCircle.NumSides = 64
+fovCircle.Radius = fovRadius
+
 local sliderDragging = false
 local minFOV, maxFOV = 30, 350
 
@@ -448,7 +374,7 @@ local function updateSlider(inputX)
     SliderFill.Size = UDim2.new(relative, 0, 1, 0)
     SliderKnob.Position = UDim2.new(relative, 0, 0.5, 0)
     FOVSizeValue.Text = tostring(fovRadius)
-    updateFOVCircleRadius()
+    fovCircle.Radius = fovRadius
 end
 
 SliderTrack.InputBegan:Connect(function(input)
@@ -464,7 +390,25 @@ SliderKnob.InputBegan:Connect(function(input)
     end
 end)
 
--- Prediction slider
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        sliderDragging = false
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if sliderDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        updateSlider(input.Position.X)
+    end
+end)
+
+FOVCheckbox.MouseButton1Click:Connect(function()
+    fovEnabled = not fovEnabled
+    FOVCheckbox.BackgroundColor3 = fovEnabled and Color3.fromRGB(140, 60, 200) or Color3.fromRGB(40, 40, 45)
+    fovCircle.Visible = fovEnabled
+end)
+
+-- ==================== PREDICTION SLIDER LOGIC ====================
 local predEnabled = false
 local predAmount = 0.10
 local predSliderDragging = false
@@ -492,40 +436,21 @@ PredSliderKnob.InputBegan:Connect(function(input)
     end
 end)
 
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        sliderDragging = false
-        predSliderDragging = false
-    end
-end)
-
 UserInputService.InputChanged:Connect(function(input)
-    if sliderDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-        updateSlider(input.Position.X)
-    end
     if predSliderDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
         updatePredSlider(input.Position.X)
     end
 end)
 
-FOVCheckbox.MouseButton1Click:Connect(function()
-    fovEnabled = not fovEnabled
-    FOVCheckbox.BackgroundColor3 = fovEnabled and Color3.fromRGB(140, 60, 200) or Color3.fromRGB(40, 40, 45)
-    if fovCircleFrame then
-        fovCircleFrame.Visible = fovEnabled
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        predSliderDragging = false
     end
 end)
 
 PredCheckbox.MouseButton1Click:Connect(function()
     predEnabled = not predEnabled
     PredCheckbox.BackgroundColor3 = predEnabled and Color3.fromRGB(140, 60, 200) or Color3.fromRGB(40, 40, 45)
-end)
-
--- NPC Checkbox
-local npcEnabled = false
-NPCCheckbox.MouseButton1Click:Connect(function()
-    npcEnabled = not npcEnabled
-    NPCCheckbox.BackgroundColor3 = npcEnabled and Color3.fromRGB(140, 60, 200) or Color3.fromRGB(40, 40, 45)
 end)
 
 -- ==================== FOV AIMBOT ====================
@@ -547,19 +472,15 @@ local function getClosestPlayerInFOV()
     local closestPlayer = nil
     local closestDistance = math.huge
     local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-    local mousePos = UserInputService:GetMouseLocation()
-    
     for _, plr in ipairs(Players:GetPlayers()) do
         if isValidTarget(plr) then
             local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
-                if onScreen then
-                    local dist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
-                    if dist < fovRadius and dist < closestDistance then
-                        closestDistance = dist
-                        closestPlayer = plr
-                    end
+            local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+            if onScreen then
+                local dist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+                if dist < fovRadius and dist < closestDistance then
+                    closestDistance = dist
+                    closestPlayer = plr
                 end
             end
         end
@@ -574,15 +495,13 @@ local function clearLock()
     lastPredTime = nil
 end
 
--- Update FOV circle position every frame
-RunService.RenderStepped:Connect(function()
-    if fovEnabled then
-        updateFOVCirclePosition()
-    end
-end)
-
 RunService.RenderStepped:Connect(function(dt)
+    local mousePos = UserInputService:GetMouseLocation()
+
     if fovEnabled then
+        fovCircle.Position = mousePos
+        fovCircle.Visible = true
+
         if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
             if not isValidTarget(lockedTarget) then
                 clearLock()
@@ -621,6 +540,9 @@ RunService.RenderStepped:Connect(function(dt)
         else
             clearLock()
         end
+    else
+        fovCircle.Visible = false
+        clearLock()
     end
 end)
 
@@ -708,7 +630,7 @@ local function addESPToPlayer(plr)
         local highlight = Instance.new("Highlight")
         highlight.FillColor = Color3.fromRGB(255, 255, 255)
         highlight.FillTransparency = 1
-        highlight.OutlineColor = Color3.fromRGB(255, 100, 255)
+        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
         highlight.OutlineTransparency = 0
         highlight.Adornee = character
         highlight.Parent = character
@@ -763,6 +685,7 @@ end)
 -- ==================== CHARACTER TAB ====================
 local characterContent = contents[3]
 
+-- LEFT PANEL
 local CharLeftPanel = Instance.new("Frame")
 CharLeftPanel.Size = UDim2.new(0.48, -5, 1, 0)
 CharLeftPanel.Position = UDim2.new(0, 0, 0, 0)
@@ -842,7 +765,7 @@ local noclipCheckCorner = Instance.new("UICorner")
 noclipCheckCorner.CornerRadius = UDim.new(0, 8)
 noclipCheckCorner.Parent = NoclipCheckbox
 
--- Speed Checkbox
+-- Speed Checkbox (LEFT PANEL)
 local speedEnabled = false
 local currentSpeedValue = 50
 local speedBodyVelocity = nil
@@ -881,6 +804,7 @@ local speedCheckCorner = Instance.new("UICorner")
 speedCheckCorner.CornerRadius = UDim.new(0, 8)
 speedCheckCorner.Parent = SpeedCheckbox
 
+-- DA HOOD SMOOTH SPEED MOVEMENT - FIXED
 local function applySmoothSpeed()
     local character = player.Character
     if not character then return end
@@ -889,16 +813,19 @@ local function applySmoothSpeed()
     if not hrp or not hum then return end
     
     if speedEnabled then
+        -- Disable normal walk speed
         hum.WalkSpeed = 0
         hum.JumpPower = 50
         hum.AutoRotate = true
         
+        -- Create BodyVelocity for smooth movement
         if speedBodyVelocity then speedBodyVelocity:Destroy() end
         speedBodyVelocity = Instance.new("BodyVelocity")
         speedBodyVelocity.MaxForce = Vector3.new(1e6, 0, 1e6)
         speedBodyVelocity.Velocity = Vector3.zero
         speedBodyVelocity.Parent = hrp
         
+        -- Movement loop
         if speedConnection then speedConnection:Disconnect() end
         speedConnection = RunService.RenderStepped:Connect(function()
             if not speedEnabled or not player.Character then return end
@@ -907,6 +834,7 @@ local function applySmoothSpeed()
             local currentHum = currentChar:FindFirstChild("Humanoid")
             if not currentHrp or not currentHum then return end
             
+            -- Get movement direction from WASD
             local moveDir = Vector3.zero
             local cf = Camera.CFrame
             
@@ -922,6 +850,7 @@ local function applySmoothSpeed()
                 speedBodyVelocity.Velocity = Vector3.zero
             end
             
+            -- Prevent falling through floor
             local currentVel = currentHrp.AssemblyLinearVelocity
             if currentVel.Y < -30 then
                 currentHrp.AssemblyLinearVelocity = Vector3.new(currentVel.X, 0, currentVel.Z)
@@ -930,6 +859,7 @@ local function applySmoothSpeed()
             currentHum.PlatformStand = false
         end)
     else
+        -- Disable speed mode
         if speedBodyVelocity then 
             speedBodyVelocity:Destroy()
             speedBodyVelocity = nil
@@ -961,6 +891,7 @@ SpeedCheckbox.MouseButton1Click:Connect(function()
     toggleSpeed()
 end)
 
+-- Re-apply on respawn
 player.CharacterAdded:Connect(function()
     if speedEnabled then
         task.wait(0.3)
@@ -968,7 +899,7 @@ player.CharacterAdded:Connect(function()
     end
 end)
 
--- Attach Mode
+-- Attach Mode (LEFT PANEL)
 local attachModeEnabled = false
 local isAttached = false
 local attachedTarget = nil
@@ -1025,7 +956,7 @@ local charRightCorner = Instance.new("UICorner")
 charRightCorner.CornerRadius = UDim.new(0, 10)
 charRightCorner.Parent = CharRightPanel
 
--- Speed Slider
+-- Speed Slider (RIGHT PANEL)
 local speedSliderDragging = false
 local minSpeed = 16
 local maxSpeed = 250
@@ -1119,13 +1050,19 @@ SpeedSliderKnob.InputBegan:Connect(function(input)
     end
 end)
 
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        speedSliderDragging = false
+    end
+end)
+
 UserInputService.InputChanged:Connect(function(input)
     if speedSliderDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
         updateSpeedSlider(input.Position.X)
     end
 end)
 
--- Attach Functions
+-- ==================== ATTACH FUNCTIONS ====================
 local function getPlayerLookingAt()
     local camera = workspace.CurrentCamera
     local mouseLocation = UserInputService:GetMouseLocation()
@@ -1363,7 +1300,7 @@ player.CharacterAdded:Connect(function()
     end
 end)
 
--- Fly Logic
+-- ==================== FLY LOGIC ====================
 local flyEnabled = false
 local flySpeed = 150
 local flyBodyVelocity = nil
@@ -1461,7 +1398,7 @@ player.CharacterAdded:Connect(function()
     end
 end)
 
--- Noclip Logic
+-- ==================== NOCLIP LOGIC ====================
 local noclipEnabled = false
 local noclipConnection = nil
 
@@ -1591,7 +1528,7 @@ local notifCheckCorner = Instance.new("UICorner")
 notifCheckCorner.CornerRadius = UDim.new(0, 8)
 notifCheckCorner.Parent = NotifCheckbox
 
--- Anti Fling Logic
+-- ==================== ANTI FLING LOGIC ====================
 local antiFlingEnabled = false
 local antiFlingConnection = nil
 
@@ -1657,7 +1594,7 @@ player.CharacterAdded:Connect(function(char)
     end
 end)
 
--- Notifications Logic
+-- ==================== NOTIFICATIONS LOGIC ====================
 local notifEnabled = false
 
 local function sendNotif(title, text, duration)
@@ -1886,9 +1823,7 @@ for i, tab in ipairs(tabs) do
 end
 
 -- Draggable
-local dragging = false
-local dragStart = nil
-local startPos = nil
+local dragging, dragStart, startPos
 
 TopBar.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -1910,14 +1845,3 @@ UserInputService.InputChanged:Connect(function(input)
         MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
     end
 end)
-
--- Games Tab placeholder
-local gamesContent = contents[6]
-local placeholderLabel = Instance.new("TextLabel")
-placeholderLabel.Text = "Games Tab - Coming Soon"
-placeholderLabel.Size = UDim2.new(1, 0, 1, 0)
-placeholderLabel.BackgroundTransparency = 1
-placeholderLabel.TextColor3 = Color3.fromRGB(255, 100, 255)
-placeholderLabel.TextSize = 24
-placeholderLabel.Font = Enum.Font.GothamBold
-placeholderLabel.Parent = gamesContent
