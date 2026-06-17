@@ -1631,7 +1631,7 @@ local function startHover(targetPlayer)
         end
 
         -- Hover directly above the target's head at the configurable range
-        local hoverPos = targetHead.Position + Vector3.new(1, hoverRange, 0)
+        local hoverPos = targetHead.Position + Vector3.new(2, hoverRange, 0)
         local lookAt = Vector3.new(targetHead.Position.X, hoverPos.Y, targetHead.Position.Z)
         currentHrp.CFrame = CFrame.new(hoverPos, lookAt)
         currentHrp.AssemblyLinearVelocity = Vector3.zero
