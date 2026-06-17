@@ -5,6 +5,14 @@ local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
+-- Helper: create a rounded corner without consuming a top-level local
+local function addCorner(parent, radius)
+    local c = Instance.new("UICorner")
+    c.CornerRadius = radius
+    c.Parent = parent
+    return c
+end
+
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "UniversalGUI"
 ScreenGui.ResetOnSpawn = false
@@ -147,9 +155,7 @@ MainLeftPanel.BackgroundColor3 = Color3.fromRGB(23, 23, 28)
 MainLeftPanel.BorderSizePixel = 0
 MainLeftPanel.Parent = mainContent
 
-local mainLeftCorner = Instance.new("UICorner")
-mainLeftCorner.CornerRadius = UDim.new(0, 10)
-mainLeftCorner.Parent = MainLeftPanel
+addCorner(MainLeftPanel, UDim.new(0, 10))
 
 local FOVFrame = Instance.new("Frame")
 FOVFrame.Size = UDim2.new(1, -24, 0, 55)
@@ -158,9 +164,7 @@ FOVFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
 FOVFrame.BorderSizePixel = 0
 FOVFrame.Parent = MainLeftPanel
 
-local fovRowCorner = Instance.new("UICorner")
-fovRowCorner.CornerRadius = UDim.new(0, 8)
-fovRowCorner.Parent = FOVFrame
+addCorner(FOVFrame, UDim.new(0, 8))
 
 local FOVLabel = Instance.new("TextLabel")
 FOVLabel.Text = "Fov Toggle"
@@ -180,9 +184,7 @@ FOVCheckbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
 FOVCheckbox.Text = ""
 FOVCheckbox.Parent = FOVFrame
 
-local fovCheckCorner = Instance.new("UICorner")
-fovCheckCorner.CornerRadius = UDim.new(0, 8)
-fovCheckCorner.Parent = FOVCheckbox
+addCorner(FOVCheckbox, UDim.new(0, 8))
 
 -- Prediction Row
 local PredFrame = Instance.new("Frame")
@@ -192,9 +194,7 @@ PredFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
 PredFrame.BorderSizePixel = 0
 PredFrame.Parent = MainLeftPanel
 
-local predRowCorner = Instance.new("UICorner")
-predRowCorner.CornerRadius = UDim.new(0, 8)
-predRowCorner.Parent = PredFrame
+addCorner(PredFrame, UDim.new(0, 8))
 
 local PredLabel = Instance.new("TextLabel")
 PredLabel.Text = "Prediction"
@@ -214,9 +214,7 @@ PredCheckbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
 PredCheckbox.Text = ""
 PredCheckbox.Parent = PredFrame
 
-local predCheckCorner = Instance.new("UICorner")
-predCheckCorner.CornerRadius = UDim.new(0, 8)
-predCheckCorner.Parent = PredCheckbox
+addCorner(PredCheckbox, UDim.new(0, 8))
 
 -- ==================== DIVIDER LINE UNDER PREDICTION ====================
 local MainDivider = Instance.new("Frame")
@@ -227,9 +225,7 @@ MainDivider.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
 MainDivider.BorderSizePixel = 0
 MainDivider.Parent = MainLeftPanel
 
-local dividerCorner = Instance.new("UICorner")
-dividerCorner.CornerRadius = UDim.new(0, 2)
-dividerCorner.Parent = MainDivider
+addCorner(MainDivider, UDim.new(0, 2))
 
 -- ==================== NPC/PLAYER LOCK SECTION ====================
 local NpcFrame = Instance.new("Frame")
@@ -239,9 +235,7 @@ NpcFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
 NpcFrame.BorderSizePixel = 0
 NpcFrame.Parent = MainLeftPanel
 
-local npcRowCorner = Instance.new("UICorner")
-npcRowCorner.CornerRadius = UDim.new(0, 8)
-npcRowCorner.Parent = NpcFrame
+addCorner(NpcFrame, UDim.new(0, 8))
 
 local NpcLabel = Instance.new("TextLabel")
 NpcLabel.Text = "Npc Check"
@@ -261,9 +255,7 @@ NpcCheckbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
 NpcCheckbox.Text = ""
 NpcCheckbox.Parent = NpcFrame
 
-local npcCheckCorner = Instance.new("UICorner")
-npcCheckCorner.CornerRadius = UDim.new(0, 8)
-npcCheckCorner.Parent = NpcCheckbox
+addCorner(NpcCheckbox, UDim.new(0, 8))
 
 local MainRightPanel = Instance.new("Frame")
 MainRightPanel.Size = UDim2.new(0.48, -5, 1, 0)
@@ -272,9 +264,7 @@ MainRightPanel.BackgroundColor3 = Color3.fromRGB(23, 23, 28)
 MainRightPanel.BorderSizePixel = 0
 MainRightPanel.Parent = mainContent
 
-local mainRightCorner = Instance.new("UICorner")
-mainRightCorner.CornerRadius = UDim.new(0, 10)
-mainRightCorner.Parent = MainRightPanel
+addCorner(MainRightPanel, UDim.new(0, 10))
 
 local FOVSizeFrame = Instance.new("Frame")
 FOVSizeFrame.Size = UDim2.new(1, -24, 0, 70)
@@ -283,9 +273,7 @@ FOVSizeFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
 FOVSizeFrame.BorderSizePixel = 0
 FOVSizeFrame.Parent = MainRightPanel
 
-local fovSizeCorner = Instance.new("UICorner")
-fovSizeCorner.CornerRadius = UDim.new(0, 8)
-fovSizeCorner.Parent = FOVSizeFrame
+addCorner(FOVSizeFrame, UDim.new(0, 8))
 
 local FOVSizeLabel = Instance.new("TextLabel")
 FOVSizeLabel.Text = "Fov Size"
@@ -316,9 +304,7 @@ SliderTrack.BackgroundColor3 = Color3.fromRGB(50, 50, 58)
 SliderTrack.BorderSizePixel = 0
 SliderTrack.Parent = FOVSizeFrame
 
-local trackCorner = Instance.new("UICorner")
-trackCorner.CornerRadius = UDim.new(0, 4)
-trackCorner.Parent = SliderTrack
+addCorner(SliderTrack, UDim.new(0, 4))
 
 local SliderFill = Instance.new("Frame")
 SliderFill.Size = UDim2.new(0.48, 0, 1, 0)
@@ -326,9 +312,7 @@ SliderFill.BackgroundColor3 = Color3.fromRGB(140, 60, 200)
 SliderFill.BorderSizePixel = 0
 SliderFill.Parent = SliderTrack
 
-local fillCorner = Instance.new("UICorner")
-fillCorner.CornerRadius = UDim.new(0, 4)
-fillCorner.Parent = SliderFill
+addCorner(SliderFill, UDim.new(0, 4))
 
 local SliderKnob = Instance.new("Frame")
 SliderKnob.Size = UDim2.new(0, 18, 0, 18)
@@ -338,9 +322,7 @@ SliderKnob.BackgroundColor3 = Color3.fromRGB(255, 100, 255)
 SliderKnob.BorderSizePixel = 0
 SliderKnob.Parent = SliderTrack
 
-local knobCorner = Instance.new("UICorner")
-knobCorner.CornerRadius = UDim.new(1, 0)
-knobCorner.Parent = SliderKnob
+addCorner(SliderKnob, UDim.new(1, 0))
 
 -- Prediction Slider Frame
 local PredSizeFrame = Instance.new("Frame")
@@ -350,9 +332,7 @@ PredSizeFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
 PredSizeFrame.BorderSizePixel = 0
 PredSizeFrame.Parent = MainRightPanel
 
-local predSizeCorner = Instance.new("UICorner")
-predSizeCorner.CornerRadius = UDim.new(0, 8)
-predSizeCorner.Parent = PredSizeFrame
+addCorner(PredSizeFrame, UDim.new(0, 8))
 
 local PredSizeLabel = Instance.new("TextLabel")
 PredSizeLabel.Text = "Prediction"
@@ -383,9 +363,7 @@ PredSliderTrack.BackgroundColor3 = Color3.fromRGB(50, 50, 58)
 PredSliderTrack.BorderSizePixel = 0
 PredSliderTrack.Parent = PredSizeFrame
 
-local predTrackCorner = Instance.new("UICorner")
-predTrackCorner.CornerRadius = UDim.new(0, 4)
-predTrackCorner.Parent = PredSliderTrack
+addCorner(PredSliderTrack, UDim.new(0, 4))
 
 local PredSliderFill = Instance.new("Frame")
 PredSliderFill.Size = UDim2.new(0.1, 0, 1, 0)
@@ -393,9 +371,7 @@ PredSliderFill.BackgroundColor3 = Color3.fromRGB(140, 60, 200)
 PredSliderFill.BorderSizePixel = 0
 PredSliderFill.Parent = PredSliderTrack
 
-local predFillCorner = Instance.new("UICorner")
-predFillCorner.CornerRadius = UDim.new(0, 4)
-predFillCorner.Parent = PredSliderFill
+addCorner(PredSliderFill, UDim.new(0, 4))
 
 local PredSliderKnob = Instance.new("Frame")
 PredSliderKnob.Size = UDim2.new(0, 18, 0, 18)
@@ -405,9 +381,7 @@ PredSliderKnob.BackgroundColor3 = Color3.fromRGB(255, 100, 255)
 PredSliderKnob.BorderSizePixel = 0
 PredSliderKnob.Parent = PredSliderTrack
 
-local predKnobCorner = Instance.new("UICorner")
-predKnobCorner.CornerRadius = UDim.new(1, 0)
-predKnobCorner.Parent = PredSliderKnob
+addCorner(PredSliderKnob, UDim.new(1, 0))
 
 -- ==================== FOV CIRCLE ====================
 local fovEnabled = false
@@ -752,9 +726,7 @@ LeftPanel.BackgroundColor3 = Color3.fromRGB(23, 23, 28)
 LeftPanel.BorderSizePixel = 0
 LeftPanel.Parent = visualsContent
 
-local leftCorner = Instance.new("UICorner")
-leftCorner.CornerRadius = UDim.new(0, 10)
-leftCorner.Parent = LeftPanel
+addCorner(LeftPanel, UDim.new(0, 10))
 
 local ESPFrame = Instance.new("Frame")
 ESPFrame.Size = UDim2.new(1, -24, 0, 55)
@@ -763,9 +735,7 @@ ESPFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
 ESPFrame.BorderSizePixel = 0
 ESPFrame.Parent = LeftPanel
 
-local espCorner = Instance.new("UICorner")
-espCorner.CornerRadius = UDim.new(0, 8)
-espCorner.Parent = ESPFrame
+addCorner(ESPFrame, UDim.new(0, 8))
 
 local ESPLabel = Instance.new("TextLabel")
 ESPLabel.Text = "ESP"
@@ -785,9 +755,7 @@ ESPCheckbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
 ESPCheckbox.Text = ""
 ESPCheckbox.Parent = ESPFrame
 
-local checkCorner = Instance.new("UICorner")
-checkCorner.CornerRadius = UDim.new(0, 8)
-checkCorner.Parent = ESPCheckbox
+addCorner(ESPCheckbox, UDim.new(0, 8))
 
 local RightPanel = Instance.new("Frame")
 RightPanel.Size = UDim2.new(0.48, -5, 1, 0)
@@ -796,9 +764,7 @@ RightPanel.BackgroundColor3 = Color3.fromRGB(23, 23, 28)
 RightPanel.BorderSizePixel = 0
 RightPanel.Parent = visualsContent
 
-local rightCorner = Instance.new("UICorner")
-rightCorner.CornerRadius = UDim.new(0, 10)
-rightCorner.Parent = RightPanel
+addCorner(RightPanel, UDim.new(0, 10))
 
 -- ==================== ESP LOGIC ====================
 local ESPHighlights = {}
@@ -889,9 +855,7 @@ CharLeftPanel.BackgroundColor3 = Color3.fromRGB(23, 23, 28)
 CharLeftPanel.BorderSizePixel = 0
 CharLeftPanel.Parent = characterContent
 
-local charLeftCorner = Instance.new("UICorner")
-charLeftCorner.CornerRadius = UDim.new(0, 10)
-charLeftCorner.Parent = CharLeftPanel
+addCorner(CharLeftPanel, UDim.new(0, 10))
 
 -- Fly Row
 local FlyFrame = Instance.new("Frame")
@@ -901,9 +865,7 @@ FlyFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
 FlyFrame.BorderSizePixel = 0
 FlyFrame.Parent = CharLeftPanel
 
-local flyRowCorner = Instance.new("UICorner")
-flyRowCorner.CornerRadius = UDim.new(0, 8)
-flyRowCorner.Parent = FlyFrame
+addCorner(FlyFrame, UDim.new(0, 8))
 
 local FlyLabel = Instance.new("TextLabel")
 FlyLabel.Text = "Fly"
@@ -923,9 +885,7 @@ FlyCheckbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
 FlyCheckbox.Text = ""
 FlyCheckbox.Parent = FlyFrame
 
-local flyCheckCorner = Instance.new("UICorner")
-flyCheckCorner.CornerRadius = UDim.new(0, 8)
-flyCheckCorner.Parent = FlyCheckbox
+addCorner(FlyCheckbox, UDim.new(0, 8))
 
 -- Noclip Row
 local NoclipFrame = Instance.new("Frame")
@@ -935,9 +895,7 @@ NoclipFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
 NoclipFrame.BorderSizePixel = 0
 NoclipFrame.Parent = CharLeftPanel
 
-local noclipRowCorner = Instance.new("UICorner")
-noclipRowCorner.CornerRadius = UDim.new(0, 8)
-noclipRowCorner.Parent = NoclipFrame
+addCorner(NoclipFrame, UDim.new(0, 8))
 
 local NoclipLabel = Instance.new("TextLabel")
 NoclipLabel.Text = "Noclip"
@@ -957,9 +915,7 @@ NoclipCheckbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
 NoclipCheckbox.Text = ""
 NoclipCheckbox.Parent = NoclipFrame
 
-local noclipCheckCorner = Instance.new("UICorner")
-noclipCheckCorner.CornerRadius = UDim.new(0, 8)
-noclipCheckCorner.Parent = NoclipCheckbox
+addCorner(NoclipCheckbox, UDim.new(0, 8))
 
 -- Speed Checkbox (LEFT PANEL)
 local speedEnabled = false
@@ -974,9 +930,7 @@ SpeedFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
 SpeedFrame.BorderSizePixel = 0
 SpeedFrame.Parent = CharLeftPanel
 
-local speedRowCorner = Instance.new("UICorner")
-speedRowCorner.CornerRadius = UDim.new(0, 8)
-speedRowCorner.Parent = SpeedFrame
+addCorner(SpeedFrame, UDim.new(0, 8))
 
 local SpeedLabel = Instance.new("TextLabel")
 SpeedLabel.Text = "Speed"
@@ -996,9 +950,7 @@ SpeedCheckbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
 SpeedCheckbox.Text = ""
 SpeedCheckbox.Parent = SpeedFrame
 
-local speedCheckCorner = Instance.new("UICorner")
-speedCheckCorner.CornerRadius = UDim.new(0, 8)
-speedCheckCorner.Parent = SpeedCheckbox
+addCorner(SpeedCheckbox, UDim.new(0, 8))
 
 local function applySmoothSpeed()
     local character = player.Character
@@ -1087,6 +1039,42 @@ player.CharacterAdded:Connect(function()
     end
 end)
 
+-- Hover Mode (LEFT PANEL)
+local hoverEnabled = false
+local isHovering = false
+local hoverTarget = nil
+local hoverConnection = nil
+local hoverRange = 10
+
+local HoverFrame = Instance.new("Frame")
+HoverFrame.Size = UDim2.new(1, -24, 0, 55)
+HoverFrame.Position = UDim2.new(0, 12, 0, 215)
+HoverFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
+HoverFrame.BorderSizePixel = 0
+HoverFrame.Parent = CharLeftPanel
+
+addCorner(HoverFrame, UDim.new(0, 8))
+
+local HoverLabel = Instance.new("TextLabel")
+HoverLabel.Text = "Hover (Press H)"
+HoverLabel.Size = UDim2.new(0.7, 0, 1, 0)
+HoverLabel.BackgroundTransparency = 1
+HoverLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
+HoverLabel.TextSize = 19
+HoverLabel.Font = Enum.Font.GothamSemibold
+HoverLabel.TextXAlignment = Enum.TextXAlignment.Left
+HoverLabel.Position = UDim2.new(0, 16, 0, 0)
+HoverLabel.Parent = HoverFrame
+
+local HoverCheckbox = Instance.new("TextButton")
+HoverCheckbox.Size = UDim2.new(0, 32, 0, 32)
+HoverCheckbox.Position = UDim2.new(1, -44, 0.5, -16)
+HoverCheckbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+HoverCheckbox.Text = ""
+HoverCheckbox.Parent = HoverFrame
+
+addCorner(HoverCheckbox, UDim.new(0, 8))
+
 -- Attach Mode (LEFT PANEL)
 local attachModeEnabled = false
 local isAttached = false
@@ -1101,14 +1089,12 @@ local PREDICTION_FACTOR = 0.35
 
 local AttachFrame = Instance.new("Frame")
 AttachFrame.Size = UDim2.new(1, -24, 0, 55)
-AttachFrame.Position = UDim2.new(0, 12, 0, 215)
+AttachFrame.Position = UDim2.new(0, 12, 0, 280)
 AttachFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
 AttachFrame.BorderSizePixel = 0
 AttachFrame.Parent = CharLeftPanel
 
-local attachRowCorner = Instance.new("UICorner")
-attachRowCorner.CornerRadius = UDim.new(0, 8)
-attachRowCorner.Parent = AttachFrame
+addCorner(AttachFrame, UDim.new(0, 8))
 
 local AttachLabel = Instance.new("TextLabel")
 AttachLabel.Text = "Attach Mode (H to attach)"
@@ -1128,9 +1114,7 @@ AttachCheckbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
 AttachCheckbox.Text = ""
 AttachCheckbox.Parent = AttachFrame
 
-local attachCheckCorner = Instance.new("UICorner")
-attachCheckCorner.CornerRadius = UDim.new(0, 8)
-attachCheckCorner.Parent = AttachCheckbox
+addCorner(AttachCheckbox, UDim.new(0, 8))
 
 -- RIGHT PANEL
 local CharRightPanel = Instance.new("Frame")
@@ -1140,9 +1124,7 @@ CharRightPanel.BackgroundColor3 = Color3.fromRGB(23, 23, 28)
 CharRightPanel.BorderSizePixel = 0
 CharRightPanel.Parent = characterContent
 
-local charRightCorner = Instance.new("UICorner")
-charRightCorner.CornerRadius = UDim.new(0, 10)
-charRightCorner.Parent = CharRightPanel
+addCorner(CharRightPanel, UDim.new(0, 10))
 
 -- Speed Slider (RIGHT PANEL)
 local speedSliderDragging = false
@@ -1156,9 +1138,7 @@ SpeedSliderFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
 SpeedSliderFrame.BorderSizePixel = 0
 SpeedSliderFrame.Parent = CharRightPanel
 
-local speedSliderCorner = Instance.new("UICorner")
-speedSliderCorner.CornerRadius = UDim.new(0, 8)
-speedSliderCorner.Parent = SpeedSliderFrame
+addCorner(SpeedSliderFrame, UDim.new(0, 8))
 
 local SpeedSliderLabel = Instance.new("TextLabel")
 SpeedSliderLabel.Text = "Speed Amount"
@@ -1189,9 +1169,7 @@ SpeedSliderTrack.BackgroundColor3 = Color3.fromRGB(50, 50, 58)
 SpeedSliderTrack.BorderSizePixel = 0
 SpeedSliderTrack.Parent = SpeedSliderFrame
 
-local speedTrackCorner = Instance.new("UICorner")
-speedTrackCorner.CornerRadius = UDim.new(0, 3)
-speedTrackCorner.Parent = SpeedSliderTrack
+addCorner(SpeedSliderTrack, UDim.new(0, 3))
 
 local SpeedSliderFill = Instance.new("Frame")
 SpeedSliderFill.Size = UDim2.new((currentSpeedValue - minSpeed) / (maxSpeed - minSpeed), 0, 1, 0)
@@ -1199,9 +1177,7 @@ SpeedSliderFill.BackgroundColor3 = Color3.fromRGB(140, 60, 200)
 SpeedSliderFill.BorderSizePixel = 0
 SpeedSliderFill.Parent = SpeedSliderTrack
 
-local speedFillCorner = Instance.new("UICorner")
-speedFillCorner.CornerRadius = UDim.new(0, 3)
-speedFillCorner.Parent = SpeedSliderFill
+addCorner(SpeedSliderFill, UDim.new(0, 3))
 
 local SpeedSliderKnob = Instance.new("Frame")
 SpeedSliderKnob.Size = UDim2.new(0, 14, 0, 14)
@@ -1211,9 +1187,7 @@ SpeedSliderKnob.BackgroundColor3 = Color3.fromRGB(255, 100, 255)
 SpeedSliderKnob.BorderSizePixel = 0
 SpeedSliderKnob.Parent = SpeedSliderTrack
 
-local speedKnobCorner = Instance.new("UICorner")
-speedKnobCorner.CornerRadius = UDim.new(1, 0)
-speedKnobCorner.Parent = SpeedSliderKnob
+addCorner(SpeedSliderKnob, UDim.new(1, 0))
 
 local function updateSpeedSlider(inputX)
     local trackPos = SpeedSliderTrack.AbsolutePosition.X
@@ -1247,6 +1221,104 @@ end)
 UserInputService.InputChanged:Connect(function(input)
     if speedSliderDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
         updateSpeedSlider(input.Position.X)
+    end
+end)
+
+-- Hover Range Slider (RIGHT PANEL)
+local hoverSliderDragging = false
+local minHoverRange = 1
+local maxHoverRange = 50
+
+local HoverSliderFrame = Instance.new("Frame")
+HoverSliderFrame.Size = UDim2.new(1, -24, 0, 70)
+HoverSliderFrame.Position = UDim2.new(0, 12, 0, 100)
+HoverSliderFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
+HoverSliderFrame.BorderSizePixel = 0
+HoverSliderFrame.Parent = CharRightPanel
+
+addCorner(HoverSliderFrame, UDim.new(0, 8))
+
+local HoverSliderLabel = Instance.new("TextLabel")
+HoverSliderLabel.Text = "Hover Range"
+HoverSliderLabel.Size = UDim2.new(0.65, 0, 0, 28)
+HoverSliderLabel.Position = UDim2.new(0, 16, 0, 8)
+HoverSliderLabel.BackgroundTransparency = 1
+HoverSliderLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
+HoverSliderLabel.TextSize = 19
+HoverSliderLabel.Font = Enum.Font.GothamSemibold
+HoverSliderLabel.TextXAlignment = Enum.TextXAlignment.Left
+HoverSliderLabel.Parent = HoverSliderFrame
+
+local HoverSliderValue = Instance.new("TextLabel")
+HoverSliderValue.Text = tostring(hoverRange)
+HoverSliderValue.Size = UDim2.new(0.3, 0, 0, 28)
+HoverSliderValue.Position = UDim2.new(0.68, 0, 0, 8)
+HoverSliderValue.BackgroundTransparency = 1
+HoverSliderValue.TextColor3 = Color3.fromRGB(255, 100, 255)
+HoverSliderValue.TextSize = 17
+HoverSliderValue.Font = Enum.Font.GothamBold
+HoverSliderValue.TextXAlignment = Enum.TextXAlignment.Right
+HoverSliderValue.Parent = HoverSliderFrame
+
+local HoverSliderTrack = Instance.new("Frame")
+HoverSliderTrack.Size = UDim2.new(1, -32, 0, 6)
+HoverSliderTrack.Position = UDim2.new(0, 16, 0, 46)
+HoverSliderTrack.BackgroundColor3 = Color3.fromRGB(50, 50, 58)
+HoverSliderTrack.BorderSizePixel = 0
+HoverSliderTrack.Parent = HoverSliderFrame
+
+addCorner(HoverSliderTrack, UDim.new(0, 3))
+
+local HoverSliderFill = Instance.new("Frame")
+HoverSliderFill.Size = UDim2.new((hoverRange - minHoverRange) / (maxHoverRange - minHoverRange), 0, 1, 0)
+HoverSliderFill.BackgroundColor3 = Color3.fromRGB(140, 60, 200)
+HoverSliderFill.BorderSizePixel = 0
+HoverSliderFill.Parent = HoverSliderTrack
+
+addCorner(HoverSliderFill, UDim.new(0, 3))
+
+local HoverSliderKnob = Instance.new("Frame")
+HoverSliderKnob.Size = UDim2.new(0, 14, 0, 14)
+HoverSliderKnob.AnchorPoint = Vector2.new(0.5, 0.5)
+HoverSliderKnob.Position = UDim2.new((hoverRange - minHoverRange) / (maxHoverRange - minHoverRange), 0, 0.5, 0)
+HoverSliderKnob.BackgroundColor3 = Color3.fromRGB(255, 100, 255)
+HoverSliderKnob.BorderSizePixel = 0
+HoverSliderKnob.Parent = HoverSliderTrack
+
+addCorner(HoverSliderKnob, UDim.new(1, 0))
+
+local function updateHoverSlider(inputX)
+    local trackPos = HoverSliderTrack.AbsolutePosition.X
+    local trackSize = HoverSliderTrack.AbsoluteSize.X
+    local relative = math.clamp((inputX - trackPos) / trackSize, 0, 1)
+    hoverRange = math.floor(minHoverRange + relative * (maxHoverRange - minHoverRange))
+    HoverSliderFill.Size = UDim2.new(relative, 0, 1, 0)
+    HoverSliderKnob.Position = UDim2.new(relative, 0, 0.5, 0)
+    HoverSliderValue.Text = tostring(hoverRange)
+end
+
+HoverSliderTrack.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        hoverSliderDragging = true
+        updateHoverSlider(input.Position.X)
+    end
+end)
+
+HoverSliderKnob.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        hoverSliderDragging = true
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        hoverSliderDragging = false
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if hoverSliderDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        updateHoverSlider(input.Position.X)
     end
 end)
 
@@ -1457,6 +1529,7 @@ end
 
 local function onHPressed()
     if not attachModeEnabled then return end
+    if hoverEnabled then return end -- Hover Mode takes priority on H
     
     if isAttached then
         detach()
@@ -1484,6 +1557,126 @@ player.CharacterAdded:Connect(function()
         task.wait(0.3)
         if attachedTarget then
             attachToTarget(attachedTarget)
+        end
+    end
+end)
+
+-- ==================== HOVER FUNCTIONS ====================
+local function stopHover()
+    if hoverConnection then
+        hoverConnection:Disconnect()
+        hoverConnection = nil
+    end
+    hoverTarget = nil
+    isHovering = false
+
+    teleportToOriginalPosition()
+
+    local character = player.Character
+    if character then
+        local hum = character:FindFirstChild("Humanoid")
+        if hum then
+            hum.AutoRotate = true
+            hum.PlatformStand = false
+        end
+    end
+end
+
+local function startHover(targetPlayer)
+    if not targetPlayer or not targetPlayer.Character then return false end
+
+    saveOriginalPosition()
+
+    local character = player.Character
+    if not character then return false end
+
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    local hum = character:FindFirstChild("Humanoid")
+    if not hrp or not hum then return false end
+
+    hoverTarget = targetPlayer
+    isHovering = true
+
+    hum.AutoRotate = false
+    hum.PlatformStand = true
+
+    hoverConnection = RunService.Heartbeat:Connect(function()
+        if not isHovering or not hoverTarget or not hoverTarget.Character then
+            stopHover()
+            return
+        end
+
+        local targetChar = hoverTarget.Character
+        local targetHead = targetChar:FindFirstChild("Head")
+            or targetChar:FindFirstChild("UpperTorso")
+            or targetChar:FindFirstChild("Torso")
+            or targetChar:FindFirstChild("HumanoidRootPart")
+
+        if not targetHead then
+            stopHover()
+            return
+        end
+
+        local currentChar = player.Character
+        if not currentChar then
+            stopHover()
+            return
+        end
+
+        local currentHrp = currentChar:FindFirstChild("HumanoidRootPart")
+        local currentHum = currentChar:FindFirstChild("Humanoid")
+        if not currentHrp or not currentHum then
+            stopHover()
+            return
+        end
+
+        -- Hover directly above the target's head at the configurable range
+        local hoverPos = targetHead.Position + Vector3.new(1, hoverRange, 0)
+        local lookAt = Vector3.new(targetHead.Position.X, hoverPos.Y, targetHead.Position.Z)
+        currentHrp.CFrame = CFrame.new(hoverPos, lookAt)
+        currentHrp.AssemblyLinearVelocity = Vector3.zero
+        currentHrp.AssemblyAngularVelocity = Vector3.zero
+
+        currentHum.PlatformStand = true
+        currentHum.AutoRotate = false
+    end)
+
+    return true
+end
+
+local function onHoverHPressed()
+    if not hoverEnabled then return end
+
+    if isHovering then
+        stopHover()
+    else
+        local target = getPlayerLookingAt()
+        if target then
+            startHover(target)
+        end
+    end
+end
+
+HoverCheckbox.MouseButton1Click:Connect(function()
+    hoverEnabled = not hoverEnabled
+    HoverCheckbox.BackgroundColor3 = hoverEnabled and Color3.fromRGB(140, 60, 200) or Color3.fromRGB(40, 40, 45)
+    if not hoverEnabled and isHovering then
+        stopHover()
+    end
+end)
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.H then
+        onHoverHPressed()
+    end
+end)
+
+player.CharacterAdded:Connect(function()
+    if isHovering then
+        task.wait(0.3)
+        if hoverTarget then
+            startHover(hoverTarget)
         end
     end
 end)
@@ -1644,9 +1837,7 @@ OptLeftPanel.BackgroundColor3 = Color3.fromRGB(23, 23, 28)
 OptLeftPanel.BorderSizePixel = 0
 OptLeftPanel.Parent = optionsContent
 
-local optLeftCorner = Instance.new("UICorner")
-optLeftCorner.CornerRadius = UDim.new(0, 10)
-optLeftCorner.Parent = OptLeftPanel
+addCorner(OptLeftPanel, UDim.new(0, 10))
 
 -- Anti Fling Row
 local AntiFlingFrame = Instance.new("Frame")
@@ -1656,9 +1847,7 @@ AntiFlingFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
 AntiFlingFrame.BorderSizePixel = 0
 AntiFlingFrame.Parent = OptLeftPanel
 
-local antiFlingRowCorner = Instance.new("UICorner")
-antiFlingRowCorner.CornerRadius = UDim.new(0, 8)
-antiFlingRowCorner.Parent = AntiFlingFrame
+addCorner(AntiFlingFrame, UDim.new(0, 8))
 
 local AntiFlingLabel = Instance.new("TextLabel")
 AntiFlingLabel.Text = "Anti Fling"
@@ -1678,9 +1867,7 @@ AntiFlingCheckbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
 AntiFlingCheckbox.Text = ""
 AntiFlingCheckbox.Parent = AntiFlingFrame
 
-local antiFlingCheckCorner = Instance.new("UICorner")
-antiFlingCheckCorner.CornerRadius = UDim.new(0, 8)
-antiFlingCheckCorner.Parent = AntiFlingCheckbox
+addCorner(AntiFlingCheckbox, UDim.new(0, 8))
 
 -- ==================== ANTI FLING LOGIC ====================
 local antiFlingEnabled = false
@@ -1790,9 +1977,7 @@ BottomPanel.BackgroundColor3 = Color3.fromRGB(22, 22, 27)
 BottomPanel.BorderSizePixel = 0
 BottomPanel.Parent = PlayersBox
 
-local panelCorner = Instance.new("UICorner")
-panelCorner.CornerRadius = UDim.new(0, 8)
-panelCorner.Parent = BottomPanel
+addCorner(BottomPanel, UDim.new(0, 8))
 
 local selectedLabel = Instance.new("TextLabel")
 selectedLabel.Text = "No player selected"
@@ -1823,13 +2008,9 @@ spectateBtn.TextSize = 16
 spectateBtn.Font = Enum.Font.GothamSemibold
 spectateBtn.Parent = BottomPanel
 
-local btnCorner = Instance.new("UICorner")
-btnCorner.CornerRadius = UDim.new(0, 6)
-btnCorner.Parent = teleportBtn
+addCorner(teleportBtn, UDim.new(0, 6))
 
-local btnCorner2 = Instance.new("UICorner")
-btnCorner2.CornerRadius = UDim.new(0, 6)
-btnCorner2.Parent = spectateBtn
+addCorner(spectateBtn, UDim.new(0, 6))
 
 local function createPlayerEntry(plr)
     local entry = Instance.new("Frame")
