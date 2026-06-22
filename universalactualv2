@@ -157,6 +157,7 @@ MainLeftPanel.Parent = mainContent
 
 addCorner(MainLeftPanel, UDim.new(0, 10))
 
+-- FOV Toggle Row
 local FOVFrame = Instance.new("Frame")
 FOVFrame.Size = UDim2.new(1, -24, 0, 55)
 FOVFrame.Position = UDim2.new(0, 12, 0, 20)
@@ -216,7 +217,7 @@ PredCheckbox.Parent = PredFrame
 
 addCorner(PredCheckbox, UDim.new(0, 8))
 
--- ==================== DIVIDER LINE UNDER PREDICTION ====================
+-- ==================== DIVIDER LINE ====================
 local MainDivider = Instance.new("Frame")
 MainDivider.Name = "MainDivider"
 MainDivider.Size = UDim2.new(1, -24, 0, 2)
@@ -257,6 +258,7 @@ NpcCheckbox.Parent = NpcFrame
 
 addCorner(NpcCheckbox, UDim.new(0, 8))
 
+-- RIGHT PANEL
 local MainRightPanel = Instance.new("Frame")
 MainRightPanel.Size = UDim2.new(0.48, -5, 1, 0)
 MainRightPanel.Position = UDim2.new(0.52, 0, 0, 0)
@@ -383,7 +385,7 @@ PredSliderKnob.Parent = PredSliderTrack
 
 addCorner(PredSliderKnob, UDim.new(1, 0))
 
--- ==================== FOV CIRCLE ====================
+-- ==================== FOV CIRCLE LOGIC ====================
 local fovEnabled = false
 local fovRadius = 120
 local fovCircle = Drawing.new("Circle")
@@ -484,7 +486,7 @@ PredCheckbox.MouseButton1Click:Connect(function()
     PredCheckbox.BackgroundColor3 = predEnabled and Color3.fromRGB(140, 60, 200) or Color3.fromRGB(40, 40, 45)
 end)
 
--- ==================== UNIVERSAL LOCK (PLAYERS + NPCs) ====================
+-- ==================== UNIVERSAL LOCK ====================
 local universalLockEnabled = false
 local lockedEntity = nil
 local universalPredVelocity = Vector3.zero
@@ -728,6 +730,7 @@ LeftPanel.Parent = visualsContent
 
 addCorner(LeftPanel, UDim.new(0, 10))
 
+-- ESP Row
 local ESPFrame = Instance.new("Frame")
 ESPFrame.Size = UDim2.new(1, -24, 0, 55)
 ESPFrame.Position = UDim2.new(0, 12, 0, 20)
@@ -757,6 +760,67 @@ ESPCheckbox.Parent = ESPFrame
 
 addCorner(ESPCheckbox, UDim.new(0, 8))
 
+-- Name ESP Row
+local NameESPFrame = Instance.new("Frame")
+NameESPFrame.Size = UDim2.new(1, -24, 0, 55)
+NameESPFrame.Position = UDim2.new(0, 12, 0, 85)
+NameESPFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
+NameESPFrame.BorderSizePixel = 0
+NameESPFrame.Parent = LeftPanel
+
+addCorner(NameESPFrame, UDim.new(0, 8))
+
+local NameESPLabel = Instance.new("TextLabel")
+NameESPLabel.Text = "Name ESP"
+NameESPLabel.Size = UDim2.new(0.7, 0, 1, 0)
+NameESPLabel.BackgroundTransparency = 1
+NameESPLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
+NameESPLabel.TextSize = 19
+NameESPLabel.Font = Enum.Font.GothamSemibold
+NameESPLabel.TextXAlignment = Enum.TextXAlignment.Left
+NameESPLabel.Position = UDim2.new(0, 16, 0, 0)
+NameESPLabel.Parent = NameESPFrame
+
+local NameESPCheckbox = Instance.new("TextButton")
+NameESPCheckbox.Size = UDim2.new(0, 32, 0, 32)
+NameESPCheckbox.Position = UDim2.new(1, -44, 0.5, -16)
+NameESPCheckbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+NameESPCheckbox.Text = ""
+NameESPCheckbox.Parent = NameESPFrame
+
+addCorner(NameESPCheckbox, UDim.new(0, 8))
+
+-- Skeleton ESP Row
+local SkeletonFrame = Instance.new("Frame")
+SkeletonFrame.Size = UDim2.new(1, -24, 0, 55)
+SkeletonFrame.Position = UDim2.new(0, 12, 0, 150)
+SkeletonFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
+SkeletonFrame.BorderSizePixel = 0
+SkeletonFrame.Parent = LeftPanel
+
+addCorner(SkeletonFrame, UDim.new(0, 8))
+
+local SkeletonLabel = Instance.new("TextLabel")
+SkeletonLabel.Text = "Skeleton ESP"
+SkeletonLabel.Size = UDim2.new(0.7, 0, 1, 0)
+SkeletonLabel.BackgroundTransparency = 1
+SkeletonLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
+SkeletonLabel.TextSize = 19
+SkeletonLabel.Font = Enum.Font.GothamSemibold
+SkeletonLabel.TextXAlignment = Enum.TextXAlignment.Left
+SkeletonLabel.Position = UDim2.new(0, 16, 0, 0)
+SkeletonLabel.Parent = SkeletonFrame
+
+local SkeletonCheckbox = Instance.new("TextButton")
+SkeletonCheckbox.Size = UDim2.new(0, 32, 0, 32)
+SkeletonCheckbox.Position = UDim2.new(1, -44, 0.5, -16)
+SkeletonCheckbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+SkeletonCheckbox.Text = ""
+SkeletonCheckbox.Parent = SkeletonFrame
+
+addCorner(SkeletonCheckbox, UDim.new(0, 8))
+
+-- RIGHT PANEL
 local RightPanel = Instance.new("Frame")
 RightPanel.Size = UDim2.new(0.48, -5, 1, 0)
 RightPanel.Position = UDim2.new(0.52, 0, 0, 0)
@@ -843,6 +907,340 @@ Players.PlayerRemoving:Connect(function(plr)
         end
     end
 end)
+
+-- ==================== NAME ESP LOGIC ====================
+local nameESPEnabled = false
+local nameLabels = {}
+
+local function createNameLabel(plr)
+    if plr == player then return end
+    if nameLabels[plr] then return end
+
+    local displayLine = Drawing.new("Text")
+    displayLine.Visible = false
+    displayLine.Color = Color3.fromRGB(255, 255, 255)
+    displayLine.Size = 14
+    displayLine.Center = true
+    displayLine.Outline = true
+    displayLine.OutlineColor = Color3.fromRGB(0, 0, 0)
+    displayLine.Font = Drawing.Fonts.UI
+
+    local userLine = Drawing.new("Text")
+    userLine.Visible = false
+    userLine.Color = Color3.fromRGB(180, 180, 180)
+    userLine.Size = 12
+    userLine.Center = true
+    userLine.Outline = true
+    userLine.OutlineColor = Color3.fromRGB(0, 0, 0)
+    userLine.Font = Drawing.Fonts.UI
+
+    nameLabels[plr] = {display = displayLine, user = userLine}
+end
+
+local function removeNameLabel(plr)
+    if not nameLabels[plr] then return end
+    nameLabels[plr].display:Remove()
+    nameLabels[plr].user:Remove()
+    nameLabels[plr] = nil
+end
+
+local function removeAllNameLabels()
+    for plr, _ in pairs(nameLabels) do
+        removeNameLabel(plr)
+    end
+end
+
+local function updateNameLabel(plr)
+    if not nameLabels[plr] then return end
+
+    local character = plr.Character
+    if not character then
+        nameLabels[plr].display.Visible = false
+        nameLabels[plr].user.Visible = false
+        return
+    end
+
+    local head = character:FindFirstChild("Head")
+    if not head then
+        nameLabels[plr].display.Visible = false
+        nameLabels[plr].user.Visible = false
+        return
+    end
+
+    -- Position above the head, fixed offset in world space
+    local aboveHead = head.Position + Vector3.new(0, 3.5, 0)
+    local screenPos, onScreen = Camera:WorldToViewportPoint(aboveHead)
+
+    if not onScreen then
+        nameLabels[plr].display.Visible = false
+        nameLabels[plr].user.Visible = false
+        return
+    end
+
+    local pos = Vector2.new(screenPos.X, screenPos.Y)
+
+    -- Display name on top, username below it
+    nameLabels[plr].display.Text = plr.DisplayName
+    nameLabels[plr].display.Position = pos
+    nameLabels[plr].display.Visible = true
+
+    nameLabels[plr].user.Text = "@" .. plr.Name
+    nameLabels[plr].user.Position = Vector2.new(pos.X, pos.Y + 16)
+    nameLabels[plr].user.Visible = true
+end
+
+NameESPCheckbox.MouseButton1Click:Connect(function()
+    nameESPEnabled = not nameESPEnabled
+    NameESPCheckbox.BackgroundColor3 = nameESPEnabled and Color3.fromRGB(140, 60, 200) or Color3.fromRGB(40, 40, 45)
+
+    if not nameESPEnabled then
+        removeAllNameLabels()
+    else
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= player then
+                createNameLabel(plr)
+            end
+        end
+    end
+end)
+
+Players.PlayerAdded:Connect(function(plr)
+    if nameESPEnabled and plr ~= player then
+        createNameLabel(plr)
+        plr.CharacterAdded:Connect(function()
+            if nameESPEnabled then
+                task.wait(0.5)
+                removeNameLabel(plr)
+                createNameLabel(plr)
+            end
+        end)
+    end
+end)
+
+Players.PlayerRemoving:Connect(function(plr)
+    removeNameLabel(plr)
+end)
+
+for _, plr in ipairs(Players:GetPlayers()) do
+    if plr ~= player then
+        plr.CharacterAdded:Connect(function()
+            if nameESPEnabled then
+                task.wait(0.5)
+                removeNameLabel(plr)
+                createNameLabel(plr)
+            end
+        end)
+    end
+end
+
+RunService.RenderStepped:Connect(function()
+    if not nameESPEnabled then return end
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= player then
+            if not nameLabels[plr] then
+                createNameLabel(plr)
+            end
+            updateNameLabel(plr)
+        end
+    end
+end)
+
+-- ==================== SKELETON ESP LOGIC ====================
+local skeletonEnabled = false
+local skeletonLines = {}
+
+local function getJoints(character)
+    local function pos(partName)
+        local part = character:FindFirstChild(partName)
+        return part and part.Position or nil
+    end
+
+    local head = pos("Head")
+    local torso = pos("UpperTorso") or pos("Torso")
+    local lowerTorso = pos("LowerTorso") or pos("Torso")
+    local lShoulder = pos("LeftUpperArm") or pos("Left Arm")
+    local rShoulder = pos("RightUpperArm") or pos("Right Arm")
+    local lElbow = pos("LeftLowerArm") or pos("Left Arm")
+    local rElbow = pos("RightLowerArm") or pos("Right Arm")
+    local lHand = pos("LeftHand") or pos("Left Arm")
+    local rHand = pos("RightHand") or pos("Right Arm")
+    local lHip = pos("LeftUpperLeg") or pos("Left Leg")
+    local rHip = pos("RightUpperLeg") or pos("Right Leg")
+    local lKnee = pos("LeftLowerLeg") or pos("Left Leg")
+    local rKnee = pos("RightLowerLeg") or pos("Right Leg")
+    local lFoot = pos("LeftFoot") or pos("Left Leg")
+    local rFoot = pos("RightFoot") or pos("Right Leg")
+
+    local isR6 = character:FindFirstChild("Torso") ~= nil and character:FindFirstChild("UpperTorso") == nil
+
+    if isR6 then
+        local torsoPart = character:FindFirstChild("Torso")
+        local lArmPart = character:FindFirstChild("Left Arm")
+        local rArmPart = character:FindFirstChild("Right Arm")
+        local lLegPart = character:FindFirstChild("Left Leg")
+        local rLegPart = character:FindFirstChild("Right Leg")
+
+        if torsoPart then
+            torso = torsoPart.Position + Vector3.new(0, 0.5, 0)
+            lowerTorso = torsoPart.Position - Vector3.new(0, 0.8, 0)
+        end
+        if lArmPart then
+            lShoulder = lArmPart.Position + Vector3.new(0, 0.8, 0)
+            lElbow = lArmPart.Position
+            lHand = lArmPart.Position - Vector3.new(0, 0.8, 0)
+        end
+        if rArmPart then
+            rShoulder = rArmPart.Position + Vector3.new(0, 0.8, 0)
+            rElbow = rArmPart.Position
+            rHand = rArmPart.Position - Vector3.new(0, 0.8, 0)
+        end
+        if lLegPart then
+            lHip = lLegPart.Position + Vector3.new(0, 0.8, 0)
+            lKnee = lLegPart.Position
+            lFoot = lLegPart.Position - Vector3.new(0, 0.8, 0)
+        end
+        if rLegPart then
+            rHip = rLegPart.Position + Vector3.new(0, 0.8, 0)
+            rKnee = rLegPart.Position
+            rFoot = rLegPart.Position - Vector3.new(0, 0.8, 0)
+        end
+    end
+
+    return {
+        {head, torso},
+        {torso, lowerTorso},
+        {torso, lShoulder},
+        {lShoulder, lElbow},
+        {lElbow, lHand},
+        {torso, rShoulder},
+        {rShoulder, rElbow},
+        {rElbow, rHand},
+        {lowerTorso, lHip},
+        {lHip, lKnee},
+        {lKnee, lFoot},
+        {lowerTorso, rHip},
+        {rHip, rKnee},
+        {rKnee, rFoot},
+    }
+end
+
+local function createSkeletonForPlayer(plr)
+    if plr == player then return end
+    if skeletonLines[plr] then return end
+
+    skeletonLines[plr] = {}
+    for i = 1, 14 do
+        local line = Drawing.new("Line")
+        line.Visible = false
+        line.Color = Color3.fromRGB(255, 255, 255)
+        line.Thickness = 1.5
+        line.Transparency = 1
+        table.insert(skeletonLines[plr], line)
+    end
+end
+
+local function removeSkeletonForPlayer(plr)
+    if not skeletonLines[plr] then return end
+    for _, line in ipairs(skeletonLines[plr]) do
+        line:Remove()
+    end
+    skeletonLines[plr] = nil
+end
+
+local function removeAllSkeletons()
+    for plr, _ in pairs(skeletonLines) do
+        removeSkeletonForPlayer(plr)
+    end
+end
+
+local function updateSkeletonForPlayer(plr)
+    if not skeletonLines[plr] then return end
+
+    local character = plr.Character
+    if not character then
+        for _, line in ipairs(skeletonLines[plr]) do
+            line.Visible = false
+        end
+        return
+    end
+
+    local joints = getJoints(character)
+
+    for i, line in ipairs(skeletonLines[plr]) do
+        local joint = joints[i]
+        if joint and joint[1] and joint[2] then
+            local screenA, onA = Camera:WorldToViewportPoint(joint[1])
+            local screenB, onB = Camera:WorldToViewportPoint(joint[2])
+            if onA and onB then
+                line.From = Vector2.new(screenA.X, screenA.Y)
+                line.To = Vector2.new(screenB.X, screenB.Y)
+                line.Visible = true
+            else
+                line.Visible = false
+            end
+        else
+            line.Visible = false
+        end
+    end
+end
+
+SkeletonCheckbox.MouseButton1Click:Connect(function()
+    skeletonEnabled = not skeletonEnabled
+    SkeletonCheckbox.BackgroundColor3 = skeletonEnabled and Color3.fromRGB(140, 60, 200) or Color3.fromRGB(40, 40, 45)
+
+    if not skeletonEnabled then
+        removeAllSkeletons()
+    else
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= player then
+                createSkeletonForPlayer(plr)
+            end
+        end
+    end
+end)
+
+Players.PlayerAdded:Connect(function(plr)
+    if skeletonEnabled and plr ~= player then
+        createSkeletonForPlayer(plr)
+        plr.CharacterAdded:Connect(function()
+            if skeletonEnabled then
+                task.wait(0.5)
+                removeSkeletonForPlayer(plr)
+                createSkeletonForPlayer(plr)
+            end
+        end)
+    end
+end)
+
+Players.PlayerRemoving:Connect(function(plr)
+    removeSkeletonForPlayer(plr)
+end)
+
+for _, plr in ipairs(Players:GetPlayers()) do
+    if plr ~= player then
+        plr.CharacterAdded:Connect(function()
+            if skeletonEnabled then
+                task.wait(0.5)
+                removeSkeletonForPlayer(plr)
+                createSkeletonForPlayer(plr)
+            end
+        end)
+    end
+end
+
+RunService.RenderStepped:Connect(function()
+    if not skeletonEnabled then return end
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= player then
+            if not skeletonLines[plr] then
+                createSkeletonForPlayer(plr)
+            end
+            updateSkeletonForPlayer(plr)
+        end
+    end
+end)
+
+print("Visuals tab loaded - ESP, Name ESP and Skeleton ESP")
 
 -- ==================== CHARACTER TAB ====================
 local characterContent = contents[3]
@@ -1934,6 +2332,8 @@ player.CharacterAdded:Connect(function(char)
         enableAntiFling()
     end
 end)
+
+print("Options tab loaded - Anti Fling only")
 
 -- ==================== PLAYERS TAB ====================
 local playersContent = contents[5]
