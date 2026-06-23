@@ -820,7 +820,7 @@ SkeletonCheckbox.Parent = SkeletonFrame
 
 addCorner(SkeletonCheckbox, UDim.new(0, 8))
 
--- ==================== PLAYER TRACKING ROW ====================
+-- ==================== PLAYER TRACKING ROW (UNDER NAME ESP) ====================
 local TrackingFrame = Instance.new("Frame")
 TrackingFrame.Size = UDim2.new(1, -24, 0, 55)
 TrackingFrame.Position = UDim2.new(0, 12, 0, 215)
@@ -849,16 +849,6 @@ TrackingCheckbox.Text = ""
 TrackingCheckbox.Parent = TrackingFrame
 
 addCorner(TrackingCheckbox, UDim.new(0, 8))
-
--- RIGHT PANEL
-local RightPanel = Instance.new("Frame")
-RightPanel.Size = UDim2.new(0.48, -5, 1, 0)
-RightPanel.Position = UDim2.new(0.52, 0, 0, 0)
-RightPanel.BackgroundColor3 = Color3.fromRGB(23, 23, 28)
-RightPanel.BorderSizePixel = 0
-RightPanel.Parent = visualsContent
-
-addCorner(RightPanel, UDim.new(0, 10))
 
 -- ==================== ESP LOGIC ====================
 local ESPHighlights = {}
@@ -1206,7 +1196,7 @@ Players.PlayerRemoving:Connect(function(plr)
     removeSkeletonForPlayer(plr)
 end)
 
--- ==================== PLAYER TRACKING LOGIC ====================
+-- ==================== PLAYER TRACKING LOGIC (SAFE VERSION) ====================
 local trackingEnabled = false
 local trackingLabels = {}
 local lineOfSightLength = 100
@@ -1214,22 +1204,27 @@ local lineOfSightLength = 100
 local function createTrackingLabel(plr)
     if plr == player then return end
     if trackingLabels[plr] then return end
-
-    local label = Drawing.new("Text")
-    label.Visible = false
-    label.Color = Color3.fromRGB(255, 200, 50)
-    label.Size = 13
-    label.Center = true
-    label.Outline = true
-    label.OutlineColor = Color3.fromRGB(0, 0, 0)
-    label.Font = Drawing.Fonts.UI
-
-    trackingLabels[plr] = label
+    
+    local success, label = pcall(function()
+        local l = Drawing.new("Text")
+        l.Visible = false
+        l.Color = Color3.fromRGB(255, 200, 50)
+        l.Size = 13
+        l.Center = true
+        l.Outline = true
+        l.OutlineColor = Color3.fromRGB(0, 0, 0)
+        l.Font = Drawing.Fonts.UI
+        return l
+    end)
+    
+    if success then
+        trackingLabels[plr] = label
+    end
 end
 
 local function removeTrackingLabel(plr)
     if not trackingLabels[plr] then return end
-    trackingLabels[plr]:Remove()
+    pcall(function() trackingLabels[plr]:Remove() end)
     trackingLabels[plr] = nil
 end
 
@@ -1349,7 +1344,6 @@ Players.PlayerRemoving:Connect(function(plr)
     removeTrackingLabel(plr)
 end)
 
--- ==================== RENDER LOOPS ====================
 RunService.RenderStepped:Connect(function()
     -- Name ESP
     if nameESPEnabled then
