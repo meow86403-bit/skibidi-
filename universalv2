@@ -1473,6 +1473,42 @@ HoverCheckbox.Parent = HoverFrame
 
 addCorner(HoverCheckbox, UDim.new(0, 8))
 
+-- ==================== BEHIND MODE (LEFT PANEL) ====================
+local behindEnabled = false
+local isBehind = false
+local behindTarget = nil
+local behindConnection = nil
+local BEHIND_RADIUS = 4
+
+local BehindFrame = Instance.new("Frame")
+BehindFrame.Size = UDim2.new(1, -24, 0, 55)
+BehindFrame.Position = UDim2.new(0, 12, 0, 275)
+BehindFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
+BehindFrame.BorderSizePixel = 0
+BehindFrame.Parent = CharLeftPanel
+
+addCorner(BehindFrame, UDim.new(0, 8))
+
+local BehindLabel = Instance.new("TextLabel")
+BehindLabel.Text = "Behind (Press H)"
+BehindLabel.Size = UDim2.new(0.7, 0, 1, 0)
+BehindLabel.BackgroundTransparency = 1
+BehindLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
+BehindLabel.TextSize = 19
+BehindLabel.Font = Enum.Font.GothamSemibold
+BehindLabel.TextXAlignment = Enum.TextXAlignment.Left
+BehindLabel.Position = UDim2.new(0, 16, 0, 0)
+BehindLabel.Parent = BehindFrame
+
+local BehindCheckbox = Instance.new("TextButton")
+BehindCheckbox.Size = UDim2.new(0, 32, 0, 32)
+BehindCheckbox.Position = UDim2.new(1, -44, 0.5, -16)
+BehindCheckbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+BehindCheckbox.Text = ""
+BehindCheckbox.Parent = BehindFrame
+
+addCorner(BehindCheckbox, UDim.new(0, 8))
+
 -- Attach Mode (LEFT PANEL)
 local attachModeEnabled = false
 local isAttached = false
@@ -1487,7 +1523,7 @@ local PREDICTION_FACTOR = 0.35
 
 local AttachFrame = Instance.new("Frame")
 AttachFrame.Size = UDim2.new(1, -24, 0, 55)
-AttachFrame.Position = UDim2.new(0, 12, 0, 280)
+AttachFrame.Position = UDim2.new(0, 12, 0, 335)
 AttachFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
 AttachFrame.BorderSizePixel = 0
 AttachFrame.Parent = CharLeftPanel
@@ -1925,9 +1961,8 @@ local function toggleAttachMode()
     end
 end
 
-local function onHPressed()
+local function onAttachHPressed()
     if not attachModeEnabled then return end
-    if hoverEnabled then return end -- Hover Mode takes priority on H
     
     if isAttached then
         detach()
@@ -1941,13 +1976,6 @@ end
 
 AttachCheckbox.MouseButton1Click:Connect(function()
     toggleAttachMode()
-end)
-
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    if input.KeyCode == Enum.KeyCode.H then
-        onHPressed()
-    end
 end)
 
 player.CharacterAdded:Connect(function()
@@ -2028,56 +2056,13 @@ local function startHover(targetPlayer)
             return
         end
 
-        -- Hover directly above the target's head at the configurable range
         local hoverPos = targetHead.Position + Vector3.new(2, hoverRange, 0)
         local lookAt = Vector3.new(targetHead.Position.X, hoverPos.Y, targetHead.Position.Z)
         currentHrp.CFrame = CFrame.new(hoverPos, lookAt)
         currentHrp.AssemblyLinearVelocity = Vector3.zero
         currentHrp.AssemblyAngularVelocity = Vector3.zero
 
-        currentHum.PlatformStand = true
-        currentHum.AutoRotate = false
-    end)
-
-    return true
-end
-
-local function onHoverHPressed()
-    if not hoverEnabled then return end
-
-    if isHovering then
-        stopHover()
-    else
-        local target = getPlayerLookingAt()
-        if target then
-            startHover(target)
-        end
-    end
-end
-
-HoverCheckbox.MouseButton1Click:Connect(function()
-    hoverEnabled = not hoverEnabled
-    HoverCheckbox.BackgroundColor3 = hoverEnabled and Color3.fromRGB(140, 60, 200) or Color3.fromRGB(40, 40, 45)
-    if not hoverEnabled and isHovering then
-        stopHover()
-    end
-end)
-
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    if input.KeyCode == Enum.KeyCode.H then
-        onHoverHPressed()
-    end
-end)
-
-player.CharacterAdded:Connect(function()
-    if isHovering then
-        task.wait(0.3)
-        if hoverTarget then
-            startHover(hoverTarget)
-        end
-    end
-end)
+        current
 
 -- ==================== FLY LOGIC ====================
 local flyEnabled = false
