@@ -102,7 +102,7 @@ Divider.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
 Divider.BorderSizePixel = 0
 Divider.Parent = MainFrame
 
--- Tab names without "Games"
+-- Tab names
 local tabNames = {"Main", "Visuals", "Character", "Options", "Players"}
 local tabs = {}
 local contents = {}
@@ -820,7 +820,7 @@ SkeletonCheckbox.Parent = SkeletonFrame
 
 addCorner(SkeletonCheckbox, UDim.new(0, 8))
 
--- ==================== PLAYER TRACKING ROW (UNDER NAME ESP) ====================
+-- Player Tracking Row
 local TrackingFrame = Instance.new("Frame")
 TrackingFrame.Size = UDim2.new(1, -24, 0, 55)
 TrackingFrame.Position = UDim2.new(0, 12, 0, 215)
@@ -849,6 +849,16 @@ TrackingCheckbox.Text = ""
 TrackingCheckbox.Parent = TrackingFrame
 
 addCorner(TrackingCheckbox, UDim.new(0, 8))
+
+-- RIGHT PANEL
+local RightPanel = Instance.new("Frame")
+RightPanel.Size = UDim2.new(0.48, -5, 1, 0)
+RightPanel.Position = UDim2.new(0.52, 0, 0, 0)
+RightPanel.BackgroundColor3 = Color3.fromRGB(23, 23, 28)
+RightPanel.BorderSizePixel = 0
+RightPanel.Parent = visualsContent
+
+addCorner(RightPanel, UDim.new(0, 10))
 
 -- ==================== ESP LOGIC ====================
 local ESPHighlights = {}
@@ -1196,7 +1206,7 @@ Players.PlayerRemoving:Connect(function(plr)
     removeSkeletonForPlayer(plr)
 end)
 
--- ==================== PLAYER TRACKING LOGIC (SAFE VERSION) ====================
+-- ==================== PLAYER TRACKING LOGIC ====================
 local trackingEnabled = false
 local trackingLabels = {}
 local lineOfSightLength = 100
@@ -1204,27 +1214,22 @@ local lineOfSightLength = 100
 local function createTrackingLabel(plr)
     if plr == player then return end
     if trackingLabels[plr] then return end
-    
-    local success, label = pcall(function()
-        local l = Drawing.new("Text")
-        l.Visible = false
-        l.Color = Color3.fromRGB(255, 200, 50)
-        l.Size = 13
-        l.Center = true
-        l.Outline = true
-        l.OutlineColor = Color3.fromRGB(0, 0, 0)
-        l.Font = Drawing.Fonts.UI
-        return l
-    end)
-    
-    if success then
-        trackingLabels[plr] = label
-    end
+
+    local label = Drawing.new("Text")
+    label.Visible = false
+    label.Color = Color3.fromRGB(255, 200, 50)
+    label.Size = 13
+    label.Center = true
+    label.Outline = true
+    label.OutlineColor = Color3.fromRGB(0, 0, 0)
+    label.Font = Drawing.Fonts.UI
+
+    trackingLabels[plr] = label
 end
 
 local function removeTrackingLabel(plr)
     if not trackingLabels[plr] then return end
-    pcall(function() trackingLabels[plr]:Remove() end)
+    trackingLabels[plr]:Remove()
     trackingLabels[plr] = nil
 end
 
@@ -1344,6 +1349,7 @@ Players.PlayerRemoving:Connect(function(plr)
     removeTrackingLabel(plr)
 end)
 
+-- ==================== RENDER LOOPS ====================
 RunService.RenderStepped:Connect(function()
     -- Name ESP
     if nameESPEnabled then
@@ -2170,7 +2176,6 @@ local function startHover(targetPlayer)
             return
         end
 
-        -- Hover directly above the target's head at the configurable range
         local hoverPos = targetHead.Position + Vector3.new(2, hoverRange, 0)
         local lookAt = Vector3.new(targetHead.Position.X, hoverPos.Y, targetHead.Position.Z)
         currentHrp.CFrame = CFrame.new(hoverPos, lookAt)
@@ -2370,6 +2375,7 @@ end)
 -- ==================== OPTIONS TAB ====================
 local optionsContent = contents[4]
 
+-- LEFT PANEL
 local OptLeftPanel = Instance.new("Frame")
 OptLeftPanel.Size = UDim2.new(0.48, -5, 1, 0)
 OptLeftPanel.Position = UDim2.new(0, 0, 0, 0)
@@ -2408,6 +2414,27 @@ AntiFlingCheckbox.Text = ""
 AntiFlingCheckbox.Parent = AntiFlingFrame
 
 addCorner(AntiFlingCheckbox, UDim.new(0, 8))
+
+-- RIGHT PANEL (EMPTY)
+local OptRightPanel = Instance.new("Frame")
+OptRightPanel.Size = UDim2.new(0.48, -5, 1, 0)
+OptRightPanel.Position = UDim2.new(0.52, 0, 0, 0)
+OptRightPanel.BackgroundColor3 = Color3.fromRGB(23, 23, 28)
+OptRightPanel.BorderSizePixel = 0
+OptRightPanel.Parent = optionsContent
+
+addCorner(OptRightPanel, UDim.new(0, 10))
+
+local EmptyLabel = Instance.new("TextLabel")
+EmptyLabel.Size = UDim2.new(1, 0, 1, 0)
+EmptyLabel.BackgroundTransparency = 1
+EmptyLabel.Text = "No Options"
+EmptyLabel.TextColor3 = Color3.fromRGB(100, 100, 120)
+EmptyLabel.TextSize = 18
+EmptyLabel.Font = Enum.Font.GothamLight
+EmptyLabel.TextXAlignment = Enum.TextXAlignment.Center
+EmptyLabel.TextYAlignment = Enum.TextYAlignment.Center
+EmptyLabel.Parent = OptRightPanel
 
 -- ==================== ANTI FLING LOGIC ====================
 local antiFlingEnabled = false
@@ -2475,7 +2502,7 @@ player.CharacterAdded:Connect(function(char)
     end
 end)
 
-print("Options tab loaded - Anti Fling only")
+print("Options tab loaded - Left panel has Anti Fling, Right panel empty")
 
 -- ==================== PLAYERS TAB ====================
 local playersContent = contents[5]
@@ -2551,7 +2578,6 @@ spectateBtn.Font = Enum.Font.GothamSemibold
 spectateBtn.Parent = BottomPanel
 
 addCorner(teleportBtn, UDim.new(0, 6))
-
 addCorner(spectateBtn, UDim.new(0, 6))
 
 local function createPlayerEntry(plr)
