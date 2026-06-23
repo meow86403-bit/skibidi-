@@ -820,7 +820,37 @@ SkeletonCheckbox.Parent = SkeletonFrame
 
 addCorner(SkeletonCheckbox, UDim.new(0, 8))
 
--- ==================== RIGHT PANEL ====================
+-- ==================== PLAYER TRACKING ROW ====================
+local TrackingFrame = Instance.new("Frame")
+TrackingFrame.Size = UDim2.new(1, -24, 0, 55)
+TrackingFrame.Position = UDim2.new(0, 12, 0, 215)
+TrackingFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
+TrackingFrame.BorderSizePixel = 0
+TrackingFrame.Parent = LeftPanel
+
+addCorner(TrackingFrame, UDim.new(0, 8))
+
+local TrackingLabel = Instance.new("TextLabel")
+TrackingLabel.Text = "Player Tracking"
+TrackingLabel.Size = UDim2.new(0.7, 0, 1, 0)
+TrackingLabel.BackgroundTransparency = 1
+TrackingLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
+TrackingLabel.TextSize = 19
+TrackingLabel.Font = Enum.Font.GothamSemibold
+TrackingLabel.TextXAlignment = Enum.TextXAlignment.Left
+TrackingLabel.Position = UDim2.new(0, 16, 0, 0)
+TrackingLabel.Parent = TrackingFrame
+
+local TrackingCheckbox = Instance.new("TextButton")
+TrackingCheckbox.Size = UDim2.new(0, 32, 0, 32)
+TrackingCheckbox.Position = UDim2.new(1, -44, 0.5, -16)
+TrackingCheckbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+TrackingCheckbox.Text = ""
+TrackingCheckbox.Parent = TrackingFrame
+
+addCorner(TrackingCheckbox, UDim.new(0, 8))
+
+-- RIGHT PANEL
 local RightPanel = Instance.new("Frame")
 RightPanel.Size = UDim2.new(0.48, -5, 1, 0)
 RightPanel.Position = UDim2.new(0.52, 0, 0, 0)
@@ -830,103 +860,15 @@ RightPanel.Parent = visualsContent
 
 addCorner(RightPanel, UDim.new(0, 10))
 
--- ESP Type Row
-local ESPTypeFrame = Instance.new("Frame")
-ESPTypeFrame.Size = UDim2.new(1, -24, 0, 55)
-ESPTypeFrame.Position = UDim2.new(0, 12, 0, 20)
-ESPTypeFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
-ESPTypeFrame.BorderSizePixel = 0
-ESPTypeFrame.Parent = RightPanel
-
-addCorner(ESPTypeFrame, UDim.new(0, 8))
-
-local ESPTypeLabel = Instance.new("TextLabel")
-ESPTypeLabel.Text = "Esp Type"
-ESPTypeLabel.Size = UDim2.new(0.5, 0, 1, 0)
-ESPTypeLabel.BackgroundTransparency = 1
-ESPTypeLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
-ESPTypeLabel.TextSize = 19
-ESPTypeLabel.Font = Enum.Font.GothamSemibold
-ESPTypeLabel.TextXAlignment = Enum.TextXAlignment.Left
-ESPTypeLabel.Position = UDim2.new(0, 16, 0, 0)
-ESPTypeLabel.Parent = ESPTypeFrame
-
-local ESPTypeButton = Instance.new("TextButton")
-ESPTypeButton.Size = UDim2.new(0, 90, 0, 32)
-ESPTypeButton.Position = UDim2.new(1, -102, 0.5, -16)
-ESPTypeButton.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
-ESPTypeButton.TextColor3 = Color3.fromRGB(200, 200, 200)
-ESPTypeButton.Text = "Outline"
-ESPTypeButton.TextSize = 15
-ESPTypeButton.Font = Enum.Font.GothamSemibold
-ESPTypeButton.Parent = ESPTypeFrame
-
-addCorner(ESPTypeButton, UDim.new(0, 8))
-
--- Dropdown Frame
-local DropdownFrame = Instance.new("Frame")
-DropdownFrame.Size = UDim2.new(0, 90, 0, 74)
-DropdownFrame.Position = UDim2.new(1, -114, 0, 82)
-DropdownFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
-DropdownFrame.BorderSizePixel = 0
-DropdownFrame.Visible = false
-DropdownFrame.ZIndex = 10
-DropdownFrame.Parent = RightPanel
-
-addCorner(DropdownFrame, UDim.new(0, 8))
-
-local OutlineOption = Instance.new("TextButton")
-OutlineOption.Size = UDim2.new(1, 0, 0, 34)
-OutlineOption.Position = UDim2.new(0, 0, 0, 2)
-OutlineOption.BackgroundTransparency = 1
-OutlineOption.TextColor3 = Color3.fromRGB(200, 200, 200)
-OutlineOption.Text = "Outline"
-OutlineOption.TextSize = 15
-OutlineOption.Font = Enum.Font.GothamSemibold
-OutlineOption.ZIndex = 11
-OutlineOption.Parent = DropdownFrame
-
-local BoxOption = Instance.new("TextButton")
-BoxOption.Size = UDim2.new(1, 0, 0, 34)
-BoxOption.Position = UDim2.new(0, 0, 0, 38)
-BoxOption.BackgroundTransparency = 1
-BoxOption.TextColor3 = Color3.fromRGB(200, 200, 200)
-BoxOption.Text = "Box"
-BoxOption.TextSize = 15
-BoxOption.Font = Enum.Font.GothamSemibold
-BoxOption.ZIndex = 11
-BoxOption.Parent = DropdownFrame
-
 -- ==================== ESP LOGIC ====================
 local ESPHighlights = {}
 local espEnabled = false
-local espType = "Outline"
-
-local function applyESPStyle(highlight)
-    if espType == "Outline" then
-        highlight.FillTransparency = 1
-        highlight.OutlineTransparency = 0
-        highlight.FillColor = Color3.fromRGB(255, 255, 255)
-        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-    elseif espType == "Box" then
-        highlight.FillTransparency = 0.5
-        highlight.OutlineTransparency = 1
-        highlight.FillColor = Color3.fromRGB(255, 0, 0)
-        highlight.OutlineColor = Color3.fromRGB(255, 0, 0)
-    end
-end
-
-local function refreshAllESP()
-    for _, h in pairs(ESPHighlights) do
-        if h and h.Parent then
-            applyESPStyle(h)
-        end
-    end
-end
 
 local function removeESP()
     for _, h in pairs(ESPHighlights) do
-        pcall(function() h:Destroy() end)
+        if h and h.Parent then
+            h:Destroy()
+        end
     end
     ESPHighlights = {}
 end
@@ -936,15 +878,18 @@ local function addESPToPlayer(plr)
     local function applyHighlight(character)
         for i, h in pairs(ESPHighlights) do
             if h and h.Parent and h.Adornee == character then
-                pcall(function() h:Destroy() end)
+                h:Destroy()
                 table.remove(ESPHighlights, i)
                 break
             end
         end
         local highlight = Instance.new("Highlight")
+        highlight.FillColor = Color3.fromRGB(255, 255, 255)
+        highlight.FillTransparency = 1
+        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+        highlight.OutlineTransparency = 0
         highlight.Adornee = character
         highlight.Parent = character
-        applyESPStyle(highlight)
         table.insert(ESPHighlights, highlight)
     end
 
@@ -985,36 +930,12 @@ Players.PlayerRemoving:Connect(function(plr)
     if plr.Character then
         for i, h in pairs(ESPHighlights) do
             if h and h.Adornee == plr.Character then
-                pcall(function() h:Destroy() end)
+                h:Destroy()
                 table.remove(ESPHighlights, i)
                 break
             end
         end
     end
-end)
-
--- ==================== ESP TYPE DROPDOWN LOGIC ====================
-local dropdownOpen = false
-
-ESPTypeButton.MouseButton1Click:Connect(function()
-    dropdownOpen = not dropdownOpen
-    DropdownFrame.Visible = dropdownOpen
-end)
-
-OutlineOption.MouseButton1Click:Connect(function()
-    espType = "Outline"
-    ESPTypeButton.Text = "Outline"
-    DropdownFrame.Visible = false
-    dropdownOpen = false
-    refreshAllESP()
-end)
-
-BoxOption.MouseButton1Click:Connect(function()
-    espType = "Box"
-    ESPTypeButton.Text = "Box"
-    DropdownFrame.Visible = false
-    dropdownOpen = false
-    refreshAllESP()
 end)
 
 -- ==================== NAME ESP LOGIC ====================
@@ -1048,10 +969,8 @@ end
 
 local function removeNameLabel(plr)
     if not nameLabels[plr] then return end
-    pcall(function()
-        nameLabels[plr].display:Remove()
-        nameLabels[plr].user:Remove()
-    end)
+    nameLabels[plr].display:Remove()
+    nameLabels[plr].user:Remove()
     nameLabels[plr] = nil
 end
 
@@ -1128,42 +1047,78 @@ local skeletonEnabled = false
 local skeletonLines = {}
 
 local function getJoints(character)
-    local joints = {}
-    
-    local function getPart(name)
-        local part = character:FindFirstChild(name)
+    local function pos(partName)
+        local part = character:FindFirstChild(partName)
         return part and part.Position or nil
     end
 
-    local head = getPart("Head")
-    local torso = getPart("UpperTorso") or getPart("Torso")
-    local lowerTorso = getPart("LowerTorso") or getPart("Torso")
-    local lArm = getPart("Left Arm") or getPart("LeftUpperArm")
-    local rArm = getPart("Right Arm") or getPart("RightUpperArm")
-    local lLeg = getPart("Left Leg") or getPart("LeftUpperLeg")
-    local rLeg = getPart("Right Leg") or getPart("RightUpperLeg")
+    local head = pos("Head")
+    local torso = pos("UpperTorso") or pos("Torso")
+    local lowerTorso = pos("LowerTorso") or pos("Torso")
+    local lShoulder = pos("LeftUpperArm") or pos("Left Arm")
+    local rShoulder = pos("RightUpperArm") or pos("Right Arm")
+    local lElbow = pos("LeftLowerArm") or pos("Left Arm")
+    local rElbow = pos("RightLowerArm") or pos("Right Arm")
+    local lHand = pos("LeftHand") or pos("Left Arm")
+    local rHand = pos("RightHand") or pos("Right Arm")
+    local lHip = pos("LeftUpperLeg") or pos("Left Leg")
+    local rHip = pos("RightUpperLeg") or pos("Right Leg")
+    local lKnee = pos("LeftLowerLeg") or pos("Left Leg")
+    local rKnee = pos("RightLowerLeg") or pos("Right Leg")
+    local lFoot = pos("LeftFoot") or pos("Left Leg")
+    local rFoot = pos("RightFoot") or pos("Right Leg")
 
-    -- Simple skeleton - just arms, legs, and spine
-    if head and torso then
-        table.insert(joints, {head, torso})
+    local isR6 = character:FindFirstChild("Torso") ~= nil and character:FindFirstChild("UpperTorso") == nil
+
+    if isR6 then
+        local torsoPart = character:FindFirstChild("Torso")
+        local lArmPart = character:FindFirstChild("Left Arm")
+        local rArmPart = character:FindFirstChild("Right Arm")
+        local lLegPart = character:FindFirstChild("Left Leg")
+        local rLegPart = character:FindFirstChild("Right Leg")
+
+        if torsoPart then
+            torso = torsoPart.Position + Vector3.new(0, 0.5, 0)
+            lowerTorso = torsoPart.Position - Vector3.new(0, 0.8, 0)
+        end
+        if lArmPart then
+            lShoulder = lArmPart.Position + Vector3.new(0, 0.8, 0)
+            lElbow = lArmPart.Position
+            lHand = lArmPart.Position - Vector3.new(0, 0.8, 0)
+        end
+        if rArmPart then
+            rShoulder = rArmPart.Position + Vector3.new(0, 0.8, 0)
+            rElbow = rArmPart.Position
+            rHand = rArmPart.Position - Vector3.new(0, 0.8, 0)
+        end
+        if lLegPart then
+            lHip = lLegPart.Position + Vector3.new(0, 0.8, 0)
+            lKnee = lLegPart.Position
+            lFoot = lLegPart.Position - Vector3.new(0, 0.8, 0)
+        end
+        if rLegPart then
+            rHip = rLegPart.Position + Vector3.new(0, 0.8, 0)
+            rKnee = rLegPart.Position
+            rFoot = rLegPart.Position - Vector3.new(0, 0.8, 0)
+        end
     end
-    if torso and lArm then
-        table.insert(joints, {torso, lArm})
-    end
-    if torso and rArm then
-        table.insert(joints, {torso, rArm})
-    end
-    if torso and lowerTorso then
-        table.insert(joints, {torso, lowerTorso})
-    end
-    if lowerTorso and lLeg then
-        table.insert(joints, {lowerTorso, lLeg})
-    end
-    if lowerTorso and rLeg then
-        table.insert(joints, {lowerTorso, rLeg})
-    end
-    
-    return joints
+
+    return {
+        {head, torso},
+        {torso, lowerTorso},
+        {torso, lShoulder},
+        {lShoulder, lElbow},
+        {lElbow, lHand},
+        {torso, rShoulder},
+        {rShoulder, rElbow},
+        {rElbow, rHand},
+        {lowerTorso, lHip},
+        {lHip, lKnee},
+        {lKnee, lFoot},
+        {lowerTorso, rHip},
+        {rHip, rKnee},
+        {rKnee, rFoot},
+    }
 end
 
 local function createSkeletonForPlayer(plr)
@@ -1171,7 +1126,7 @@ local function createSkeletonForPlayer(plr)
     if skeletonLines[plr] then return end
 
     skeletonLines[plr] = {}
-    for i = 1, 6 do
+    for i = 1, 14 do
         local line = Drawing.new("Line")
         line.Visible = false
         line.Color = Color3.fromRGB(255, 255, 255)
@@ -1184,7 +1139,7 @@ end
 local function removeSkeletonForPlayer(plr)
     if not skeletonLines[plr] then return end
     for _, line in ipairs(skeletonLines[plr]) do
-        pcall(function() line:Remove() end)
+        line:Remove()
     end
     skeletonLines[plr] = nil
 end
@@ -1207,22 +1162,21 @@ local function updateSkeletonForPlayer(plr)
     end
 
     local joints = getJoints(character)
-    local lines = skeletonLines[plr]
 
-    for i = 1, #lines do
+    for i, line in ipairs(skeletonLines[plr]) do
         local joint = joints[i]
         if joint and joint[1] and joint[2] then
             local screenA, onA = Camera:WorldToViewportPoint(joint[1])
             local screenB, onB = Camera:WorldToViewportPoint(joint[2])
             if onA and onB then
-                lines[i].From = Vector2.new(screenA.X, screenA.Y)
-                lines[i].To = Vector2.new(screenB.X, screenB.Y)
-                lines[i].Visible = true
+                line.From = Vector2.new(screenA.X, screenA.Y)
+                line.To = Vector2.new(screenB.X, screenB.Y)
+                line.Visible = true
             else
-                lines[i].Visible = false
+                line.Visible = false
             end
         else
-            lines[i].Visible = false
+            line.Visible = false
         end
     end
 end
@@ -1252,9 +1206,152 @@ Players.PlayerRemoving:Connect(function(plr)
     removeSkeletonForPlayer(plr)
 end)
 
+-- ==================== PLAYER TRACKING LOGIC ====================
+local trackingEnabled = false
+local trackingLabels = {}
+local lineOfSightLength = 100
+
+local function createTrackingLabel(plr)
+    if plr == player then return end
+    if trackingLabels[plr] then return end
+
+    local label = Drawing.new("Text")
+    label.Visible = false
+    label.Color = Color3.fromRGB(255, 200, 50)
+    label.Size = 13
+    label.Center = true
+    label.Outline = true
+    label.OutlineColor = Color3.fromRGB(0, 0, 0)
+    label.Font = Drawing.Fonts.UI
+
+    trackingLabels[plr] = label
+end
+
+local function removeTrackingLabel(plr)
+    if not trackingLabels[plr] then return end
+    trackingLabels[plr]:Remove()
+    trackingLabels[plr] = nil
+end
+
+local function removeAllTrackingLabels()
+    for plr, _ in pairs(trackingLabels) do
+        removeTrackingLabel(plr)
+    end
+end
+
+local function getPlayerAimDirection(plr)
+    local character = plr.Character
+    if not character then return nil, nil end
+    
+    local head = character:FindFirstChild("Head") or character:FindFirstChild("HumanoidRootPart")
+    if not head then return nil, nil end
+    
+    return head.Position, head.CFrame.LookVector
+end
+
+local function getTargetPlayerAtAim(plr)
+    local origin, direction = getPlayerAimDirection(plr)
+    if not origin or not direction then return nil end
+    
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+    raycastParams.FilterDescendantsInstances = {plr.Character}
+    raycastParams.IgnoreWater = true
+    
+    local raycastResult = workspace:Raycast(origin, direction * lineOfSightLength, raycastParams)
+    
+    if raycastResult then
+        local hit = raycastResult.Instance
+        for _, targetPlr in ipairs(Players:GetPlayers()) do
+            if targetPlr ~= plr and targetPlr.Character then
+                if hit:IsDescendantOf(targetPlr.Character) then
+                    return targetPlr
+                end
+            end
+        end
+    end
+    
+    return nil
+end
+
+local function updateTrackingLabel(plr)
+    if not trackingLabels[plr] then return end
+    
+    local character = plr.Character
+    if not character then
+        trackingLabels[plr].Visible = false
+        return
+    end
+    
+    local head = character:FindFirstChild("Head") or character:FindFirstChild("HumanoidRootPart")
+    if not head then
+        trackingLabels[plr].Visible = false
+        return
+    end
+    
+    local headPos = head.Position + Vector3.new(0, 2.5, 0)
+    local rightOffset = head.CFrame.RightVector * 3.5
+    local labelPos = headPos + rightOffset
+    
+    local screenPos, onScreen = Camera:WorldToViewportPoint(labelPos)
+    if not onScreen then
+        trackingLabels[plr].Visible = false
+        return
+    end
+    
+    local target = getTargetPlayerAtAim(plr)
+    local text = ""
+    
+    if target then
+        if target == player then
+            text = "▶ LOOKING AT YOU! ◄"
+            trackingLabels[plr].Color = Color3.fromRGB(255, 0, 0)
+        else
+            text = "▶ Looking at " .. target.DisplayName
+            trackingLabels[plr].Color = Color3.fromRGB(255, 200, 50)
+        end
+    else
+        text = "▶ Not targeting anyone"
+        trackingLabels[plr].Color = Color3.fromRGB(150, 150, 150)
+    end
+    
+    trackingLabels[plr].Text = text
+    trackingLabels[plr].Position = Vector2.new(screenPos.X, screenPos.Y)
+    trackingLabels[plr].Visible = true
+end
+
+local function toggleTracking(enabled)
+    if not enabled then
+        removeAllTrackingLabels()
+        return
+    end
+    
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= player then
+            createTrackingLabel(plr)
+        end
+    end
+end
+
+TrackingCheckbox.MouseButton1Click:Connect(function()
+    trackingEnabled = not trackingEnabled
+    TrackingCheckbox.BackgroundColor3 = trackingEnabled and Color3.fromRGB(140, 60, 200) or Color3.fromRGB(40, 40, 45)
+    toggleTracking(trackingEnabled)
+end)
+
+Players.PlayerAdded:Connect(function(plr)
+    if trackingEnabled and plr ~= player then
+        createTrackingLabel(plr)
+    end
+end)
+
+Players.PlayerRemoving:Connect(function(plr)
+    removeTrackingLabel(plr)
+end)
+
 -- ==================== RENDER LOOPS ====================
 RunService.RenderStepped:Connect(function()
-    -- Update Name ESP
+    -- Name ESP
     if nameESPEnabled then
         for _, plr in ipairs(Players:GetPlayers()) do
             if plr ~= player then
@@ -1266,7 +1363,7 @@ RunService.RenderStepped:Connect(function()
         end
     end
     
-    -- Update Skeleton ESP
+    -- Skeleton ESP
     if skeletonEnabled then
         for _, plr in ipairs(Players:GetPlayers()) do
             if plr ~= player then
@@ -1277,9 +1374,21 @@ RunService.RenderStepped:Connect(function()
             end
         end
     end
+    
+    -- Player Tracking
+    if trackingEnabled then
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= player then
+                if not trackingLabels[plr] then
+                    createTrackingLabel(plr)
+                end
+                updateTrackingLabel(plr)
+            end
+        end
+    end
 end)
 
-print("Visuals tab loaded - ESP, Name ESP and Skeleton ESP")
+print("Visuals tab loaded - ESP, Name ESP, Skeleton ESP, Player Tracking")
 
 -- ==================== CHARACTER TAB ====================
 local characterContent = contents[3]
