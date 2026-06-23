@@ -102,7 +102,7 @@ Divider.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
 Divider.BorderSizePixel = 0
 Divider.Parent = MainFrame
 
--- Tab names
+-- Tab names without "Games"
 local tabNames = {"Main", "Visuals", "Character", "Options", "Players"}
 local tabs = {}
 local contents = {}
@@ -790,10 +790,40 @@ NameESPCheckbox.Parent = NameESPFrame
 
 addCorner(NameESPCheckbox, UDim.new(0, 8))
 
--- Skeleton ESP Row
+-- ==================== PLAYER LOOKING ROW ====================
+local PlayerLookingFrame = Instance.new("Frame")
+PlayerLookingFrame.Size = UDim2.new(1, -24, 0, 55)
+PlayerLookingFrame.Position = UDim2.new(0, 12, 0, 150)
+PlayerLookingFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
+PlayerLookingFrame.BorderSizePixel = 0
+PlayerLookingFrame.Parent = LeftPanel
+
+addCorner(PlayerLookingFrame, UDim.new(0, 8))
+
+local PlayerLookingLabel = Instance.new("TextLabel")
+PlayerLookingLabel.Text = "Player Looking"
+PlayerLookingLabel.Size = UDim2.new(0.7, 0, 1, 0)
+PlayerLookingLabel.BackgroundTransparency = 1
+PlayerLookingLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
+PlayerLookingLabel.TextSize = 19
+PlayerLookingLabel.Font = Enum.Font.GothamSemibold
+PlayerLookingLabel.TextXAlignment = Enum.TextXAlignment.Left
+PlayerLookingLabel.Position = UDim2.new(0, 16, 0, 0)
+PlayerLookingLabel.Parent = PlayerLookingFrame
+
+local PlayerLookingCheckbox = Instance.new("TextButton")
+PlayerLookingCheckbox.Size = UDim2.new(0, 32, 0, 32)
+PlayerLookingCheckbox.Position = UDim2.new(1, -44, 0.5, -16)
+PlayerLookingCheckbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+PlayerLookingCheckbox.Text = ""
+PlayerLookingCheckbox.Parent = PlayerLookingFrame
+
+addCorner(PlayerLookingCheckbox, UDim.new(0, 8))
+
+-- Skeleton ESP Row (shifted down to make room)
 local SkeletonFrame = Instance.new("Frame")
 SkeletonFrame.Size = UDim2.new(1, -24, 0, 55)
-SkeletonFrame.Position = UDim2.new(0, 12, 0, 150)
+SkeletonFrame.Position = UDim2.new(0, 12, 0, 215)
 SkeletonFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
 SkeletonFrame.BorderSizePixel = 0
 SkeletonFrame.Parent = LeftPanel
@@ -819,36 +849,6 @@ SkeletonCheckbox.Text = ""
 SkeletonCheckbox.Parent = SkeletonFrame
 
 addCorner(SkeletonCheckbox, UDim.new(0, 8))
-
--- Player Tracking Row
-local TrackingFrame = Instance.new("Frame")
-TrackingFrame.Size = UDim2.new(1, -24, 0, 55)
-TrackingFrame.Position = UDim2.new(0, 12, 0, 215)
-TrackingFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
-TrackingFrame.BorderSizePixel = 0
-TrackingFrame.Parent = LeftPanel
-
-addCorner(TrackingFrame, UDim.new(0, 8))
-
-local TrackingLabel = Instance.new("TextLabel")
-TrackingLabel.Text = "Player Tracking"
-TrackingLabel.Size = UDim2.new(0.7, 0, 1, 0)
-TrackingLabel.BackgroundTransparency = 1
-TrackingLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
-TrackingLabel.TextSize = 19
-TrackingLabel.Font = Enum.Font.GothamSemibold
-TrackingLabel.TextXAlignment = Enum.TextXAlignment.Left
-TrackingLabel.Position = UDim2.new(0, 16, 0, 0)
-TrackingLabel.Parent = TrackingFrame
-
-local TrackingCheckbox = Instance.new("TextButton")
-TrackingCheckbox.Size = UDim2.new(0, 32, 0, 32)
-TrackingCheckbox.Position = UDim2.new(1, -44, 0.5, -16)
-TrackingCheckbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
-TrackingCheckbox.Text = ""
-TrackingCheckbox.Parent = TrackingFrame
-
-addCorner(TrackingCheckbox, UDim.new(0, 8))
 
 -- RIGHT PANEL
 local RightPanel = Instance.new("Frame")
@@ -1035,11 +1035,225 @@ end)
 Players.PlayerAdded:Connect(function(plr)
     if nameESPEnabled and plr ~= player then
         createNameLabel(plr)
+        plr.CharacterAdded:Connect(function()
+            if nameESPEnabled then
+                task.wait(0.5)
+                removeNameLabel(plr)
+                createNameLabel(plr)
+            end
+        end)
     end
 end)
 
 Players.PlayerRemoving:Connect(function(plr)
     removeNameLabel(plr)
+end)
+
+for _, plr in ipairs(Players:GetPlayers()) do
+    if plr ~= player then
+        plr.CharacterAdded:Connect(function()
+            if nameESPEnabled then
+                task.wait(0.5)
+                removeNameLabel(plr)
+                createNameLabel(plr)
+            end
+        end)
+    end
+end
+
+RunService.RenderStepped:Connect(function()
+    if not nameESPEnabled then return end
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= player then
+            if not nameLabels[plr] then
+                createNameLabel(plr)
+            end
+            updateNameLabel(plr)
+        end
+    end
+end)
+
+-- ==================== PLAYER LOOKING LOGIC ====================
+local playerLookingEnabled = false
+local lookingLabels = {}
+
+-- Returns the name of the player that 'looker' is most likely looking at,
+-- based on the look direction of their HumanoidRootPart / head.
+-- Uses a dot-product approach: closest player within a forward cone wins.
+local function getPlayerBeingLookedAt(looker)
+    local char = looker.Character
+    if not char then return nil end
+
+    -- Prefer head look direction; fall back to HRP
+    local head = char:FindFirstChild("Head")
+    local hrp  = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return nil end
+
+    local origin    = head and head.Position or hrp.Position
+    local lookDir   = (head and head.CFrame.LookVector) or hrp.CFrame.LookVector
+
+    local bestTarget = nil
+    local bestScore  = -math.huge  -- higher = more "in front" and closer
+
+    for _, target in ipairs(Players:GetPlayers()) do
+        if target ~= looker and target ~= player then
+            local tChar = target.Character
+            if tChar then
+                local tHead = tChar:FindFirstChild("Head")
+                local tHRP  = tChar:FindFirstChild("HumanoidRootPart")
+                local tHum  = tChar:FindFirstChild("Humanoid")
+                if tHRP and tHum and tHum.Health > 0 then
+                    local targetPos = tHead and tHead.Position or tHRP.Position
+                    local toTarget  = (targetPos - origin)
+                    local dist      = toTarget.Magnitude
+                    if dist < 200 and dist > 0 then
+                        local dot = lookDir:Dot(toTarget.Unit)
+                        -- Only count targets that are in the forward half-sphere
+                        -- Weight: favour being directly in front AND being close
+                        if dot > 0.6 then
+                            local score = dot - (dist / 200)
+                            if score > bestScore then
+                                bestScore  = score
+                                bestTarget = target
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    return bestTarget
+end
+
+local function createLookingLabel(plr)
+    if plr == player then return end
+    if lookingLabels[plr] then return end
+
+    local lookLine = Drawing.new("Text")
+    lookLine.Visible = false
+    lookLine.Color = Color3.fromRGB(255, 200, 80)   -- amber/yellow so it stands out
+    lookLine.Size = 12
+    lookLine.Center = true
+    lookLine.Outline = true
+    lookLine.OutlineColor = Color3.fromRGB(0, 0, 0)
+    lookLine.Font = Drawing.Fonts.UI
+
+    lookingLabels[plr] = lookLine
+end
+
+local function removeLookingLabel(plr)
+    if not lookingLabels[plr] then return end
+    lookingLabels[plr]:Remove()
+    lookingLabels[plr] = nil
+end
+
+local function removeAllLookingLabels()
+    for plr, _ in pairs(lookingLabels) do
+        removeLookingLabel(plr)
+    end
+end
+
+local function updateLookingLabel(plr)
+    local lbl = lookingLabels[plr]
+    if not lbl then return end
+
+    local char = plr.Character
+    if not char then
+        lbl.Visible = false
+        return
+    end
+
+    local head = char:FindFirstChild("Head")
+    if not head then
+        lbl.Visible = false
+        return
+    end
+
+    -- Position the label below the username line
+    -- If Name ESP is also on it appears below "@name"; otherwise below the head
+    local labelBaseY = 3.5  -- same world-space offset used by Name ESP
+    local aboveHead = head.Position + Vector3.new(0, labelBaseY, 0)
+    local screenPos, onScreen = Camera:WorldToViewportPoint(aboveHead)
+
+    if not onScreen then
+        lbl.Visible = false
+        return
+    end
+
+    local target = getPlayerBeingLookedAt(plr)
+
+    local baseY = screenPos.Y
+    -- Stack below display name (+0) and username (+16) lines if Name ESP is on
+    -- We add another 16 px to sit under "@name"
+    local yOffset = nameESPEnabled and 32 or 16
+
+    if target then
+        lbl.Text = "Looking at: @" .. target.Name
+        lbl.Color = Color3.fromRGB(255, 200, 80)
+    else
+        lbl.Text = "Looking at: nobody"
+        lbl.Color = Color3.fromRGB(140, 140, 140)
+    end
+
+    lbl.Position = Vector2.new(screenPos.X, baseY + yOffset)
+    lbl.Visible = true
+end
+
+PlayerLookingCheckbox.MouseButton1Click:Connect(function()
+    playerLookingEnabled = not playerLookingEnabled
+    PlayerLookingCheckbox.BackgroundColor3 = playerLookingEnabled and Color3.fromRGB(140, 60, 200) or Color3.fromRGB(40, 40, 45)
+
+    if not playerLookingEnabled then
+        removeAllLookingLabels()
+    else
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= player then
+                createLookingLabel(plr)
+            end
+        end
+    end
+end)
+
+Players.PlayerAdded:Connect(function(plr)
+    if playerLookingEnabled and plr ~= player then
+        createLookingLabel(plr)
+        plr.CharacterAdded:Connect(function()
+            if playerLookingEnabled then
+                task.wait(0.5)
+                removeLookingLabel(plr)
+                createLookingLabel(plr)
+            end
+        end)
+    end
+end)
+
+Players.PlayerRemoving:Connect(function(plr)
+    removeLookingLabel(plr)
+end)
+
+for _, plr in ipairs(Players:GetPlayers()) do
+    if plr ~= player then
+        plr.CharacterAdded:Connect(function()
+            if playerLookingEnabled then
+                task.wait(0.5)
+                removeLookingLabel(plr)
+                createLookingLabel(plr)
+            end
+        end)
+    end
+end
+
+RunService.RenderStepped:Connect(function()
+    if not playerLookingEnabled then return end
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= player then
+            if not lookingLabels[plr] then
+                createLookingLabel(plr)
+            end
+            updateLookingLabel(plr)
+        end
+    end
 end)
 
 -- ==================== SKELETON ESP LOGIC ====================
@@ -1199,6 +1413,13 @@ end)
 Players.PlayerAdded:Connect(function(plr)
     if skeletonEnabled and plr ~= player then
         createSkeletonForPlayer(plr)
+        plr.CharacterAdded:Connect(function()
+            if skeletonEnabled then
+                task.wait(0.5)
+                removeSkeletonForPlayer(plr)
+                createSkeletonForPlayer(plr)
+            end
+        end)
     end
 end)
 
@@ -1206,189 +1427,31 @@ Players.PlayerRemoving:Connect(function(plr)
     removeSkeletonForPlayer(plr)
 end)
 
--- ==================== PLAYER TRACKING LOGIC ====================
-local trackingEnabled = false
-local trackingLabels = {}
-local lineOfSightLength = 100
-
-local function createTrackingLabel(plr)
-    if plr == player then return end
-    if trackingLabels[plr] then return end
-
-    local label = Drawing.new("Text")
-    label.Visible = false
-    label.Color = Color3.fromRGB(255, 200, 50)
-    label.Size = 13
-    label.Center = true
-    label.Outline = true
-    label.OutlineColor = Color3.fromRGB(0, 0, 0)
-    label.Font = Drawing.Fonts.UI
-
-    trackingLabels[plr] = label
-end
-
-local function removeTrackingLabel(plr)
-    if not trackingLabels[plr] then return end
-    trackingLabels[plr]:Remove()
-    trackingLabels[plr] = nil
-end
-
-local function removeAllTrackingLabels()
-    for plr, _ in pairs(trackingLabels) do
-        removeTrackingLabel(plr)
-    end
-end
-
-local function getPlayerAimDirection(plr)
-    local character = plr.Character
-    if not character then return nil, nil end
-    
-    local head = character:FindFirstChild("Head") or character:FindFirstChild("HumanoidRootPart")
-    if not head then return nil, nil end
-    
-    return head.Position, head.CFrame.LookVector
-end
-
-local function getTargetPlayerAtAim(plr)
-    local origin, direction = getPlayerAimDirection(plr)
-    if not origin or not direction then return nil end
-    
-    local raycastParams = RaycastParams.new()
-    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-    raycastParams.FilterDescendantsInstances = {plr.Character}
-    raycastParams.IgnoreWater = true
-    
-    local raycastResult = workspace:Raycast(origin, direction * lineOfSightLength, raycastParams)
-    
-    if raycastResult then
-        local hit = raycastResult.Instance
-        for _, targetPlr in ipairs(Players:GetPlayers()) do
-            if targetPlr ~= plr and targetPlr.Character then
-                if hit:IsDescendantOf(targetPlr.Character) then
-                    return targetPlr
-                end
+for _, plr in ipairs(Players:GetPlayers()) do
+    if plr ~= player then
+        plr.CharacterAdded:Connect(function()
+            if skeletonEnabled then
+                task.wait(0.5)
+                removeSkeletonForPlayer(plr)
+                createSkeletonForPlayer(plr)
             end
-        end
+        end)
     end
-    
-    return nil
 end
 
-local function updateTrackingLabel(plr)
-    if not trackingLabels[plr] then return end
-    
-    local character = plr.Character
-    if not character then
-        trackingLabels[plr].Visible = false
-        return
-    end
-    
-    local head = character:FindFirstChild("Head") or character:FindFirstChild("HumanoidRootPart")
-    if not head then
-        trackingLabels[plr].Visible = false
-        return
-    end
-    
-    local headPos = head.Position + Vector3.new(0, 2.5, 0)
-    local rightOffset = head.CFrame.RightVector * 3.5
-    local labelPos = headPos + rightOffset
-    
-    local screenPos, onScreen = Camera:WorldToViewportPoint(labelPos)
-    if not onScreen then
-        trackingLabels[plr].Visible = false
-        return
-    end
-    
-    local target = getTargetPlayerAtAim(plr)
-    local text = ""
-    
-    if target then
-        if target == player then
-            text = "▶ LOOKING AT YOU! ◄"
-            trackingLabels[plr].Color = Color3.fromRGB(255, 0, 0)
-        else
-            text = "▶ Looking at " .. target.DisplayName
-            trackingLabels[plr].Color = Color3.fromRGB(255, 200, 50)
-        end
-    else
-        text = "▶ Not targeting anyone"
-        trackingLabels[plr].Color = Color3.fromRGB(150, 150, 150)
-    end
-    
-    trackingLabels[plr].Text = text
-    trackingLabels[plr].Position = Vector2.new(screenPos.X, screenPos.Y)
-    trackingLabels[plr].Visible = true
-end
-
-local function toggleTracking(enabled)
-    if not enabled then
-        removeAllTrackingLabels()
-        return
-    end
-    
+RunService.RenderStepped:Connect(function()
+    if not skeletonEnabled then return end
     for _, plr in ipairs(Players:GetPlayers()) do
         if plr ~= player then
-            createTrackingLabel(plr)
-        end
-    end
-end
-
-TrackingCheckbox.MouseButton1Click:Connect(function()
-    trackingEnabled = not trackingEnabled
-    TrackingCheckbox.BackgroundColor3 = trackingEnabled and Color3.fromRGB(140, 60, 200) or Color3.fromRGB(40, 40, 45)
-    toggleTracking(trackingEnabled)
-end)
-
-Players.PlayerAdded:Connect(function(plr)
-    if trackingEnabled and plr ~= player then
-        createTrackingLabel(plr)
-    end
-end)
-
-Players.PlayerRemoving:Connect(function(plr)
-    removeTrackingLabel(plr)
-end)
-
--- ==================== RENDER LOOPS ====================
-RunService.RenderStepped:Connect(function()
-    -- Name ESP
-    if nameESPEnabled then
-        for _, plr in ipairs(Players:GetPlayers()) do
-            if plr ~= player then
-                if not nameLabels[plr] then
-                    createNameLabel(plr)
-                end
-                updateNameLabel(plr)
+            if not skeletonLines[plr] then
+                createSkeletonForPlayer(plr)
             end
-        end
-    end
-    
-    -- Skeleton ESP
-    if skeletonEnabled then
-        for _, plr in ipairs(Players:GetPlayers()) do
-            if plr ~= player then
-                if not skeletonLines[plr] then
-                    createSkeletonForPlayer(plr)
-                end
-                updateSkeletonForPlayer(plr)
-            end
-        end
-    end
-    
-    -- Player Tracking
-    if trackingEnabled then
-        for _, plr in ipairs(Players:GetPlayers()) do
-            if plr ~= player then
-                if not trackingLabels[plr] then
-                    createTrackingLabel(plr)
-                end
-                updateTrackingLabel(plr)
-            end
+            updateSkeletonForPlayer(plr)
         end
     end
 end)
 
-print("Visuals tab loaded - ESP, Name ESP, Skeleton ESP, Player Tracking")
+print("Visuals tab loaded - ESP, Name ESP, Player Looking and Skeleton ESP")
 
 -- ==================== CHARACTER TAB ====================
 local characterContent = contents[3]
@@ -2075,7 +2138,7 @@ end
 
 local function onHPressed()
     if not attachModeEnabled then return end
-    if hoverEnabled then return end -- Hover Mode takes priority on H
+    if hoverEnabled then return end
     
     if isAttached then
         detach()
@@ -2375,7 +2438,6 @@ end)
 -- ==================== OPTIONS TAB ====================
 local optionsContent = contents[4]
 
--- LEFT PANEL
 local OptLeftPanel = Instance.new("Frame")
 OptLeftPanel.Size = UDim2.new(0.48, -5, 1, 0)
 OptLeftPanel.Position = UDim2.new(0, 0, 0, 0)
@@ -2415,7 +2477,7 @@ AntiFlingCheckbox.Parent = AntiFlingFrame
 
 addCorner(AntiFlingCheckbox, UDim.new(0, 8))
 
--- RIGHT PANEL (EMPTY)
+-- Right Panel for Options tab
 local OptRightPanel = Instance.new("Frame")
 OptRightPanel.Size = UDim2.new(0.48, -5, 1, 0)
 OptRightPanel.Position = UDim2.new(0.52, 0, 0, 0)
@@ -2424,17 +2486,6 @@ OptRightPanel.BorderSizePixel = 0
 OptRightPanel.Parent = optionsContent
 
 addCorner(OptRightPanel, UDim.new(0, 10))
-
-local EmptyLabel = Instance.new("TextLabel")
-EmptyLabel.Size = UDim2.new(1, 0, 1, 0)
-EmptyLabel.BackgroundTransparency = 1
-EmptyLabel.Text = "No Options"
-EmptyLabel.TextColor3 = Color3.fromRGB(100, 100, 120)
-EmptyLabel.TextSize = 18
-EmptyLabel.Font = Enum.Font.GothamLight
-EmptyLabel.TextXAlignment = Enum.TextXAlignment.Center
-EmptyLabel.TextYAlignment = Enum.TextYAlignment.Center
-EmptyLabel.Parent = OptRightPanel
 
 -- ==================== ANTI FLING LOGIC ====================
 local antiFlingEnabled = false
@@ -2502,7 +2553,7 @@ player.CharacterAdded:Connect(function(char)
     end
 end)
 
-print("Options tab loaded - Left panel has Anti Fling, Right panel empty")
+print("Options tab loaded - Anti Fling only")
 
 -- ==================== PLAYERS TAB ====================
 local playersContent = contents[5]
