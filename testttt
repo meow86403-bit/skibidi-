@@ -2016,13 +2016,6 @@ AttachCheckbox.MouseButton1Click:Connect(function()
     toggleAttachMode()
 end)
 
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    if input.KeyCode == Enum.KeyCode.H then
-        onHPressed()
-    end
-end)
-
 player.CharacterAdded:Connect(function()
     if isAttached then
         task.wait(0.3)
@@ -2154,18 +2147,23 @@ HoverCheckbox.MouseButton1Click:Connect(function()
     end
 end)
 
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    if input.KeyCode == Enum.KeyCode.H then
-        onHoverHPressed()
-    end
-end)
-
 player.CharacterAdded:Connect(function()
     if isHovering then
         task.wait(0.3)
         if hoverTarget then
             startHover(hoverTarget)
+        end
+    end
+end)
+
+-- ==================== CONSOLIDATED H KEY HANDLER ====================
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.H then
+        if hoverEnabled then
+            onHoverHPressed()
+        elseif attachModeEnabled then
+            onHPressed()
         end
     end
 end)
