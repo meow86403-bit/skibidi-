@@ -1473,42 +1473,6 @@ HoverCheckbox.Parent = HoverFrame
 
 addCorner(HoverCheckbox, UDim.new(0, 8))
 
--- ==================== BEHIND MODE (LEFT PANEL) ====================
-local behindEnabled = false
-local isBehind = false
-local behindTarget = nil
-local behindConnection = nil
-local BEHIND_RADIUS = 4
-
-local BehindFrame = Instance.new("Frame")
-BehindFrame.Size = UDim2.new(1, -24, 0, 55)
-BehindFrame.Position = UDim2.new(0, 12, 0, 275)
-BehindFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
-BehindFrame.BorderSizePixel = 0
-BehindFrame.Parent = CharLeftPanel
-
-addCorner(BehindFrame, UDim.new(0, 8))
-
-local BehindLabel = Instance.new("TextLabel")
-BehindLabel.Text = "Behind (Press H)"
-BehindLabel.Size = UDim2.new(0.7, 0, 1, 0)
-BehindLabel.BackgroundTransparency = 1
-BehindLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
-BehindLabel.TextSize = 19
-BehindLabel.Font = Enum.Font.GothamSemibold
-BehindLabel.TextXAlignment = Enum.TextXAlignment.Left
-BehindLabel.Position = UDim2.new(0, 16, 0, 0)
-BehindLabel.Parent = BehindFrame
-
-local BehindCheckbox = Instance.new("TextButton")
-BehindCheckbox.Size = UDim2.new(0, 32, 0, 32)
-BehindCheckbox.Position = UDim2.new(1, -44, 0.5, -16)
-BehindCheckbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
-BehindCheckbox.Text = ""
-BehindCheckbox.Parent = BehindFrame
-
-addCorner(BehindCheckbox, UDim.new(0, 8))
-
 -- Attach Mode (LEFT PANEL)
 local attachModeEnabled = false
 local isAttached = false
@@ -1523,7 +1487,7 @@ local PREDICTION_FACTOR = 0.35
 
 local AttachFrame = Instance.new("Frame")
 AttachFrame.Size = UDim2.new(1, -24, 0, 55)
-AttachFrame.Position = UDim2.new(0, 12, 0, 335)
+AttachFrame.Position = UDim2.new(0, 12, 0, 280)
 AttachFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
 AttachFrame.BorderSizePixel = 0
 AttachFrame.Parent = CharLeftPanel
@@ -1961,8 +1925,9 @@ local function toggleAttachMode()
     end
 end
 
-local function onAttachHPressed()
+local function onHPressed()
     if not attachModeEnabled then return end
+    if hoverEnabled then return end -- Hover Mode takes priority on H
     
     if isAttached then
         detach()
@@ -1976,6 +1941,13 @@ end
 
 AttachCheckbox.MouseButton1Click:Connect(function()
     toggleAttachMode()
+end)
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.H then
+        onHPressed()
+    end
 end)
 
 player.CharacterAdded:Connect(function()
@@ -2056,6 +2028,7 @@ local function startHover(targetPlayer)
             return
         end
 
+        -- Hover directly above the target's head at the configurable range
         local hoverPos = targetHead.Position + Vector3.new(2, hoverRange, 0)
         local lookAt = Vector3.new(targetHead.Position.X, hoverPos.Y, targetHead.Position.Z)
         currentHrp.CFrame = CFrame.new(hoverPos, lookAt)
@@ -2067,7 +2040,9 @@ local function startHover(targetPlayer)
     end)
 
     return true
-endlocal function onHoverHPressed()
+end
+
+local function onHoverHPressed()
     if not hoverEnabled then return end
 
     if isHovering then
@@ -2088,6 +2063,13 @@ HoverCheckbox.MouseButton1Click:Connect(function()
     end
 end)
 
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.H then
+        onHoverHPressed()
+    end
+end)
+
 player.CharacterAdded:Connect(function()
     if isHovering then
         task.wait(0.3)
@@ -2097,133 +2079,149 @@ player.CharacterAdded:Connect(function()
     end
 end)
 
--- ==================== BEHIND FUNCTIONS ====================
-local function stopBehind()
-    if behindConnection then
-        behindConnection:Disconnect()
-        behindConnection = nil
-    end
-    behindTarget = nil
-    isBehind = false
-    
-    teleportToOriginalPosition()
-    
+-- ==================== FLY LOGIC ====================
+local flyEnabled = false
+local flySpeed = 150
+local flyBodyVelocity = nil
+local flyBodyGyro = nil
+
+local function enableFly()
+    local character = player.Character
+    if not character then return end
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    local hum = character:FindFirstChild("Humanoid")
+    if not hrp or not hum then return end
+
+    hum.PlatformStand = true
+
+    flyBodyGyro = Instance.new("BodyGyro")
+    flyBodyGyro.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
+    flyBodyGyro.P = 1e6
+    flyBodyGyro.CFrame = hrp.CFrame
+    flyBodyGyro.Parent = hrp
+
+    flyBodyVelocity = Instance.new("BodyVelocity")
+    flyBodyVelocity.Velocity = Vector3.zero
+    flyBodyVelocity.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+    flyBodyVelocity.Parent = hrp
+end
+
+local function disableFly()
     local character = player.Character
     if character then
         local hum = character:FindFirstChild("Humanoid")
-        if hum then
-            hum.AutoRotate = true
-            hum.PlatformStand = false
+        if hum then hum.PlatformStand = false end
+        local hrp = character:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            for _, v in ipairs(hrp:GetChildren()) do
+                if v:IsA("BodyGyro") or v:IsA("BodyVelocity") then
+                    v:Destroy()
+                end
+            end
         end
     end
+    flyBodyVelocity = nil
+    flyBodyGyro = nil
 end
 
-local function startBehind(targetPlayer)
-    if not targetPlayer or not targetPlayer.Character then return false end
-    
-    saveOriginalPosition()
-    
-    local character = player.Character
-    if not character then return false end
-    
-    local hrp = character:FindFirstChild("HumanoidRootPart")
-    local hum = character:FindFirstChild("Humanoid")
-    if not hrp or not hum then return false end
-    
-    behindTarget = targetPlayer
-    isBehind = true
-    
-    hum.AutoRotate = false
-    hum.PlatformStand = true
-    
-    behindConnection = RunService.Heartbeat:Connect(function()
-        if not isBehind or not behindTarget or not behindTarget.Character then
-            stopBehind()
-            return
+FlyCheckbox.MouseButton1Click:Connect(function()
+    flyEnabled = not flyEnabled
+    FlyCheckbox.BackgroundColor3 = flyEnabled and Color3.fromRGB(140, 60, 200) or Color3.fromRGB(40, 40, 45)
+    if flyEnabled then
+        if attachModeEnabled then
+            attachModeEnabled = false
+            AttachCheckbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+            if isAttached then detach() end
         end
-        
-        local targetChar = behindTarget.Character
-        local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
-        if not targetRoot then
-            stopBehind()
-            return
+        if speedEnabled then
+            speedEnabled = false
+            SpeedCheckbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+            applySmoothSpeed()
         end
-        
-        local currentChar = player.Character
-        if not currentChar then
-            stopBehind()
-            return
-        end
-        
-        local currentHrp = currentChar:FindFirstChild("HumanoidRootPart")
-        local currentHum = currentChar:FindFirstChild("Humanoid")
-        if not currentHrp or not currentHum then
-            stopBehind()
-            return
-        end
-        
-        local targetLook = targetChar:FindFirstChild("Head") 
-            and targetChar.Head.CFrame.LookVector 
-            or targetRoot.CFrame.LookVector
-        
-        local behindPos = targetRoot.Position - (targetLook * BEHIND_RADIUS)
-        behindPos = Vector3.new(behindPos.X, targetRoot.Position.Y, behindPos.Z)
-        
-        local lookAt = targetRoot.Position
-        currentHrp.CFrame = CFrame.new(behindPos, lookAt)
-        currentHrp.AssemblyLinearVelocity = Vector3.zero
-        currentHrp.AssemblyAngularVelocity = Vector3.zero
-        
-        currentHum.PlatformStand = true
-        currentHum.AutoRotate = false
-    end)
-    
-    return true
-end
-
-local function onBehindHPressed()
-    if not behindEnabled then return end
-    
-    if isBehind then
-        stopBehind()
+        enableFly()
     else
-        local target = getPlayerLookingAt()
-        if target then
-            startBehind(target)
+        disableFly()
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    if not flyEnabled then return end
+    local character = player.Character
+    if not character then return end
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    if not hrp or not flyBodyVelocity or not flyBodyGyro then return end
+
+    local moveDir = Vector3.zero
+    local cf = Camera.CFrame
+
+    if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + cf.LookVector end
+    if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - cf.LookVector end
+    if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - cf.RightVector end
+    if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + cf.RightVector end
+    if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveDir = moveDir + Vector3.new(0, 1, 0) end
+    if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then moveDir = moveDir - Vector3.new(0, 1, 0) end
+
+    if moveDir.Magnitude > 0 then
+        flyBodyVelocity.Velocity = moveDir.Unit * flySpeed
+    else
+        flyBodyVelocity.Velocity = Vector3.zero
+    end
+
+    flyBodyGyro.CFrame = cf
+end)
+
+player.CharacterAdded:Connect(function()
+    if flyEnabled then
+        task.wait(0.5)
+        enableFly()
+    end
+end)
+
+-- ==================== NOCLIP LOGIC ====================
+local noclipEnabled = false
+local noclipConnection = nil
+
+local function enableNoclip()
+    noclipConnection = RunService.Stepped:Connect(function()
+        local char = player.Character
+        if not char then return end
+        for _, part in ipairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+    end)
+end
+
+local function disableNoclip()
+    if noclipConnection then
+        noclipConnection:Disconnect()
+        noclipConnection = nil
+    end
+    local char = player.Character
+    if char then
+        for _, part in ipairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = true
+            end
         end
     end
 end
 
-BehindCheckbox.MouseButton1Click:Connect(function()
-    behindEnabled = not behindEnabled
-    BehindCheckbox.BackgroundColor3 = behindEnabled and Color3.fromRGB(140, 60, 200) or Color3.fromRGB(40, 40, 45)
-    if not behindEnabled and isBehind then
-        stopBehind()
+NoclipCheckbox.MouseButton1Click:Connect(function()
+    noclipEnabled = not noclipEnabled
+    NoclipCheckbox.BackgroundColor3 = noclipEnabled and Color3.fromRGB(140, 60, 200) or Color3.fromRGB(40, 40, 45)
+    if noclipEnabled then
+        enableNoclip()
+    else
+        disableNoclip()
     end
 end)
 
 player.CharacterAdded:Connect(function()
-    if isBehind then
-        task.wait(0.3)
-        if behindTarget then
-            startBehind(behindTarget)
-        end
-    end
-end)
-
--- ==================== CONSOLIDATED H KEY HANDLER ====================
--- Remove any existing H key handlers (search and delete old ones)
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    if input.KeyCode == Enum.KeyCode.H then
-        -- Priority: Hover > Attach > Behind
-        if hoverEnabled then
-            onHoverHPressed()
-        elseif attachModeEnabled then
-            onAttachHPressed()
-        elseif behindEnabled then
-            onBehindHPressed()
-        end
+    if noclipEnabled then
+        task.wait(0.5)
+        enableNoclip()
     end
 end)
 
