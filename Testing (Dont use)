@@ -16,7 +16,12 @@ end
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "UniversalGUI"
 ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = player:WaitForChild("PlayerGui")
+pcall(function()
+    ScreenGui.Parent = game:GetService("CoreGui")
+end)
+if not ScreenGui.Parent then
+    ScreenGui.Parent = player:WaitForChild("PlayerGui")
+end
 
 -- Main Frame
 local MainFrame = Instance.new("Frame")
