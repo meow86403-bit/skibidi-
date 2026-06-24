@@ -56,6 +56,16 @@ local isMinimized = false
 -- === NO CLIP VARIABLE ===
 local noClipEnabled = false
 
+-- === ORBIT VARIABLES ===
+local orbitEnabled = false
+local orbitActive = false
+local orbitTarget = nil
+local orbitConnection = nil
+local orbitOriginalPos = nil
+local orbitSpeed = 2
+local orbitRadius = 10
+local orbitHeight = 5
+
 -- === ESP VARIABLES ===
 local espEnabled = false
 local espObjects = {}
@@ -100,6 +110,34 @@ local bodyGyro = nil
 local function worldToScreen(worldPos)
     local screenPos, onScreen = camera:WorldToViewportPoint(worldPos)
     return Vector2.new(screenPos.X, screenPos.Y), onScreen
+end
+
+local function getClosestPlayerToCursor()
+    local mousePos = UserInputService:GetMouseLocation()
+    local closestPlayer = nil
+    local closestDist = 200
+    
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= player and plr.Character then
+            local char = plr.Character
+            local humanoid = char:FindFirstChild("Humanoid")
+            if humanoid and humanoid.Health > 0 then
+                local head = char:FindFirstChild("Head")
+                if head then
+                    local screenPos, onScreen = worldToScreen(head.Position)
+                    if onScreen then
+                        local dist = (screenPos - mousePos).Magnitude
+                        if dist < closestDist then
+                            closestDist = dist
+                            closestPlayer = plr
+                        end
+                    end
+                end
+            end
+        end
+    end
+    
+    return closestPlayer
 end
 
 local function getClosestPlayerInFOV(mousePos, fovRadius)
@@ -165,6 +203,160 @@ local function createCircleCheckbox(parent, size, position)
     
     return checkbox
 end
+
+-- === ORBIT FUNCTIONS ===
+local function stopOrbit()
+    if not orbitActive then return end
+    
+    orbitActive = false
+    orbitTarget = nil
+    
+    if orbitConnection then
+        orbitConnection:Disconnect()
+        orbitConnection = nil
+    end
+    
+    if orbitOriginalPos then
+        local localChar = player.Character
+        if localChar then
+            local localRoot = localChar:FindFirstChild("HumanoidRootPart")
+            if localRoot then
+                localRoot.CFrame = orbitOriginalPos
+            end
+        end
+        orbitOriginalPos = nil
+    end
+    
+    local localChar = player.Character
+    if localChar then
+        local hum = localChar:FindFirstChild("Humanoid")
+        if hum then
+            hum.PlatformStand = false
+        end
+        
+        if bodyVelocity and not flying then
+            bodyVelocity:Destroy()
+            bodyVelocity = nil
+        end
+        if bodyGyro and not flying then
+            bodyGyro:Destroy()
+            bodyGyro = nil
+        end
+        
+        if not noClipEnabled then
+            for _, part in ipairs(localChar:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = true
+                end
+            end
+        end
+    end
+end
+
+local function startOrbit()
+    if orbitActive then
+        stopOrbit()
+        return
+    end
+    
+    local target = getClosestPlayerToCursor()
+    if not target or not target.Character then return end
+    
+    local localChar = player.Character
+    if not localChar then return end
+    local localRoot = localChar:FindFirstChild("HumanoidRootPart")
+    if not localRoot then return end
+    
+    orbitOriginalPos = localRoot.CFrame
+    
+    orbitActive = true
+    orbitTarget = target
+    
+    local hum = localChar:FindFirstChild("Humanoid")
+    if hum then
+        hum.PlatformStand = true
+    end
+    
+    for _, part in ipairs(localChar:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.CanCollide = false
+        end
+    end
+    
+    if not bodyVelocity then
+        bodyVelocity = Instance.new("BodyVelocity")
+        bodyVelocity.MaxForce = Vector3.new(1e9, 1e9, 1e9)
+        bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+        bodyVelocity.Parent = localRoot
+    end
+    
+    if not bodyGyro then
+        bodyGyro = Instance.new("BodyGyro")
+        bodyGyro.MaxTorque = Vector3.new(1e9, 1e9, 1e9)
+        bodyGyro.CFrame = localRoot.CFrame
+        bodyGyro.Parent = localRoot
+    end
+    
+    local angle = 0
+    orbitConnection = RunService.Heartbeat:Connect(function(deltaTime)
+        if not orbitActive or not orbitTarget or not orbitTarget.Character then
+            stopOrbit()
+            return
+        end
+        
+        local targetChar = orbitTarget.Character
+        local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
+        if not targetRoot then
+            stopOrbit()
+            return
+        end
+        
+        local localCharNow = player.Character
+        if not localCharNow then
+            stopOrbit()
+            return
+        end
+        local localRootNow = localCharNow:FindFirstChild("HumanoidRootPart")
+        if not localRootNow then
+            stopOrbit()
+            return
+        end
+        
+        angle = angle + orbitSpeed * deltaTime
+        if angle >= math.pi * 2 then
+            angle = angle - math.pi * 2
+        end
+        
+        local targetPos = targetRoot.Position
+        local orbitPos = targetPos + Vector3.new(
+            math.cos(angle) * orbitRadius,
+            orbitHeight,
+            math.sin(angle) * orbitRadius
+        )
+        
+        local currentPos = localRootNow.Position
+        local moveDir = (orbitPos - currentPos)
+        
+        if bodyVelocity then
+            bodyVelocity.Velocity = moveDir * 10
+        end
+        
+        if bodyGyro then
+            bodyGyro.CFrame = CFrame.lookAt(currentPos, targetPos)
+        end
+    end)
+end
+
+-- H key handler for orbit
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if input.KeyCode == Enum.KeyCode.H then
+        if orbitActive then
+            stopOrbit()
+        elseif orbitEnabled then
+            startOrbit()
+        end
+    end
+end)
 
 -- === NAME ESP FUNCTIONS ===
 local function createNameEspForPlayer(targetPlayer)
@@ -822,8 +1014,8 @@ local function disableFly()
     local hum = char:FindFirstChild("Humanoid")
     if not root or not hum then return end
     hum.PlatformStand = false
-    if bodyVelocity then bodyVelocity:Destroy() bodyVelocity = nil end
-    if bodyGyro then bodyGyro:Destroy() bodyGyro = nil end
+    if bodyVelocity and not orbitActive then bodyVelocity:Destroy() bodyVelocity = nil end
+    if bodyGyro and not orbitActive then bodyGyro:Destroy() bodyGyro = nil end
 end
 
 RunService.Heartbeat:Connect(function(deltaTime)
@@ -2031,6 +2223,53 @@ function buildContentPanel(category)
             end)
             noClipRowButton.MouseButton1Click:Connect(toggleNoClipCallback)
             
+            yPos = yPos + 42
+            
+            -- Orbit row
+            local orbitRow = Instance.new("Frame")
+            orbitRow.Name = "OrbitRow"
+            orbitRow.Size = UDim2.new(1, -16, 0, 38)
+            orbitRow.Position = UDim2.new(0, 8, 0, yPos)
+            orbitRow.BackgroundTransparency = 1
+            orbitRow.Parent = leftPanel
+            
+            local orbitRowButton = Instance.new("TextButton")
+            orbitRowButton.Name = "OrbitRowClickArea"
+            orbitRowButton.Size = UDim2.new(1, 0, 1, 0)
+            orbitRowButton.BackgroundTransparency = 1
+            orbitRowButton.Text = ""
+            orbitRowButton.Parent = orbitRow
+            
+            local orbitBox = createCircleCheckbox(orbitRow, 22, UDim2.new(0, 0, 0.5, -11))
+            orbitBox.BackgroundColor3 = orbitEnabled and COLORS.ActiveWhite or COLORS.ControlBg
+            
+            local orbitLabel = Instance.new("TextLabel")
+            orbitLabel.Name = "OrbitLabel"
+            orbitLabel.Size = UDim2.new(0, 120, 1, 0)
+            orbitLabel.Position = UDim2.new(0, 30, 0, 0)
+            orbitLabel.BackgroundTransparency = 1
+            orbitLabel.Text = "Orbit (Press H)"
+            orbitLabel.TextColor3 = COLORS.White
+            orbitLabel.TextSize = 18
+            orbitLabel.TextXAlignment = Enum.TextXAlignment.Left
+            orbitLabel.Font = Enum.Font.SourceSansBold
+            orbitLabel.Parent = orbitRow
+            
+            local function toggleOrbitCallback()
+                orbitEnabled = not orbitEnabled
+                orbitBox.BackgroundColor3 = orbitEnabled and COLORS.ActiveWhite or COLORS.ControlBg
+                if not orbitEnabled and orbitActive then
+                    stopOrbit()
+                end
+            end
+            
+            orbitBox.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    toggleOrbitCallback()
+                end
+            end)
+            orbitRowButton.MouseButton1Click:Connect(toggleOrbitCallback)
+            
             -- RIGHT PANEL: Fly Speed slider
             local speedLabel = Instance.new("TextLabel")
             speedLabel.Size = UDim2.new(1, -16, 0, 24)
@@ -2155,6 +2394,7 @@ end)
 player.CharacterAdded:Connect(function(char)
     if flying then disableFly() end
     if isSpectating then stopSpectating() end
+    if orbitActive then stopOrbit() end
     if noClipEnabled then
         task.wait(0.1)
         applyNoClip(true)
@@ -2177,6 +2417,9 @@ screenGui.AncestryChanged:Connect(function()
         end
         if fovAimbotConnection then
             fovAimbotConnection:Disconnect()
+        end
+        if orbitConnection then
+            orbitConnection:Disconnect()
         end
         if boxEspUpdateConnection then
             boxEspUpdateConnection:Disconnect()
