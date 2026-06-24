@@ -1,0 +1,2217 @@
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local Workspace = game:GetService("Workspace")
+
+local player = Players.LocalPlayer
+local camera = Workspace.CurrentCamera
+
+-- === COLOR PALETTE ===
+local COLORS = {
+    WindowBg = Color3.fromHex("1E1E1E"),
+    SidebarBg = Color3.fromHex("191919"),
+    TitleBarBg = Color3.fromHex("161616"),
+    Border = Color3.fromHex("2A2A2A"),
+    OuterBorder = Color3.fromHex("1A1A1A"),
+    ActiveWhite = Color3.fromHex("FFFFFF"),
+    White = Color3.fromHex("FFFFFF"),
+    DimText = Color3.fromHex("888888"),
+    SecondaryText = Color3.fromHex("B0B0B0"),
+    TertiaryText = Color3.fromHex("999999"),
+    ControlBg = Color3.fromHex("252525"),
+    ControlBorder = Color3.fromHex("555555"),
+    PanelBg = Color3.fromHex("1A1A1A"),
+    HighlightBorder = Color3.fromHex("FFFFFF"),
+    SelectedBg = Color3.fromHex("2A2A2A"),
+    ESP = Color3.fromHex("FFFFFF"),
+}
+
+-- === WINDOW DIMENSIONS ===
+local WINDOW_WIDTH = 640
+local WINDOW_HEIGHT = 480
+local FULL_HEIGHT = WINDOW_HEIGHT
+local MINIMIZED_HEIGHT = 36
+
+-- === MAIN GUI CONTAINER ===
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "CatLoversGUI"
+screenGui.ResetOnSpawn = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.Parent = player.PlayerGui
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainWindow"
+mainFrame.Size = UDim2.new(0, WINDOW_WIDTH, 0, WINDOW_HEIGHT)
+mainFrame.Position = UDim2.new(0.5, -WINDOW_WIDTH/2, 0.5, -WINDOW_HEIGHT/2)
+mainFrame.BackgroundColor3 = COLORS.WindowBg
+mainFrame.BackgroundTransparency = 0
+mainFrame.BorderSizePixel = 1
+mainFrame.BorderColor3 = COLORS.OuterBorder
+mainFrame.ClipsDescendants = true
+mainFrame.Parent = screenGui
+
+local isMinimized = false
+
+-- === NO CLIP VARIABLE ===
+local noClipEnabled = false
+
+-- === ESP VARIABLES ===
+local espEnabled = false
+local espObjects = {}
+local espConnections = {}
+local espUpdateConnection = nil
+local espPlayerAddedConnection = nil
+
+-- === BOX ESP VARIABLES ===
+local boxEspEnabled = false
+local boxEspObjects = {}
+local boxEspConnections = {}
+local boxEspUpdateConnection = nil
+
+-- === NAME ESP VARIABLES ===
+local nameEspEnabled = false
+local nameEspSize = 1
+local nameEspObjects = {}
+local nameEspConnections = {}
+local nameEspUpdateConnection = nil
+
+-- === DRAW FOV & FOV AIMBOT VARIABLES ===
+local drawFovEnabled = false
+local fovVisible = true
+local fovRadius = 100
+local fovCircle = nil
+local fovDrawConnection = nil
+local fovTarget = "Head"
+local fovAimbotConnection = nil
+local fovAimbotSmoothness = 5
+local rightMouseDown = false
+local fovLockedTarget = nil
+
+-- === FLIGHT LOGIC ===
+local flying = false
+local flySpeed = 60
+local flyAcceleration = 8
+local currentVelocity = Vector3.new(0, 0, 0)
+local bodyVelocity = nil
+local bodyGyro = nil
+
+-- === UTILITY FUNCTIONS ===
+local function worldToScreen(worldPos)
+    local screenPos, onScreen = camera:WorldToViewportPoint(worldPos)
+    return Vector2.new(screenPos.X, screenPos.Y), onScreen
+end
+
+local function getClosestPlayerInFOV(mousePos, fovRadius)
+    local closestPlayer = nil
+    local closestDist = fovRadius
+    
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= player and plr.Character then
+            local char = plr.Character
+            local humanoid = char:FindFirstChild("Humanoid")
+            if humanoid and humanoid.Health > 0 then
+                local aimPart = nil
+                if fovTarget == "Torso" then
+                    aimPart = char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso")
+                end
+                if not aimPart then
+                    aimPart = char:FindFirstChild("Head")
+                end
+                if aimPart then
+                    local screenPos, onScreen = worldToScreen(aimPart.Position)
+                    if onScreen then
+                        local dist = (screenPos - mousePos).Magnitude
+                        if dist <= fovRadius and dist < closestDist then
+                            closestDist = dist
+                            closestPlayer = plr
+                        end
+                    end
+                end
+            end
+        end
+    end
+    
+    return closestPlayer
+end
+
+local function getAimPosition(targetChar)
+    if fovTarget == "Torso" then
+        local torso = targetChar:FindFirstChild("UpperTorso") or targetChar:FindFirstChild("Torso")
+        if torso then
+            return torso.Position
+        end
+    end
+    local head = targetChar:FindFirstChild("Head")
+    if head then
+        return head.Position
+    end
+    return nil
+end
+
+-- Helper function to create circle checkboxes
+local function createCircleCheckbox(parent, size, position)
+    local checkbox = Instance.new("Frame")
+    checkbox.Size = UDim2.new(0, size, 0, size)
+    checkbox.Position = position
+    checkbox.BackgroundColor3 = COLORS.ControlBg
+    checkbox.BorderSizePixel = 2
+    checkbox.BorderColor3 = COLORS.ControlBorder
+    checkbox.Parent = parent
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(1, 0)
+    corner.Parent = checkbox
+    
+    return checkbox
+end
+
+-- === NAME ESP FUNCTIONS ===
+local function createNameEspForPlayer(targetPlayer)
+    if nameEspObjects[targetPlayer] then
+        for _, text in ipairs(nameEspObjects[targetPlayer]) do
+            pcall(function() text:Remove() end)
+        end
+        nameEspObjects[targetPlayer] = nil
+    end
+    
+    local nameTexts = {}
+    
+    local displayName = Drawing.new("Text")
+    displayName.Text = targetPlayer.DisplayName
+    displayName.Color = Color3.fromRGB(255, 255, 255)
+    displayName.Size = 13 * nameEspSize
+    displayName.Center = true
+    displayName.Outline = true
+    displayName.OutlineColor = Color3.fromRGB(0, 0, 0)
+    displayName.Visible = false
+    displayName.Font = 3
+    displayName.Transparency = 1
+    displayName.ZIndex = 10
+    table.insert(nameTexts, displayName)
+    
+    local username = Drawing.new("Text")
+    username.Text = "@" .. targetPlayer.Name
+    username.Color = Color3.fromRGB(200, 200, 200)
+    username.Size = 11 * nameEspSize
+    username.Center = true
+    username.Outline = true
+    username.OutlineColor = Color3.fromRGB(0, 0, 0)
+    username.Visible = false
+    username.Font = 3
+    username.Transparency = 1
+    username.ZIndex = 10
+    table.insert(nameTexts, username)
+    
+    nameEspObjects[targetPlayer] = nameTexts
+    
+    if nameEspConnections[targetPlayer] then
+        nameEspConnections[targetPlayer]:Disconnect()
+    end
+    
+    nameEspConnections[targetPlayer] = targetPlayer.CharacterAdded:Connect(function(newChar)
+        task.wait(0.1)
+        if nameEspEnabled then
+            createNameEspForPlayer(targetPlayer)
+        end
+    end)
+end
+
+local function updateNameEspPositions()
+    for plr, texts in pairs(nameEspObjects) do
+        local char = plr.Character
+        if not char then
+            for _, text in ipairs(texts) do
+                text.Visible = false
+            end
+            continue
+        end
+        
+        local head = char:FindFirstChild("Head")
+        local humanoid = char:FindFirstChild("Humanoid")
+        
+        if not head or not humanoid or humanoid.Health <= 0 then
+            for _, text in ipairs(texts) do
+                text.Visible = false
+            end
+            continue
+        end
+        
+        local screenPos, onScreen = worldToScreen(head.Position + Vector3.new(0, 1.5, 0))
+        
+        if onScreen and texts[1] and texts[2] then
+            texts[1].Text = plr.DisplayName
+            texts[1].Size = 13 * nameEspSize
+            texts[1].Position = Vector2.new(screenPos.X, screenPos.Y - 20 * nameEspSize)
+            texts[1].Visible = nameEspEnabled
+            
+            texts[2].Text = "@" .. plr.Name
+            texts[2].Size = 11 * nameEspSize
+            texts[2].Position = Vector2.new(screenPos.X, screenPos.Y - (20 * nameEspSize) + (14 * nameEspSize))
+            texts[2].Visible = nameEspEnabled
+        else
+            for _, text in ipairs(texts) do
+                text.Visible = false
+            end
+        end
+    end
+end
+
+local function refreshNameEsp()
+    for plr, _ in pairs(nameEspObjects) do
+        if nameEspObjects[plr] then
+            for _, text in ipairs(nameEspObjects[plr]) do
+                pcall(function() text:Remove() end)
+            end
+        end
+    end
+    for _, conn in pairs(nameEspConnections) do
+        conn:Disconnect()
+    end
+    nameEspObjects = {}
+    nameEspConnections = {}
+    
+    if not nameEspEnabled then return end
+    
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= player and plr.Character then
+            createNameEspForPlayer(plr)
+        end
+    end
+end
+
+local function toggleNameEsp(state)
+    nameEspEnabled = state
+    
+    if nameEspEnabled then
+        refreshNameEsp()
+        if nameEspUpdateConnection then
+            nameEspUpdateConnection:Disconnect()
+        end
+        nameEspUpdateConnection = RunService.RenderStepped:Connect(function()
+            updateNameEspPositions()
+        end)
+    else
+        for plr, _ in pairs(nameEspObjects) do
+            if nameEspObjects[plr] then
+                for _, text in ipairs(nameEspObjects[plr]) do
+                    pcall(function() text:Remove() end)
+                end
+            end
+        end
+        for _, conn in pairs(nameEspConnections) do
+            conn:Disconnect()
+        end
+        nameEspObjects = {}
+        nameEspConnections = {}
+        if nameEspUpdateConnection then
+            nameEspUpdateConnection:Disconnect()
+            nameEspUpdateConnection = nil
+        end
+    end
+end
+
+local function updateNameEspSize(newSize)
+    nameEspSize = newSize
+    for plr, texts in pairs(nameEspObjects) do
+        if texts[1] and texts[2] then
+            texts[1].Size = 13 * nameEspSize
+            texts[2].Size = 11 * nameEspSize
+        end
+    end
+end
+
+-- === BOX ESP FUNCTIONS ===
+local function createBoxEspForPlayer(targetPlayer)
+    if boxEspObjects[targetPlayer] then
+        for _, drawing in ipairs(boxEspObjects[targetPlayer]) do
+            pcall(function() drawing:Remove() end)
+        end
+        boxEspObjects[targetPlayer] = nil
+    end
+    
+    local boxDrawings = {}
+    
+    for i = 1, 12 do
+        local line = Drawing.new("Line")
+        line.Visible = false
+        line.Color = Color3.fromRGB(255, 255, 255)
+        line.Thickness = 1.5
+        line.Transparency = 1
+        line.ZIndex = 10
+        table.insert(boxDrawings, line)
+    end
+    
+    boxEspObjects[targetPlayer] = boxDrawings
+    
+    if boxEspConnections[targetPlayer] then
+        boxEspConnections[targetPlayer]:Disconnect()
+    end
+    
+    boxEspConnections[targetPlayer] = targetPlayer.CharacterAdded:Connect(function(newChar)
+        task.wait(0.1)
+        if boxEspEnabled then
+            createBoxEspForPlayer(targetPlayer)
+        end
+    end)
+end
+
+local function updateBoxEspPositions()
+    for plr, lines in pairs(boxEspObjects) do
+        local char = plr.Character
+        if not char then
+            for _, line in ipairs(lines) do
+                line.Visible = false
+            end
+            continue
+        end
+        
+        local head = char:FindFirstChild("Head")
+        local root = char:FindFirstChild("HumanoidRootPart")
+        local humanoid = char:FindFirstChild("Humanoid")
+        
+        if not head or not root or not humanoid or humanoid.Health <= 0 then
+            for _, line in ipairs(lines) do
+                line.Visible = false
+            end
+            continue
+        end
+        
+        local headPos = head.Position + Vector3.new(0, 0.5, 0)
+        local footPos = root.Position - Vector3.new(0, 3, 0)
+        local boxWidth = 2
+        local boxDepth = 1
+        
+        local camRight = camera.CFrame.RightVector
+        local camForward = Vector3.new(camera.CFrame.LookVector.X, 0, camera.CFrame.LookVector.Z).Unit
+        
+        local rightOffset = camRight * boxWidth
+        local forwardOffset = camForward * boxDepth
+        
+        local b1 = footPos + rightOffset + forwardOffset
+        local b2 = footPos + rightOffset - forwardOffset
+        local b3 = footPos - rightOffset - forwardOffset
+        local b4 = footPos - rightOffset + forwardOffset
+        
+        local t1 = headPos + rightOffset + forwardOffset
+        local t2 = headPos + rightOffset - forwardOffset
+        local t3 = headPos - rightOffset - forwardOffset
+        local t4 = headPos - rightOffset + forwardOffset
+        
+        local corners = {}
+        local allOnScreen = true
+        
+        local positions = {b1, b2, b3, b4, t1, t2, t3, t4}
+        for _, pos in ipairs(positions) do
+            local screenPos, onScreen = worldToScreen(pos)
+            if not onScreen then allOnScreen = false end
+            table.insert(corners, screenPos)
+        end
+        
+        if allOnScreen then
+            lines[1].From = corners[1]; lines[1].To = corners[2]
+            lines[2].From = corners[2]; lines[2].To = corners[3]
+            lines[3].From = corners[3]; lines[3].To = corners[4]
+            lines[4].From = corners[4]; lines[4].To = corners[1]
+            
+            lines[5].From = corners[5]; lines[5].To = corners[6]
+            lines[6].From = corners[6]; lines[6].To = corners[7]
+            lines[7].From = corners[7]; lines[7].To = corners[8]
+            lines[8].From = corners[8]; lines[8].To = corners[5]
+            
+            lines[9].From = corners[1]; lines[9].To = corners[5]
+            lines[10].From = corners[2]; lines[10].To = corners[6]
+            lines[11].From = corners[3]; lines[11].To = corners[7]
+            lines[12].From = corners[4]; lines[12].To = corners[8]
+            
+            for _, line in ipairs(lines) do
+                line.Visible = boxEspEnabled
+            end
+        else
+            for _, line in ipairs(lines) do
+                line.Visible = false
+            end
+        end
+    end
+end
+
+local function refreshBoxEsp()
+    for plr, _ in pairs(boxEspObjects) do
+        if boxEspObjects[plr] then
+            for _, drawing in ipairs(boxEspObjects[plr]) do
+                pcall(function() drawing:Remove() end)
+            end
+        end
+    end
+    for _, conn in pairs(boxEspConnections) do
+        conn:Disconnect()
+    end
+    boxEspObjects = {}
+    boxEspConnections = {}
+    
+    if not boxEspEnabled then return end
+    
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= player and plr.Character then
+            createBoxEspForPlayer(plr)
+        end
+    end
+end
+
+local function toggleBoxEsp(state)
+    boxEspEnabled = state
+    
+    if boxEspEnabled then
+        refreshBoxEsp()
+        if boxEspUpdateConnection then
+            boxEspUpdateConnection:Disconnect()
+        end
+        boxEspUpdateConnection = RunService.RenderStepped:Connect(function()
+            updateBoxEspPositions()
+        end)
+    else
+        for plr, _ in pairs(boxEspObjects) do
+            if boxEspObjects[plr] then
+                for _, drawing in ipairs(boxEspObjects[plr]) do
+                    pcall(function() drawing:Remove() end)
+                end
+            end
+        end
+        for _, conn in pairs(boxEspConnections) do
+            conn:Disconnect()
+        end
+        boxEspObjects = {}
+        boxEspConnections = {}
+        if boxEspUpdateConnection then
+            boxEspUpdateConnection:Disconnect()
+            boxEspUpdateConnection = nil
+        end
+    end
+end
+
+Players.PlayerAdded:Connect(function(newPlr)
+    if newPlr ~= player then
+        if boxEspEnabled then
+            newPlr.CharacterAdded:Connect(function()
+                if boxEspEnabled then
+                    createBoxEspForPlayer(newPlr)
+                end
+            end)
+            if newPlr.Character then
+                createBoxEspForPlayer(newPlr)
+            end
+        end
+        if nameEspEnabled then
+            newPlr.CharacterAdded:Connect(function()
+                if nameEspEnabled then
+                    createNameEspForPlayer(newPlr)
+                end
+            end)
+            if newPlr.Character then
+                createNameEspForPlayer(newPlr)
+            end
+        end
+    end
+end)
+
+-- === DRAW FOV FUNCTIONS ===
+local function createFovCircle()
+    if fovCircle then
+        fovCircle:Remove()
+        fovCircle = nil
+    end
+    
+    fovCircle = Drawing.new("Circle")
+    fovCircle.Visible = drawFovEnabled and fovVisible
+    fovCircle.Color = Color3.fromRGB(255, 255, 255)
+    fovCircle.Thickness = 1.5
+    fovCircle.NumSides = 64
+    fovCircle.Radius = fovRadius
+    fovCircle.Filled = false
+    fovCircle.Transparency = 1
+    fovCircle.ZIndex = 10
+end
+
+local function updateFovPosition()
+    if not fovCircle or not drawFovEnabled then return end
+    local mousePos = UserInputService:GetMouseLocation()
+    fovCircle.Position = Vector2.new(mousePos.X, mousePos.Y)
+    fovCircle.Radius = fovRadius
+end
+
+local function toggleDrawFov(state)
+    drawFovEnabled = state
+    if not fovCircle then
+        createFovCircle()
+    else
+        fovCircle.Visible = drawFovEnabled and fovVisible
+    end
+    
+    if drawFovEnabled then
+        if fovDrawConnection then fovDrawConnection:Disconnect() end
+        fovDrawConnection = RunService.RenderStepped:Connect(function()
+            updateFovPosition()
+        end)
+    else
+        if fovDrawConnection then
+            fovDrawConnection:Disconnect()
+            fovDrawConnection = nil
+        end
+        if fovAimbotConnection then
+            fovAimbotConnection:Disconnect()
+            fovAimbotConnection = nil
+        end
+        fovLockedTarget = nil
+    end
+end
+
+local function toggleFovVisible(state)
+    fovVisible = state
+    if fovCircle then
+        fovCircle.Visible = drawFovEnabled and fovVisible
+    end
+end
+
+-- === FOV AIMBOT FUNCTIONS ===
+local function aimAtPosition(targetPos)
+    local char = player.Character
+    if not char then return end
+    
+    local lookDir = (targetPos - camera.CFrame.Position).Unit
+    local targetCFrame = CFrame.lookAt(camera.CFrame.Position, camera.CFrame.Position + lookDir)
+    
+    if fovAimbotSmoothness <= 1 then
+        camera.CFrame = targetCFrame
+    else
+        camera.CFrame = camera.CFrame:Lerp(targetCFrame, 1 / fovAimbotSmoothness)
+    end
+end
+
+local function startFovAimbot()
+    if fovAimbotConnection then
+        fovAimbotConnection:Disconnect()
+        fovAimbotConnection = nil
+    end
+    
+    fovAimbotConnection = RunService.RenderStepped:Connect(function()
+        if not rightMouseDown or not drawFovEnabled then
+            if fovLockedTarget then
+                fovLockedTarget = nil
+            end
+            return
+        end
+        
+        local mousePos = UserInputService:GetMouseLocation()
+        
+        if fovLockedTarget then
+            local targetChar = fovLockedTarget.Character
+            if targetChar then
+                local targetHumanoid = targetChar:FindFirstChild("Humanoid")
+                local aimPos = getAimPosition(targetChar)
+                if aimPos and targetHumanoid and targetHumanoid.Health > 0 then
+                    local screenPos, onScreen = worldToScreen(aimPos)
+                    if onScreen then
+                        local dist = (screenPos - mousePos).Magnitude
+                        if dist <= fovRadius then
+                            aimAtPosition(aimPos)
+                            return
+                        end
+                    end
+                end
+            end
+            fovLockedTarget = nil
+        end
+        
+        local closestPlayer = getClosestPlayerInFOV(mousePos, fovRadius)
+        
+        if closestPlayer then
+            fovLockedTarget = closestPlayer
+            local targetChar = closestPlayer.Character
+            if targetChar then
+                local aimPos = getAimPosition(targetChar)
+                if aimPos then
+                    aimAtPosition(aimPos)
+                end
+            end
+        end
+    end)
+end
+
+local function stopFovAimbot()
+    if fovAimbotConnection then
+        fovAimbotConnection:Disconnect()
+        fovAimbotConnection = nil
+    end
+    fovLockedTarget = nil
+end
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if input.UserInputType == Enum.UserInputType.MouseButton2 and drawFovEnabled then
+        rightMouseDown = true
+        if not fovAimbotConnection then
+            startFovAimbot()
+        end
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+        rightMouseDown = false
+        fovLockedTarget = nil
+    end
+end)
+
+-- === NO CLIP FUNCTION ===
+local function applyNoClip(state)
+    local char = player.Character
+    if not char then return end
+    for _, part in ipairs(char:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.CanCollide = not state
+        end
+    end
+end
+
+-- === ESP CORE ===
+local function createESPBox(targetPlayer)
+    if espObjects[targetPlayer] then
+        destroyESPBox(targetPlayer)
+    end
+    
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "ESP_Highlight"
+    highlight.FillColor = COLORS.ESP
+    highlight.FillTransparency = 1
+    highlight.OutlineColor = COLORS.ESP
+    highlight.OutlineTransparency = 0
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    highlight.Adornee = targetPlayer.Character
+    highlight.Parent = targetPlayer.Character
+    
+    espObjects[targetPlayer] = highlight
+    
+    local charConnection
+    charConnection = targetPlayer.CharacterAdded:Connect(function(newChar)
+        if espEnabled and espObjects[targetPlayer] then
+            espObjects[targetPlayer].Adornee = newChar
+            if not espObjects[targetPlayer].Parent then
+                espObjects[targetPlayer].Parent = newChar
+            end
+        else
+            if charConnection then charConnection:Disconnect() end
+        end
+    end)
+    espConnections[targetPlayer] = charConnection
+end
+
+local function destroyESPBox(targetPlayer)
+    if espObjects[targetPlayer] then
+        espObjects[targetPlayer]:Destroy()
+        espObjects[targetPlayer] = nil
+    end
+    if espConnections[targetPlayer] then
+        espConnections[targetPlayer]:Disconnect()
+        espConnections[targetPlayer] = nil
+    end
+end
+
+local function refreshESP()
+    for plr, _ in pairs(espObjects) do
+        destroyESPBox(plr)
+    end
+    espObjects = {}
+    for _, conn in pairs(espConnections) do
+        conn:Disconnect()
+    end
+    espConnections = {}
+    
+    if not espEnabled then return end
+    
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= player and plr.Character then
+            createESPBox(plr)
+        end
+    end
+end
+
+local function toggleESP(state)
+    espEnabled = state
+    if espEnabled then
+        refreshESP()
+        if espUpdateConnection then espUpdateConnection:Disconnect() end
+        espUpdateConnection = RunService.Heartbeat:Connect(function()
+            if not espEnabled then return end
+            for _, plr in ipairs(Players:GetPlayers()) do
+                if plr ~= player and plr.Character then
+                    if not espObjects[plr] then
+                        createESPBox(plr)
+                    end
+                end
+            end
+        end)
+        if espPlayerAddedConnection then espPlayerAddedConnection:Disconnect() end
+        espPlayerAddedConnection = Players.PlayerAdded:Connect(function(newPlr)
+            if espEnabled and newPlr ~= player then
+                newPlr.CharacterAdded:Connect(function()
+                    if espEnabled then
+                        createESPBox(newPlr)
+                    end
+                end)
+                if newPlr.Character then
+                    createESPBox(newPlr)
+                end
+            end
+        end)
+    else
+        for plr, _ in pairs(espObjects) do
+            destroyESPBox(plr)
+        end
+        espObjects = {}
+        for _, conn in pairs(espConnections) do
+            conn:Disconnect()
+        end
+        espConnections = {}
+        if espUpdateConnection then
+            espUpdateConnection:Disconnect()
+            espUpdateConnection = nil
+        end
+        if espPlayerAddedConnection then
+            espPlayerAddedConnection:Disconnect()
+            espPlayerAddedConnection = nil
+        end
+    end
+end
+
+-- === FLIGHT FUNCTIONS ===
+local function enableFly()
+    if flying then return end
+    flying = true
+    currentVelocity = Vector3.new(0, 0, 0)
+    local char = player.Character
+    if not char then return end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    local hum = char:FindFirstChild("Humanoid")
+    if not root or not hum then return end
+    hum.PlatformStand = true
+    bodyVelocity = Instance.new("BodyVelocity")
+    bodyVelocity.MaxForce = Vector3.new(1e9, 1e9, 1e9)
+    bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+    bodyVelocity.Parent = root
+    bodyGyro = Instance.new("BodyGyro")
+    bodyGyro.MaxTorque = Vector3.new(1e9, 1e9, 1e9)
+    bodyGyro.CFrame = root.CFrame
+    bodyGyro.Parent = root
+    
+    if noClipEnabled then
+        task.wait(0.05)
+        for _, part in ipairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+    end
+end
+
+local function disableFly()
+    if not flying then return end
+    flying = false
+    currentVelocity = Vector3.new(0, 0, 0)
+    local char = player.Character
+    if not char then return end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    local hum = char:FindFirstChild("Humanoid")
+    if not root or not hum then return end
+    hum.PlatformStand = false
+    if bodyVelocity then bodyVelocity:Destroy() bodyVelocity = nil end
+    if bodyGyro then bodyGyro:Destroy() bodyGyro = nil end
+end
+
+RunService.Heartbeat:Connect(function(deltaTime)
+    if not flying then return end
+    local char = player.Character
+    if not char then return end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    local camLook = camera.CFrame.LookVector
+    local camRight = camera.CFrame.RightVector
+    local forwardFlat = Vector3.new(camLook.X, 0, camLook.Z).Unit
+    if forwardFlat.Magnitude < 0.001 then forwardFlat = Vector3.new(0, 0, 1) end
+    local rightFlat = Vector3.new(camRight.X, 0, camRight.Z).Unit
+    if rightFlat.Magnitude < 0.001 then rightFlat = Vector3.new(1, 0, 0) end
+    local moveDirection = Vector3.new(0, 0, 0)
+    if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDirection = moveDirection + forwardFlat end
+    if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDirection = moveDirection - forwardFlat end
+    if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDirection = moveDirection - rightFlat end
+    if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDirection = moveDirection + rightFlat end
+    if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveDirection = moveDirection + Vector3.new(0, 1, 0) end
+    if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then moveDirection = moveDirection - Vector3.new(0, 1, 0) end
+    if moveDirection.Magnitude > 0 then moveDirection = moveDirection.Unit * flySpeed end
+    local targetVelocity = moveDirection
+    currentVelocity = currentVelocity:Lerp(targetVelocity, 1 - math.exp(-flyAcceleration * deltaTime))
+    if bodyVelocity then bodyVelocity.Velocity = currentVelocity end
+    if bodyGyro then bodyGyro.CFrame = CFrame.lookAt(root.Position, root.Position + camLook * 10) end
+end)
+
+-- === NO CLIP TOGGLE ===
+local function toggleNoClip(state)
+    noClipEnabled = state
+    applyNoClip(state)
+end
+
+-- === DRAGGING ===
+local dragData = nil
+mainFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        local mousePos = input.Position
+        local framePos = mainFrame.AbsolutePosition
+        if mousePos.Y >= framePos.Y and mousePos.Y <= framePos.Y + 36 then
+            dragData = { startMouse = mousePos, startFramePos = framePos }
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then dragData = nil end
+            end)
+        end
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if dragData and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = input.Position - dragData.startMouse
+        local newX = dragData.startFramePos.X + delta.X
+        local newY = dragData.startFramePos.Y + delta.Y
+        local screenSize = screenGui.AbsoluteSize
+        mainFrame.Position = UDim2.new(newX / screenSize.X, 0, newY / screenSize.Y, 0)
+    end
+end)
+
+-- === TITLE BAR ===
+local titleBar = Instance.new("Frame")
+titleBar.Name = "TitleBar"
+titleBar.Size = UDim2.new(1, 0, 0, 36)
+titleBar.BackgroundColor3 = COLORS.TitleBarBg
+titleBar.BorderSizePixel = 0
+titleBar.Parent = mainFrame
+
+local titleDivider = Instance.new("Frame")
+titleDivider.Name = "TitleDivider"
+titleDivider.Size = UDim2.new(1, 0, 0, 1)
+titleDivider.Position = UDim2.new(0, 0, 1, -1)
+titleDivider.BackgroundColor3 = COLORS.Border
+titleDivider.BorderSizePixel = 0
+titleDivider.Parent = titleBar
+
+local catLabel = Instance.new("TextLabel")
+catLabel.Name = "CatLoversLabel"
+catLabel.Size = UDim2.new(0, 120, 1, 0)
+catLabel.Position = UDim2.new(0, 12, 0, 0)
+catLabel.BackgroundTransparency = 1
+catLabel.Text = "Cat Lovers"
+catLabel.TextColor3 = COLORS.White
+catLabel.TextSize = 15
+catLabel.TextXAlignment = Enum.TextXAlignment.Left
+catLabel.Font = Enum.Font.SourceSansBold
+catLabel.Parent = titleBar
+
+local minBtn = Instance.new("TextButton")
+minBtn.Name = "MinBtn"
+minBtn.Size = UDim2.new(0, 24, 1, 0)
+minBtn.Position = UDim2.new(1, -28, 0, 0)
+minBtn.BackgroundTransparency = 1
+minBtn.Text = "—"
+minBtn.TextColor3 = Color3.fromHex("888888")
+minBtn.TextSize = 14
+minBtn.Font = Enum.Font.SourceSans
+minBtn.Parent = titleBar
+minBtn.MouseButton1Click:Connect(function()
+    isMinimized = not isMinimized
+    local targetHeight = isMinimized and MINIMIZED_HEIGHT or FULL_HEIGHT
+    local currentPos = mainFrame.Position
+    local tween = TweenService:Create(mainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+        Size = UDim2.new(0, WINDOW_WIDTH, 0, targetHeight),
+        Position = UDim2.new(currentPos.X.Scale, currentPos.X.Offset, currentPos.Y.Scale, currentPos.Y.Offset)
+    })
+    tween:Play()
+    minBtn.Text = isMinimized and "□" or "—"
+end)
+
+-- === MAIN BODY ===
+local bodyFrame = Instance.new("Frame")
+bodyFrame.Name = "Body"
+bodyFrame.Size = UDim2.new(1, 0, 1, -36)
+bodyFrame.Position = UDim2.new(0, 0, 0, 36)
+bodyFrame.BackgroundColor3 = COLORS.WindowBg
+bodyFrame.BorderSizePixel = 0
+bodyFrame.Parent = mainFrame
+
+-- === LEFT SIDEBAR ===
+local sidebar = Instance.new("Frame")
+sidebar.Name = "Sidebar"
+sidebar.Size = UDim2.new(0, 160, 1, 0)
+sidebar.BackgroundColor3 = COLORS.SidebarBg
+sidebar.BorderSizePixel = 0
+sidebar.Parent = bodyFrame
+
+local sidebarDivider = Instance.new("Frame")
+sidebarDivider.Name = "SidebarDivider"
+sidebarDivider.Size = UDim2.new(0, 1, 1, 0)
+sidebarDivider.Position = UDim2.new(1, -1, 0, 0)
+sidebarDivider.BackgroundColor3 = COLORS.Border
+sidebarDivider.BorderSizePixel = 0
+sidebarDivider.Parent = sidebar
+
+local sidebarItems = {
+    { name = "Aiming", indent = 0, category = "Aiming" },
+    { name = "Visuals", indent = 0, category = "Visuals" },
+    { name = "Character", indent = 0, category = "Character" },
+    { name = "Settings", indent = 0, category = "Settings" },
+    { name = "Players", indent = 0, category = "Players" },
+}
+
+local selectedCategory = "Character"
+local categoryButtons = {}
+local accentBars = {}
+
+for i, item in ipairs(sidebarItems) do
+    local yPos = 10 + (i - 1) * 34
+    local indentOffset = item.indent * 12
+    
+    local accent = Instance.new("Frame")
+    accent.Name = "Accent_" .. item.name
+    accent.Size = UDim2.new(0, 3, 0, 30)
+    accent.Position = UDim2.new(0, 0, 0, yPos + 2)
+    accent.BackgroundColor3 = (item.category == selectedCategory) and COLORS.ActiveWhite or Color3.fromHex("191919")
+    accent.BorderSizePixel = 0
+    accent.Parent = sidebar
+    table.insert(accentBars, accent)
+    
+    local btn = Instance.new("TextButton")
+    btn.Name = "Btn_" .. item.name
+    btn.Size = UDim2.new(1, -12 - indentOffset, 0, 30)
+    btn.Position = UDim2.new(0, 12 + indentOffset, 0, yPos)
+    btn.BackgroundTransparency = 1
+    btn.Text = item.name
+    btn.TextColor3 = (item.category == selectedCategory) and COLORS.White or COLORS.DimText
+    btn.TextSize = 16
+    btn.TextXAlignment = Enum.TextXAlignment.Left
+    btn.Font = Enum.Font.SourceSansBold
+    btn.Parent = sidebar
+    
+    table.insert(categoryButtons, {btn = btn, accent = accent, category = item.category, name = item.name})
+    
+    btn.MouseButton1Click:Connect(function()
+        selectedCategory = item.category
+        updateSidebar()
+        updateContentPanel(item.category)
+    end)
+end
+
+function updateSidebar()
+    for _, data in ipairs(categoryButtons) do
+        local isActive = (data.category == selectedCategory)
+        data.btn.TextColor3 = isActive and COLORS.White or COLORS.DimText
+        data.accent.BackgroundColor3 = isActive and COLORS.ActiveWhite or Color3.fromHex("191919")
+    end
+end
+
+-- === RIGHT CONTENT PANEL ===
+local contentPanel = Instance.new("Frame")
+contentPanel.Name = "ContentPanel"
+contentPanel.Size = UDim2.new(1, -160, 1, 0)
+contentPanel.Position = UDim2.new(0, 160, 0, 0)
+contentPanel.BackgroundColor3 = COLORS.WindowBg
+contentPanel.BorderSizePixel = 0
+contentPanel.Parent = bodyFrame
+
+local contentContainer = Instance.new("Frame")
+contentContainer.Name = "ContentContainer"
+contentContainer.Size = UDim2.new(1, -24, 1, -16)
+contentContainer.Position = UDim2.new(0, 12, 0, 10)
+contentContainer.BackgroundTransparency = 1
+contentContainer.Parent = contentPanel
+
+local currentContent = nil
+local flyEnabled = false
+local flyCheckbox = nil
+local noClipCheckbox = nil
+local espCheckbox = nil
+local fovCheckboxRef = nil
+local boxEspCheckboxRef = nil
+
+-- === PLAYERS LIST VARIABLES ===
+local selectedPlayer = nil
+local playerButtons = {}
+local playerListConnection = nil
+local isSpectating = false
+local spectateTarget = nil
+
+-- Helper: create a styled panel
+local function createPanel(parent, x, y, width, height)
+    local panel = Instance.new("Frame")
+    panel.Size = UDim2.new(0, width, 0, height)
+    panel.Position = UDim2.new(0, x, 0, y)
+    panel.BackgroundColor3 = COLORS.PanelBg
+    panel.BorderSizePixel = 1
+    panel.BorderColor3 = COLORS.Border
+    panel.Parent = parent
+    return panel
+end
+
+-- === SPECTATE FUNCTIONS ===
+local function stopSpectating()
+    if isSpectating then
+        isSpectating = false
+        spectateTarget = nil
+        local char = player.Character
+        if char then
+            local hum = char:FindFirstChild("Humanoid")
+            if hum then
+                camera.CameraSubject = hum
+            else
+                camera.CameraSubject = char:FindFirstChild("HumanoidRootPart")
+            end
+        end
+        camera.CameraType = Enum.CameraType.Custom
+    end
+end
+
+local function startSpectating(targetPlayer)
+    if not targetPlayer then return end
+    local targetChar = targetPlayer.Character
+    if not targetChar then return end
+    local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
+    if not targetRoot then return end
+    
+    stopSpectating()
+    
+    isSpectating = true
+    spectateTarget = targetPlayer
+    
+    camera.CameraType = Enum.CameraType.Follow
+    camera.CameraSubject = targetRoot
+end
+
+-- === BUILD PLAYERS PANEL ===
+local function buildPlayersPanel(container, yOffset, panelWidth, panelHeight)
+    local panel = createPanel(container, 0, yOffset, panelWidth, panelHeight)
+    
+    local header = Instance.new("TextLabel")
+    header.Size = UDim2.new(1, -16, 0, 24)
+    header.Position = UDim2.new(0, 8, 0, 6)
+    header.BackgroundTransparency = 1
+    header.Text = "Players"
+    header.TextColor3 = COLORS.White
+    header.TextSize = 13
+    header.TextXAlignment = Enum.TextXAlignment.Left
+    header.Font = Enum.Font.SourceSansBold
+    header.Parent = panel
+    
+    local div = Instance.new("Frame")
+    div.Size = UDim2.new(1, -16, 0, 1)
+    div.Position = UDim2.new(0, 8, 0, 32)
+    div.BackgroundColor3 = COLORS.Border
+    div.BorderSizePixel = 0
+    div.Parent = panel
+    
+    local scrollFrame = Instance.new("ScrollingFrame")
+    scrollFrame.Name = "PlayerScrollFrame"
+    scrollFrame.Size = UDim2.new(1, -16, 1, -64)
+    scrollFrame.Position = UDim2.new(0, 8, 0, 36)
+    scrollFrame.BackgroundTransparency = 1
+    scrollFrame.BorderSizePixel = 0
+    scrollFrame.ScrollBarThickness = 4
+    scrollFrame.ScrollBarImageColor3 = COLORS.ControlBorder
+    scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+    scrollFrame.ClipsDescendants = true
+    scrollFrame.Parent = panel
+    
+    local actionBar = Instance.new("Frame")
+    actionBar.Name = "ActionBar"
+    actionBar.Size = UDim2.new(1, -16, 0, 32)
+    actionBar.Position = UDim2.new(0, 8, 1, -36)
+    actionBar.BackgroundTransparency = 1
+    actionBar.Parent = panel
+    
+    local teleportBtn = Instance.new("TextButton")
+    teleportBtn.Name = "TeleportBtn"
+    teleportBtn.Size = UDim2.new(0, 140, 1, -4)
+    teleportBtn.Position = UDim2.new(0.5, -150, 0.5, -14)
+    teleportBtn.BackgroundTransparency = 1
+    teleportBtn.Text = "Teleport"
+    teleportBtn.TextColor3 = COLORS.White
+    teleportBtn.TextSize = 12
+    teleportBtn.Font = Enum.Font.SourceSans
+    teleportBtn.Parent = actionBar
+    
+    local spectateBtn = Instance.new("TextButton")
+    spectateBtn.Name = "SpectateBtn"
+    spectateBtn.Size = UDim2.new(0, 140, 1, -4)
+    spectateBtn.Position = UDim2.new(0.5, 10, 0.5, -14)
+    spectateBtn.BackgroundTransparency = 1
+    spectateBtn.Text = "Spectate"
+    spectateBtn.TextColor3 = COLORS.White
+    spectateBtn.TextSize = 12
+    spectateBtn.Font = Enum.Font.SourceSans
+    spectateBtn.Parent = actionBar
+    
+    local function refreshPlayerList()
+        for _, btn in ipairs(playerButtons) do
+            btn:Destroy()
+        end
+        playerButtons = {}
+        
+        local allPlayers = Players:GetPlayers()
+        local visiblePlayers = {}
+        for _, plr in ipairs(allPlayers) do
+            if plr ~= player then
+                table.insert(visiblePlayers, plr)
+            end
+        end
+        
+        local yPos = 0
+        local rowHeight = 48
+        local spacing = 4
+        scrollFrame.CanvasSize = UDim2.new(0, 0, 0, #visiblePlayers * (rowHeight + spacing) + 10)
+        
+        for _, plr in ipairs(visiblePlayers) do
+            local row = Instance.new("TextButton")
+            row.Size = UDim2.new(1, 0, 0, rowHeight)
+            row.Position = UDim2.new(0, 0, 0, yPos)
+            row.BackgroundColor3 = (selectedPlayer == plr) and COLORS.SelectedBg or COLORS.PanelBg
+            row.BorderSizePixel = (selectedPlayer == plr) and 2 or 1
+            row.BorderColor3 = (selectedPlayer == plr) and COLORS.HighlightBorder or COLORS.Border
+            row.Text = ""
+            row.Parent = scrollFrame
+            
+            local displayLabel = Instance.new("TextLabel")
+            displayLabel.Size = UDim2.new(1, -12, 0, 20)
+            displayLabel.Position = UDim2.new(0, 6, 0, 4)
+            displayLabel.BackgroundTransparency = 1
+            displayLabel.Text = plr.DisplayName
+            displayLabel.TextColor3 = COLORS.White
+            displayLabel.TextSize = 13
+            displayLabel.TextXAlignment = Enum.TextXAlignment.Left
+            displayLabel.Font = Enum.Font.SourceSansBold
+            displayLabel.Parent = row
+            
+            local userLabel = Instance.new("TextLabel")
+            userLabel.Size = UDim2.new(1, -12, 0, 16)
+            userLabel.Position = UDim2.new(0, 6, 0, 26)
+            userLabel.BackgroundTransparency = 1
+            userLabel.Text = plr.Name
+            userLabel.TextColor3 = COLORS.TertiaryText
+            userLabel.TextSize = 11
+            userLabel.TextXAlignment = Enum.TextXAlignment.Left
+            userLabel.Font = Enum.Font.SourceSans
+            userLabel.Parent = row
+            
+            row.MouseButton1Click:Connect(function()
+                selectedPlayer = plr
+                refreshPlayerList()
+            end)
+            
+            table.insert(playerButtons, row)
+            yPos = yPos + rowHeight + spacing
+        end
+        
+        if isSpectating then
+            spectateBtn.Text = "Unspectate"
+        else
+            spectateBtn.Text = selectedPlayer and ("Spectate " .. selectedPlayer.DisplayName) or "Spectate"
+        end
+        teleportBtn.Text = selectedPlayer and ("Teleport to " .. selectedPlayer.DisplayName) or "Teleport"
+    end
+    
+    teleportBtn.MouseButton1Click:Connect(function()
+        if not selectedPlayer then return end
+        local targetChar = selectedPlayer.Character
+        if not targetChar then return end
+        local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
+        if not targetRoot then return end
+        local localChar = player.Character
+        if not localChar then return end
+        local localRoot = localChar:FindFirstChild("HumanoidRootPart")
+        if not localRoot then return end
+        localRoot.CFrame = targetRoot.CFrame + Vector3.new(0, 3, 0)
+    end)
+    
+    spectateBtn.MouseButton1Click:Connect(function()
+        if isSpectating then
+            stopSpectating()
+            refreshPlayerList()
+            return
+        end
+        if not selectedPlayer then return end
+        startSpectating(selectedPlayer)
+        refreshPlayerList()
+    end)
+    
+    refreshPlayerList()
+    
+    if playerListConnection then
+        playerListConnection:Disconnect()
+    end
+    playerListConnection = Players.PlayerAdded:Connect(refreshPlayerList)
+    Players.PlayerRemoving:Connect(refreshPlayerList)
+    
+    screenGui.AncestryChanged:Connect(function()
+        if not screenGui.Parent then
+            stopSpectating()
+        end
+    end)
+    
+    return panel
+end
+
+function buildContentPanel(category)
+    if currentContent then
+        currentContent:Destroy()
+        currentContent = nil
+    end
+    
+    local container = Instance.new("Frame")
+    container.Name = "DynamicContent"
+    container.Size = UDim2.new(1, 0, 1, 0)
+    container.BackgroundTransparency = 1
+    container.Parent = contentContainer
+    currentContent = container
+    
+    local header = Instance.new("TextLabel")
+    header.Name = "CategoryHeader"
+    header.Size = UDim2.new(1, 0, 0, 30)
+    header.Position = UDim2.new(0, 0, 0, 0)
+    header.BackgroundTransparency = 1
+    header.Text = category
+    header.TextColor3 = COLORS.White
+    header.TextSize = 16
+    header.TextXAlignment = Enum.TextXAlignment.Left
+    header.Font = Enum.Font.SourceSansBold
+    header.Parent = container
+    
+    local underline = Instance.new("Frame")
+    underline.Name = "HeaderUnderline"
+    underline.Size = UDim2.new(1, 0, 0, 1)
+    underline.Position = UDim2.new(0, 0, 0, 32)
+    underline.BackgroundColor3 = COLORS.Border
+    underline.BorderSizePixel = 0
+    underline.Parent = container
+    
+    local yOffset = 44
+    local contentHeight = contentContainer.AbsoluteSize.Y - 50
+    if contentHeight < 100 then contentHeight = 380 end
+    
+    local panelWidth = 420
+    local panelHeight = contentHeight - 10
+    
+    if category == "Players" then
+        buildPlayersPanel(container, yOffset, panelWidth, panelHeight)
+    else
+        local leftWidth = 200
+        local rightWidth = 200
+        local gap = 16
+        
+        local leftPanel = createPanel(container, 0, yOffset, leftWidth, panelHeight)
+        local rightPanel = createPanel(container, leftWidth + gap, yOffset, rightWidth, panelHeight)
+        
+        if category == "Aiming" then
+            local yPos = 12
+            
+            -- Draw FOV row
+            local fovRow = Instance.new("Frame")
+            fovRow.Name = "FovRow"
+            fovRow.Size = UDim2.new(1, -16, 0, 38)
+            fovRow.Position = UDim2.new(0, 8, 0, yPos)
+            fovRow.BackgroundTransparency = 1
+            fovRow.Parent = leftPanel
+            
+            local fovRowButton = Instance.new("TextButton")
+            fovRowButton.Name = "FovRowClickArea"
+            fovRowButton.Size = UDim2.new(1, 0, 1, 0)
+            fovRowButton.BackgroundTransparency = 1
+            fovRowButton.Text = ""
+            fovRowButton.Parent = fovRow
+            
+            local fovBox = createCircleCheckbox(fovRow, 22, UDim2.new(0, 0, 0.5, -11))
+            fovBox.BackgroundColor3 = drawFovEnabled and COLORS.ActiveWhite or COLORS.ControlBg
+            fovCheckboxRef = fovBox
+            
+            local fovLabel = Instance.new("TextLabel")
+            fovLabel.Name = "DrawFovLabel"
+            fovLabel.Size = UDim2.new(0, 80, 1, 0)
+            fovLabel.Position = UDim2.new(0, 30, 0, 0)
+            fovLabel.BackgroundTransparency = 1
+            fovLabel.Text = "Draw FOV"
+            fovLabel.TextColor3 = COLORS.White
+            fovLabel.TextSize = 18
+            fovLabel.TextXAlignment = Enum.TextXAlignment.Left
+            fovLabel.Font = Enum.Font.SourceSansBold
+            fovLabel.Parent = fovRow
+            
+            local function toggleDrawFovCallback()
+                drawFovEnabled = not drawFovEnabled
+                fovBox.BackgroundColor3 = drawFovEnabled and COLORS.ActiveWhite or COLORS.ControlBg
+                toggleDrawFov(drawFovEnabled)
+            end
+            
+            fovBox.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    toggleDrawFovCallback()
+                end
+            end)
+            fovRowButton.MouseButton1Click:Connect(toggleDrawFovCallback)
+            
+            yPos = yPos + 42
+            
+            -- FOV Visible row
+            local visFovRow = Instance.new("Frame")
+            visFovRow.Name = "VisFovRow"
+            visFovRow.Size = UDim2.new(1, -16, 0, 38)
+            visFovRow.Position = UDim2.new(0, 8, 0, yPos)
+            visFovRow.BackgroundTransparency = 1
+            visFovRow.Parent = leftPanel
+            
+            local visFovRowButton = Instance.new("TextButton")
+            visFovRowButton.Name = "VisFovRowClickArea"
+            visFovRowButton.Size = UDim2.new(1, 0, 1, 0)
+            visFovRowButton.BackgroundTransparency = 1
+            visFovRowButton.Text = ""
+            visFovRowButton.Parent = visFovRow
+            
+            local visFovBox = createCircleCheckbox(visFovRow, 22, UDim2.new(0, 0, 0.5, -11))
+            visFovBox.BackgroundColor3 = fovVisible and COLORS.ActiveWhite or COLORS.ControlBg
+            
+            local visFovLabel = Instance.new("TextLabel")
+            visFovLabel.Name = "VisibleFovLabel"
+            visFovLabel.Size = UDim2.new(0, 100, 1, 0)
+            visFovLabel.Position = UDim2.new(0, 30, 0, 0)
+            visFovLabel.BackgroundTransparency = 1
+            visFovLabel.Text = "FOV Visible"
+            visFovLabel.TextColor3 = COLORS.White
+            visFovLabel.TextSize = 18
+            visFovLabel.TextXAlignment = Enum.TextXAlignment.Left
+            visFovLabel.Font = Enum.Font.SourceSansBold
+            visFovLabel.Parent = visFovRow
+            
+            local function toggleVisibleFovCallback()
+                fovVisible = not fovVisible
+                visFovBox.BackgroundColor3 = fovVisible and COLORS.ActiveWhite or COLORS.ControlBg
+                toggleFovVisible(fovVisible)
+            end
+            
+            visFovBox.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    toggleVisibleFovCallback()
+                end
+            end)
+            visFovRowButton.MouseButton1Click:Connect(toggleVisibleFovCallback)
+            
+            yPos = yPos + 48
+            
+            -- Gray divider line
+            local dividerLine = Instance.new("Frame")
+            dividerLine.Size = UDim2.new(1, -16, 0, 1)
+            dividerLine.Position = UDim2.new(0, 8, 0, yPos)
+            dividerLine.BackgroundColor3 = Color3.fromHex("555555")
+            dividerLine.BorderSizePixel = 0
+            dividerLine.Parent = leftPanel
+            
+            yPos = yPos + 10
+            
+            -- FOV Target row with dropdown
+            local targetRow = Instance.new("Frame")
+            targetRow.Name = "TargetRow"
+            targetRow.Size = UDim2.new(1, -16, 0, 38)
+            targetRow.Position = UDim2.new(0, 8, 0, yPos)
+            targetRow.BackgroundTransparency = 1
+            targetRow.Parent = leftPanel
+            
+            local targetLabel = Instance.new("TextLabel")
+            targetLabel.Name = "FovTargetLabel"
+            targetLabel.Size = UDim2.new(0, 80, 1, 0)
+            targetLabel.Position = UDim2.new(0, 0, 0, 0)
+            targetLabel.BackgroundTransparency = 1
+            targetLabel.Text = "FOV Target"
+            targetLabel.TextColor3 = COLORS.White
+            targetLabel.TextSize = 18
+            targetLabel.TextXAlignment = Enum.TextXAlignment.Left
+            targetLabel.Font = Enum.Font.SourceSansBold
+            targetLabel.Parent = targetRow
+            
+            -- Dropdown button
+            local dropdownButton = Instance.new("TextButton")
+            dropdownButton.Name = "DropdownButton"
+            dropdownButton.Size = UDim2.new(0, 90, 0, 26)
+            dropdownButton.Position = UDim2.new(1, -90, 0.5, -13)
+            dropdownButton.BackgroundColor3 = COLORS.ControlBg
+            dropdownButton.BorderSizePixel = 1
+            dropdownButton.BorderColor3 = COLORS.ControlBorder
+            dropdownButton.Text = fovTarget .. "  ▼"
+            dropdownButton.TextColor3 = COLORS.White
+            dropdownButton.TextSize = 14
+            dropdownButton.Font = Enum.Font.SourceSans
+            dropdownButton.TextXAlignment = Enum.TextXAlignment.Left
+            dropdownButton.ZIndex = 5
+            dropdownButton.Parent = targetRow
+            
+            -- Dropdown list
+            local dropdownList = Instance.new("Frame")
+            dropdownList.Name = "DropdownList"
+            dropdownList.Size = UDim2.new(0, 90, 0, 0)
+            dropdownList.Position = UDim2.new(1, -90, 0.5, 13)
+            dropdownList.BackgroundColor3 = COLORS.ControlBg
+            dropdownList.BorderSizePixel = 1
+            dropdownList.BorderColor3 = COLORS.ControlBorder
+            dropdownList.Visible = false
+            dropdownList.ZIndex = 10
+            dropdownList.Parent = targetRow
+            
+            local headOption = Instance.new("TextButton")
+            headOption.Name = "HeadOption"
+            headOption.Size = UDim2.new(1, 0, 0, 26)
+            headOption.Position = UDim2.new(0, 0, 0, 0)
+            headOption.BackgroundColor3 = COLORS.ControlBg
+            headOption.BorderSizePixel = 0
+            headOption.Text = "Head"
+            headOption.TextColor3 = COLORS.White
+            headOption.TextSize = 14
+            headOption.Font = Enum.Font.SourceSans
+            headOption.ZIndex = 11
+            headOption.Parent = dropdownList
+            
+            local torsoOption = Instance.new("TextButton")
+            torsoOption.Name = "TorsoOption"
+            torsoOption.Size = UDim2.new(1, 0, 0, 26)
+            torsoOption.Position = UDim2.new(0, 0, 0, 26)
+            torsoOption.BackgroundColor3 = COLORS.ControlBg
+            torsoOption.BorderSizePixel = 0
+            torsoOption.Text = "Torso"
+            torsoOption.TextColor3 = COLORS.White
+            torsoOption.TextSize = 14
+            torsoOption.Font = Enum.Font.SourceSans
+            torsoOption.ZIndex = 11
+            torsoOption.Parent = dropdownList
+            
+            local dropdownOpen = false
+            
+            local function closeDropdown()
+                dropdownOpen = false
+                dropdownList.Visible = false
+                dropdownList.Size = UDim2.new(0, 90, 0, 0)
+                dropdownButton.Text = fovTarget .. "  ▼"
+            end
+            
+            local function openDropdown()
+                dropdownOpen = true
+                dropdownList.Visible = true
+                dropdownList.Size = UDim2.new(0, 90, 0, 52)
+                dropdownButton.Text = fovTarget .. "  ▲"
+            end
+            
+            dropdownButton.MouseButton1Click:Connect(function()
+                if dropdownOpen then
+                    closeDropdown()
+                else
+                    openDropdown()
+                end
+            end)
+            
+            headOption.MouseButton1Click:Connect(function()
+                fovTarget = "Head"
+                closeDropdown()
+            end)
+            
+            torsoOption.MouseButton1Click:Connect(function()
+                fovTarget = "Torso"
+                closeDropdown()
+            end)
+            
+            -- RIGHT PANEL: FOV Radius slider + FOV Smoothness slider
+            local rightYPos = 8
+            
+            -- FOV Radius slider
+            local fovRadiusLabel = Instance.new("TextLabel")
+            fovRadiusLabel.Size = UDim2.new(1, -16, 0, 24)
+            fovRadiusLabel.Position = UDim2.new(0, 8, 0, rightYPos)
+            fovRadiusLabel.BackgroundTransparency = 1
+            fovRadiusLabel.Text = "FOV Radius"
+            fovRadiusLabel.TextColor3 = COLORS.White
+            fovRadiusLabel.TextSize = 16
+            fovRadiusLabel.TextXAlignment = Enum.TextXAlignment.Left
+            fovRadiusLabel.Font = Enum.Font.SourceSansBold
+            fovRadiusLabel.Parent = rightPanel
+            
+            local fovValueLabel = Instance.new("TextLabel")
+            fovValueLabel.Size = UDim2.new(0, 50, 0, 24)
+            fovValueLabel.Position = UDim2.new(1, -58, 0, rightYPos)
+            fovValueLabel.BackgroundTransparency = 1
+            fovValueLabel.Text = tostring(fovRadius)
+            fovValueLabel.TextColor3 = COLORS.White
+            fovValueLabel.TextSize = 16
+            fovValueLabel.TextXAlignment = Enum.TextXAlignment.Right
+            fovValueLabel.Font = Enum.Font.SourceSansBold
+            fovValueLabel.Parent = rightPanel
+            
+            local fovSliderTrack = Instance.new("Frame")
+            fovSliderTrack.Size = UDim2.new(1, -16, 0, 6)
+            fovSliderTrack.Position = UDim2.new(0, 8, 0, rightYPos + 30)
+            fovSliderTrack.BackgroundColor3 = Color3.fromHex("333333")
+            fovSliderTrack.BorderSizePixel = 0
+            fovSliderTrack.Parent = rightPanel
+            
+            local fovSliderFill = Instance.new("Frame")
+            fovSliderFill.Size = UDim2.new((fovRadius - 30) / 270, 0, 1, 0)
+            fovSliderFill.BackgroundColor3 = COLORS.White
+            fovSliderFill.BorderSizePixel = 0
+            fovSliderFill.Parent = fovSliderTrack
+            
+            local fovSliderKnob = Instance.new("TextButton")
+            fovSliderKnob.Size = UDim2.new(0, 20, 0, 20)
+            fovSliderKnob.Position = UDim2.new((fovRadius - 30) / 270, -10, 0.5, -10)
+            fovSliderKnob.BackgroundColor3 = COLORS.White
+            fovSliderKnob.BorderSizePixel = 0
+            fovSliderKnob.Text = ""
+            fovSliderKnob.Parent = fovSliderTrack
+            
+            local fovKnobCorner = Instance.new("UICorner")
+            fovKnobCorner.CornerRadius = UDim.new(1, 0)
+            fovKnobCorner.Parent = fovSliderKnob
+            
+            local fovIsDragging = false
+            local fovDragConn = nil
+            local fovEndConn = nil
+            
+            local function updateFovSlider(input)
+                if not fovSliderTrack or not fovSliderTrack.Parent then return end
+                local trackPos = fovSliderTrack.AbsolutePosition.X
+                local trackWidth = fovSliderTrack.AbsoluteSize.X
+                if trackWidth <= 0 then return end
+                local mouseX = input.Position.X
+                local percent = math.clamp((mouseX - trackPos) / trackWidth, 0, 1)
+                fovRadius = math.round(30 + percent * 270)
+                fovSliderFill.Size = UDim2.new(percent, 0, 1, 0)
+                fovSliderKnob.Position = UDim2.new(percent, -10, 0.5, -10)
+                fovValueLabel.Text = tostring(fovRadius)
+                if fovCircle then
+                    fovCircle.Radius = fovRadius
+                end
+            end
+            
+            local function startFovDrag()
+                fovIsDragging = true
+                if fovDragConn then fovDragConn:Disconnect() end
+                if fovEndConn then fovEndConn:Disconnect() end
+                fovDragConn = UserInputService.InputChanged:Connect(function(input)
+                    if fovIsDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+                        updateFovSlider(input)
+                    end
+                end)
+                fovEndConn = UserInputService.InputEnded:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        fovIsDragging = false
+                        if fovDragConn then fovDragConn:Disconnect() fovDragConn = nil end
+                        if fovEndConn then fovEndConn:Disconnect() fovEndConn = nil end
+                    end
+                end)
+            end
+            
+            fovSliderKnob.MouseButton1Down:Connect(startFovDrag)
+            fovSliderTrack.MouseButton1Click:Connect(function(input) updateFovSlider(input) end)
+            fovSliderTrack.MouseButton1Down:Connect(function(input) updateFovSlider(input); startFovDrag() end)
+            
+            rightYPos = rightYPos + 52
+            
+            -- FOV Smoothness slider
+            local smoothLabel = Instance.new("TextLabel")
+            smoothLabel.Size = UDim2.new(1, -16, 0, 24)
+            smoothLabel.Position = UDim2.new(0, 8, 0, rightYPos)
+            smoothLabel.BackgroundTransparency = 1
+            smoothLabel.Text = "FOV Smoothness"
+            smoothLabel.TextColor3 = COLORS.White
+            smoothLabel.TextSize = 16
+            smoothLabel.TextXAlignment = Enum.TextXAlignment.Left
+            smoothLabel.Font = Enum.Font.SourceSansBold
+            smoothLabel.Parent = rightPanel
+            
+            local smoothValueLabel = Instance.new("TextLabel")
+            smoothValueLabel.Size = UDim2.new(0, 50, 0, 24)
+            smoothValueLabel.Position = UDim2.new(1, -58, 0, rightYPos)
+            smoothValueLabel.BackgroundTransparency = 1
+            smoothValueLabel.Text = tostring(fovAimbotSmoothness)
+            smoothValueLabel.TextColor3 = COLORS.White
+            smoothValueLabel.TextSize = 16
+            smoothValueLabel.TextXAlignment = Enum.TextXAlignment.Right
+            smoothValueLabel.Font = Enum.Font.SourceSansBold
+            smoothValueLabel.Parent = rightPanel
+            
+            local smoothSliderTrack = Instance.new("Frame")
+            smoothSliderTrack.Size = UDim2.new(1, -16, 0, 6)
+            smoothSliderTrack.Position = UDim2.new(0, 8, 0, rightYPos + 30)
+            smoothSliderTrack.BackgroundColor3 = Color3.fromHex("333333")
+            smoothSliderTrack.BorderSizePixel = 0
+            smoothSliderTrack.Parent = rightPanel
+            
+            local smoothSliderFill = Instance.new("Frame")
+            smoothSliderFill.Size = UDim2.new((fovAimbotSmoothness - 1) / 19, 0, 1, 0)
+            smoothSliderFill.BackgroundColor3 = COLORS.White
+            smoothSliderFill.BorderSizePixel = 0
+            smoothSliderFill.Parent = smoothSliderTrack
+            
+            local smoothSliderKnob = Instance.new("TextButton")
+            smoothSliderKnob.Size = UDim2.new(0, 20, 0, 20)
+            smoothSliderKnob.Position = UDim2.new((fovAimbotSmoothness - 1) / 19, -10, 0.5, -10)
+            smoothSliderKnob.BackgroundColor3 = COLORS.White
+            smoothSliderKnob.BorderSizePixel = 0
+            smoothSliderKnob.Text = ""
+            smoothSliderKnob.Parent = smoothSliderTrack
+            
+            local smoothKnobCorner = Instance.new("UICorner")
+            smoothKnobCorner.CornerRadius = UDim.new(1, 0)
+            smoothKnobCorner.Parent = smoothSliderKnob
+            
+            local smoothIsDragging = false
+            local smoothDragConn = nil
+            local smoothEndConn = nil
+            
+            local function updateSmoothSlider(input)
+                if not smoothSliderTrack or not smoothSliderTrack.Parent then return end
+                local trackPos = smoothSliderTrack.AbsolutePosition.X
+                local trackWidth = smoothSliderTrack.AbsoluteSize.X
+                if trackWidth <= 0 then return end
+                local mouseX = input.Position.X
+                local percent = math.clamp((mouseX - trackPos) / trackWidth, 0, 1)
+                fovAimbotSmoothness = math.round(1 + percent * 19)
+                smoothSliderFill.Size = UDim2.new(percent, 0, 1, 0)
+                smoothSliderKnob.Position = UDim2.new(percent, -10, 0.5, -10)
+                smoothValueLabel.Text = tostring(fovAimbotSmoothness)
+            end
+            
+            local function startSmoothDrag()
+                smoothIsDragging = true
+                if smoothDragConn then smoothDragConn:Disconnect() end
+                if smoothEndConn then smoothEndConn:Disconnect() end
+                smoothDragConn = UserInputService.InputChanged:Connect(function(input)
+                    if smoothIsDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+                        updateSmoothSlider(input)
+                    end
+                end)
+                smoothEndConn = UserInputService.InputEnded:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        smoothIsDragging = false
+                        if smoothDragConn then smoothDragConn:Disconnect() smoothDragConn = nil end
+                        if smoothEndConn then smoothEndConn:Disconnect() smoothEndConn = nil end
+                    end
+                end)
+            end
+            
+            smoothSliderKnob.MouseButton1Down:Connect(startSmoothDrag)
+            smoothSliderTrack.MouseButton1Click:Connect(function(input) updateSmoothSlider(input) end)
+            smoothSliderTrack.MouseButton1Down:Connect(function(input) updateSmoothSlider(input); startSmoothDrag() end)
+        end
+        
+        if category == "Visuals" then
+            local yPos = 12
+            
+            -- ESP row
+            local espRow = Instance.new("Frame")
+            espRow.Name = "EspRow"
+            espRow.Size = UDim2.new(1, -16, 0, 38)
+            espRow.Position = UDim2.new(0, 8, 0, yPos)
+            espRow.BackgroundTransparency = 1
+            espRow.Parent = leftPanel
+            
+            local espRowButton = Instance.new("TextButton")
+            espRowButton.Name = "EspRowClickArea"
+            espRowButton.Size = UDim2.new(1, 0, 1, 0)
+            espRowButton.BackgroundTransparency = 1
+            espRowButton.Text = ""
+            espRowButton.Parent = espRow
+            
+            local espBox = createCircleCheckbox(espRow, 22, UDim2.new(0, 0, 0.5, -11))
+            espBox.BackgroundColor3 = espEnabled and COLORS.ActiveWhite or COLORS.ControlBg
+            espCheckbox = espBox
+            
+            local espLabel = Instance.new("TextLabel")
+            espLabel.Name = "EspLabel"
+            espLabel.Size = UDim2.new(0, 80, 1, 0)
+            espLabel.Position = UDim2.new(0, 30, 0, 0)
+            espLabel.BackgroundTransparency = 1
+            espLabel.Text = "ESP"
+            espLabel.TextColor3 = COLORS.White
+            espLabel.TextSize = 18
+            espLabel.TextXAlignment = Enum.TextXAlignment.Left
+            espLabel.Font = Enum.Font.SourceSansBold
+            espLabel.Parent = espRow
+            
+            local function toggleEspCallback()
+                espEnabled = not espEnabled
+                espBox.BackgroundColor3 = espEnabled and COLORS.ActiveWhite or COLORS.ControlBg
+                toggleESP(espEnabled)
+            end
+            
+            espBox.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    toggleEspCallback()
+                end
+            end)
+            espRowButton.MouseButton1Click:Connect(toggleEspCallback)
+            
+            yPos = yPos + 42
+            
+            -- Box ESP row
+            local boxEspRow = Instance.new("Frame")
+            boxEspRow.Name = "BoxEspRow"
+            boxEspRow.Size = UDim2.new(1, -16, 0, 38)
+            boxEspRow.Position = UDim2.new(0, 8, 0, yPos)
+            boxEspRow.BackgroundTransparency = 1
+            boxEspRow.Parent = leftPanel
+            
+            local boxEspRowButton = Instance.new("TextButton")
+            boxEspRowButton.Name = "BoxEspRowClickArea"
+            boxEspRowButton.Size = UDim2.new(1, 0, 1, 0)
+            boxEspRowButton.BackgroundTransparency = 1
+            boxEspRowButton.Text = ""
+            boxEspRowButton.Parent = boxEspRow
+            
+            local boxEspBox = createCircleCheckbox(boxEspRow, 22, UDim2.new(0, 0, 0.5, -11))
+            boxEspBox.BackgroundColor3 = boxEspEnabled and COLORS.ActiveWhite or COLORS.ControlBg
+            boxEspCheckboxRef = boxEspBox
+            
+            local boxEspLabel = Instance.new("TextLabel")
+            boxEspLabel.Name = "BoxEspLabel"
+            boxEspLabel.Size = UDim2.new(0, 80, 1, 0)
+            boxEspLabel.Position = UDim2.new(0, 30, 0, 0)
+            boxEspLabel.BackgroundTransparency = 1
+            boxEspLabel.Text = "Box ESP"
+            boxEspLabel.TextColor3 = COLORS.White
+            boxEspLabel.TextSize = 18
+            boxEspLabel.TextXAlignment = Enum.TextXAlignment.Left
+            boxEspLabel.Font = Enum.Font.SourceSansBold
+            boxEspLabel.Parent = boxEspRow
+            
+            local function toggleBoxEspCallback()
+                boxEspEnabled = not boxEspEnabled
+                boxEspBox.BackgroundColor3 = boxEspEnabled and COLORS.ActiveWhite or COLORS.ControlBg
+                toggleBoxEsp(boxEspEnabled)
+            end
+            
+            boxEspBox.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    toggleBoxEspCallback()
+                end
+            end)
+            boxEspRowButton.MouseButton1Click:Connect(toggleBoxEspCallback)
+            
+            yPos = yPos + 42
+            
+            -- Name ESP row
+            local nameEspRow = Instance.new("Frame")
+            nameEspRow.Name = "NameEspRow"
+            nameEspRow.Size = UDim2.new(1, -16, 0, 38)
+            nameEspRow.Position = UDim2.new(0, 8, 0, yPos)
+            nameEspRow.BackgroundTransparency = 1
+            nameEspRow.Parent = leftPanel
+            
+            local nameEspRowButton = Instance.new("TextButton")
+            nameEspRowButton.Name = "NameEspRowClickArea"
+            nameEspRowButton.Size = UDim2.new(1, 0, 1, 0)
+            nameEspRowButton.BackgroundTransparency = 1
+            nameEspRowButton.Text = ""
+            nameEspRowButton.Parent = nameEspRow
+            
+            local nameEspBox = createCircleCheckbox(nameEspRow, 22, UDim2.new(0, 0, 0.5, -11))
+            nameEspBox.BackgroundColor3 = nameEspEnabled and COLORS.ActiveWhite or COLORS.ControlBg
+            
+            local nameEspLabel = Instance.new("TextLabel")
+            nameEspLabel.Name = "NameEspLabel"
+            nameEspLabel.Size = UDim2.new(0, 80, 1, 0)
+            nameEspLabel.Position = UDim2.new(0, 30, 0, 0)
+            nameEspLabel.BackgroundTransparency = 1
+            nameEspLabel.Text = "Name ESP"
+            nameEspLabel.TextColor3 = COLORS.White
+            nameEspLabel.TextSize = 18
+            nameEspLabel.TextXAlignment = Enum.TextXAlignment.Left
+            nameEspLabel.Font = Enum.Font.SourceSansBold
+            nameEspLabel.Parent = nameEspRow
+            
+            local function toggleNameEspCallback()
+                nameEspEnabled = not nameEspEnabled
+                nameEspBox.BackgroundColor3 = nameEspEnabled and COLORS.ActiveWhite or COLORS.ControlBg
+                toggleNameEsp(nameEspEnabled)
+            end
+            
+            nameEspBox.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    toggleNameEspCallback()
+                end
+            end)
+            nameEspRowButton.MouseButton1Click:Connect(toggleNameEspCallback)
+            
+            -- RIGHT PANEL: Name Size slider
+            local nameSizeLabel = Instance.new("TextLabel")
+            nameSizeLabel.Size = UDim2.new(1, -16, 0, 24)
+            nameSizeLabel.Position = UDim2.new(0, 8, 0, 8)
+            nameSizeLabel.BackgroundTransparency = 1
+            nameSizeLabel.Text = "Name Size"
+            nameSizeLabel.TextColor3 = COLORS.White
+            nameSizeLabel.TextSize = 16
+            nameSizeLabel.TextXAlignment = Enum.TextXAlignment.Left
+            nameSizeLabel.Font = Enum.Font.SourceSansBold
+            nameSizeLabel.Parent = rightPanel
+            
+            local nameSizeValueLabel = Instance.new("TextLabel")
+            nameSizeValueLabel.Size = UDim2.new(0, 50, 0, 24)
+            nameSizeValueLabel.Position = UDim2.new(1, -58, 0, 8)
+            nameSizeValueLabel.BackgroundTransparency = 1
+            nameSizeValueLabel.Text = string.format("%.1f", nameEspSize)
+            nameSizeValueLabel.TextColor3 = COLORS.White
+            nameSizeValueLabel.TextSize = 16
+            nameSizeValueLabel.TextXAlignment = Enum.TextXAlignment.Right
+            nameSizeValueLabel.Font = Enum.Font.SourceSansBold
+            nameSizeValueLabel.Parent = rightPanel
+            
+            local nameSizeSliderTrack = Instance.new("Frame")
+            nameSizeSliderTrack.Size = UDim2.new(1, -16, 0, 6)
+            nameSizeSliderTrack.Position = UDim2.new(0, 8, 0, 38)
+            nameSizeSliderTrack.BackgroundColor3 = Color3.fromHex("333333")
+            nameSizeSliderTrack.BorderSizePixel = 0
+            nameSizeSliderTrack.Parent = rightPanel
+            
+            local nameSizeSliderFill = Instance.new("Frame")
+            nameSizeSliderFill.Size = UDim2.new(nameEspSize / 5, 0, 1, 0)
+            nameSizeSliderFill.BackgroundColor3 = COLORS.White
+            nameSizeSliderFill.BorderSizePixel = 0
+            nameSizeSliderFill.Parent = nameSizeSliderTrack
+            
+            local nameSizeSliderKnob = Instance.new("TextButton")
+            nameSizeSliderKnob.Size = UDim2.new(0, 20, 0, 20)
+            nameSizeSliderKnob.Position = UDim2.new(nameEspSize / 5, -10, 0.5, -10)
+            nameSizeSliderKnob.BackgroundColor3 = COLORS.White
+            nameSizeSliderKnob.BorderSizePixel = 0
+            nameSizeSliderKnob.Text = ""
+            nameSizeSliderKnob.Parent = nameSizeSliderTrack
+            
+            local nameSizeKnobCorner = Instance.new("UICorner")
+            nameSizeKnobCorner.CornerRadius = UDim.new(1, 0)
+            nameSizeKnobCorner.Parent = nameSizeSliderKnob
+            
+            local nameSizeIsDragging = false
+            local nameSizeDragConnection = nil
+            local nameSizeEndConnection = nil
+            
+            local function updateNameSizeSlider(input)
+                if not nameSizeSliderTrack or not nameSizeSliderTrack.Parent then return end
+                local trackPos = nameSizeSliderTrack.AbsolutePosition.X
+                local trackWidth = nameSizeSliderTrack.AbsoluteSize.X
+                if trackWidth <= 0 then return end
+                local mouseX = input.Position.X
+                local percent = math.clamp((mouseX - trackPos) / trackWidth, 0, 1)
+                local newSize = percent * 5
+                nameEspSize = newSize
+                nameSizeSliderFill.Size = UDim2.new(percent, 0, 1, 0)
+                nameSizeSliderKnob.Position = UDim2.new(percent, -10, 0.5, -10)
+                nameSizeValueLabel.Text = string.format("%.1f", nameEspSize)
+                updateNameEspSize(nameEspSize)
+            end
+            
+            local function startNameSizeDrag()
+                nameSizeIsDragging = true
+                if nameSizeDragConnection then nameSizeDragConnection:Disconnect() end
+                if nameSizeEndConnection then nameSizeEndConnection:Disconnect() end
+                nameSizeDragConnection = UserInputService.InputChanged:Connect(function(input)
+                    if nameSizeIsDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+                        updateNameSizeSlider(input)
+                    end
+                end)
+                nameSizeEndConnection = UserInputService.InputEnded:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        nameSizeIsDragging = false
+                        if nameSizeDragConnection then nameSizeDragConnection:Disconnect() nameSizeDragConnection = nil end
+                        if nameSizeEndConnection then nameSizeEndConnection:Disconnect() nameSizeEndConnection = nil end
+                    end
+                end)
+            end
+            
+            nameSizeSliderKnob.MouseButton1Down:Connect(startNameSizeDrag)
+            nameSizeSliderTrack.MouseButton1Click:Connect(function(input)
+                updateNameSizeSlider(input)
+            end)
+            nameSizeSliderTrack.MouseButton1Down:Connect(function(input)
+                updateNameSizeSlider(input)
+                startNameSizeDrag()
+            end)
+        end
+        
+        if category == "Character" then
+            local yPos = 12
+            
+            -- Fly row
+            local flyRow = Instance.new("Frame")
+            flyRow.Name = "FlyRow"
+            flyRow.Size = UDim2.new(1, -16, 0, 38)
+            flyRow.Position = UDim2.new(0, 8, 0, yPos)
+            flyRow.BackgroundTransparency = 1
+            flyRow.Parent = leftPanel
+            
+            local rowButton = Instance.new("TextButton")
+            rowButton.Name = "RowClickArea"
+            rowButton.Size = UDim2.new(1, 0, 1, 0)
+            rowButton.BackgroundTransparency = 1
+            rowButton.Text = ""
+            rowButton.Parent = flyRow
+            
+            local checkBox = createCircleCheckbox(flyRow, 22, UDim2.new(0, 0, 0.5, -11))
+            checkBox.BackgroundColor3 = flyEnabled and COLORS.ActiveWhite or COLORS.ControlBg
+            flyCheckbox = checkBox
+            
+            local flyLabel = Instance.new("TextLabel")
+            flyLabel.Name = "FlyLabel"
+            flyLabel.Size = UDim2.new(0, 80, 1, 0)
+            flyLabel.Position = UDim2.new(0, 30, 0, 0)
+            flyLabel.BackgroundTransparency = 1
+            flyLabel.Text = "Fly"
+            flyLabel.TextColor3 = COLORS.White
+            flyLabel.TextSize = 18
+            flyLabel.TextXAlignment = Enum.TextXAlignment.Left
+            flyLabel.Font = Enum.Font.SourceSansBold
+            flyLabel.Parent = flyRow
+            
+            local function toggleFly()
+                flyEnabled = not flyEnabled
+                checkBox.BackgroundColor3 = flyEnabled and COLORS.ActiveWhite or COLORS.ControlBg
+                if flyEnabled then enableFly() else disableFly() end
+            end
+            
+            checkBox.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    toggleFly()
+                end
+            end)
+            rowButton.MouseButton1Click:Connect(toggleFly)
+            
+            yPos = yPos + 42
+            
+            -- No Clip row
+            local noClipRow = Instance.new("Frame")
+            noClipRow.Name = "NoClipRow"
+            noClipRow.Size = UDim2.new(1, -16, 0, 38)
+            noClipRow.Position = UDim2.new(0, 8, 0, yPos)
+            noClipRow.BackgroundTransparency = 1
+            noClipRow.Parent = leftPanel
+            
+            local noClipRowButton = Instance.new("TextButton")
+            noClipRowButton.Name = "NoClipRowClickArea"
+            noClipRowButton.Size = UDim2.new(1, 0, 1, 0)
+            noClipRowButton.BackgroundTransparency = 1
+            noClipRowButton.Text = ""
+            noClipRowButton.Parent = noClipRow
+            
+            local noClipBox = createCircleCheckbox(noClipRow, 22, UDim2.new(0, 0, 0.5, -11))
+            noClipBox.BackgroundColor3 = noClipEnabled and COLORS.ActiveWhite or COLORS.ControlBg
+            noClipCheckbox = noClipBox
+            
+            local noClipLabel = Instance.new("TextLabel")
+            noClipLabel.Name = "NoClipLabel"
+            noClipLabel.Size = UDim2.new(0, 80, 1, 0)
+            noClipLabel.Position = UDim2.new(0, 30, 0, 0)
+            noClipLabel.BackgroundTransparency = 1
+            noClipLabel.Text = "No Clip"
+            noClipLabel.TextColor3 = COLORS.White
+            noClipLabel.TextSize = 18
+            noClipLabel.TextXAlignment = Enum.TextXAlignment.Left
+            noClipLabel.Font = Enum.Font.SourceSansBold
+            noClipLabel.Parent = noClipRow
+            
+            local function toggleNoClipCallback()
+                noClipEnabled = not noClipEnabled
+                noClipBox.BackgroundColor3 = noClipEnabled and COLORS.ActiveWhite or COLORS.ControlBg
+                toggleNoClip(noClipEnabled)
+            end
+            
+            noClipBox.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    toggleNoClipCallback()
+                end
+            end)
+            noClipRowButton.MouseButton1Click:Connect(toggleNoClipCallback)
+            
+            -- RIGHT PANEL: Fly Speed slider
+            local speedLabel = Instance.new("TextLabel")
+            speedLabel.Size = UDim2.new(1, -16, 0, 24)
+            speedLabel.Position = UDim2.new(0, 8, 0, 8)
+            speedLabel.BackgroundTransparency = 1
+            speedLabel.Text = "Fly speed"
+            speedLabel.TextColor3 = COLORS.White
+            speedLabel.TextSize = 16
+            speedLabel.TextXAlignment = Enum.TextXAlignment.Left
+            speedLabel.Font = Enum.Font.SourceSansBold
+            speedLabel.Parent = rightPanel
+            
+            local speedValue = Instance.new("TextLabel")
+            speedValue.Size = UDim2.new(0, 50, 0, 24)
+            speedValue.Position = UDim2.new(1, -58, 0, 8)
+            speedValue.BackgroundTransparency = 1
+            speedValue.Text = tostring(flySpeed)
+            speedValue.TextColor3 = COLORS.White
+            speedValue.TextSize = 16
+            speedValue.TextXAlignment = Enum.TextXAlignment.Right
+            speedValue.Font = Enum.Font.SourceSansBold
+            speedValue.Parent = rightPanel
+            
+            local sliderTrack = Instance.new("Frame")
+            sliderTrack.Size = UDim2.new(1, -16, 0, 6)
+            sliderTrack.Position = UDim2.new(0, 8, 0, 38)
+            sliderTrack.BackgroundColor3 = Color3.fromHex("333333")
+            sliderTrack.BorderSizePixel = 0
+            sliderTrack.Parent = rightPanel
+            
+            local sliderFill = Instance.new("Frame")
+            sliderFill.Size = UDim2.new((flySpeed - 10) / 140, 0, 1, 0)
+            sliderFill.BackgroundColor3 = COLORS.White
+            sliderFill.BorderSizePixel = 0
+            sliderFill.Parent = sliderTrack
+            
+            local sliderKnob = Instance.new("TextButton")
+            sliderKnob.Size = UDim2.new(0, 20, 0, 20)
+            sliderKnob.Position = UDim2.new((flySpeed - 10) / 140, -10, 0.5, -10)
+            sliderKnob.BackgroundColor3 = COLORS.White
+            sliderKnob.BorderSizePixel = 0
+            sliderKnob.Text = ""
+            sliderKnob.Parent = sliderTrack
+            
+            local knobCorner = Instance.new("UICorner")
+            knobCorner.CornerRadius = UDim.new(1, 0)
+            knobCorner.Parent = sliderKnob
+            
+            local isDragging = false
+            local dragConnection = nil
+            local endConnection = nil
+            
+            local function updateSlider(input)
+                if not sliderTrack or not sliderTrack.Parent then return end
+                local trackPos = sliderTrack.AbsolutePosition.X
+                local trackWidth = sliderTrack.AbsoluteSize.X
+                if trackWidth <= 0 then return end
+                local mouseX = input.Position.X
+                local percent = math.clamp((mouseX - trackPos) / trackWidth, 0, 1)
+                local newSpeed = math.round(10 + percent * 140)
+                flySpeed = newSpeed
+                sliderFill.Size = UDim2.new(percent, 0, 1, 0)
+                sliderKnob.Position = UDim2.new(percent, -10, 0.5, -10)
+                speedValue.Text = tostring(flySpeed)
+            end
+            
+            local function startDrag()
+                isDragging = true
+                if dragConnection then dragConnection:Disconnect() end
+                if endConnection then endConnection:Disconnect() end
+                dragConnection = UserInputService.InputChanged:Connect(function(input)
+                    if isDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+                        updateSlider(input)
+                    end
+                end)
+                endConnection = UserInputService.InputEnded:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        isDragging = false
+                        if dragConnection then dragConnection:Disconnect() dragConnection = nil end
+                        if endConnection then endConnection:Disconnect() endConnection = nil end
+                    end
+                end)
+            end
+            
+            sliderKnob.MouseButton1Down:Connect(startDrag)
+            sliderTrack.MouseButton1Click:Connect(function(input)
+                updateSlider(input)
+            end)
+            sliderTrack.MouseButton1Down:Connect(function(input)
+                updateSlider(input)
+                startDrag()
+            end)
+        end
+    end
+end
+
+function updateContentPanel(category)
+    buildContentPanel(category)
+end
+
+-- Initial load
+updateSidebar()
+buildContentPanel("Character")
+
+-- Insert key toggle minimize
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.Insert then
+        isMinimized = not isMinimized
+        local targetHeight = isMinimized and MINIMIZED_HEIGHT or FULL_HEIGHT
+        local currentPos = mainFrame.Position
+        local tween = TweenService:Create(mainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            Size = UDim2.new(0, WINDOW_WIDTH, 0, targetHeight),
+            Position = UDim2.new(currentPos.X.Scale, currentPos.X.Offset, currentPos.Y.Scale, currentPos.Y.Offset)
+        })
+        tween:Play()
+        minBtn.Text = isMinimized and "□" or "—"
+    end
+end)
+
+-- Handle respawn
+player.CharacterAdded:Connect(function(char)
+    if flying then disableFly() end
+    if isSpectating then stopSpectating() end
+    if noClipEnabled then
+        task.wait(0.1)
+        applyNoClip(true)
+        if flying then
+            task.wait(0.05)
+            applyNoClip(true)
+        end
+    end
+end)
+
+-- Cleanup on destroy
+screenGui.AncestryChanged:Connect(function()
+    if not screenGui.Parent then
+        if fovCircle then
+            fovCircle:Remove()
+            fovCircle = nil
+        end
+        if fovDrawConnection then
+            fovDrawConnection:Disconnect()
+        end
+        if fovAimbotConnection then
+            fovAimbotConnection:Disconnect()
+        end
+        if boxEspUpdateConnection then
+            boxEspUpdateConnection:Disconnect()
+        end
+        if nameEspUpdateConnection then
+            nameEspUpdateConnection:Disconnect()
+        end
+        for plr, drawings in pairs(boxEspObjects) do
+            if drawings then
+                for _, drawing in ipairs(drawings) do
+                    pcall(function() drawing:Remove() end)
+                end
+            end
+        end
+        for _, conn in pairs(boxEspConnections) do
+            conn:Disconnect()
+        end
+        for plr, texts in pairs(nameEspObjects) do
+            if texts then
+                for _, text in ipairs(texts) do
+                    pcall(function() text:Remove() end)
+                end
+            end
+        end
+        for _, conn in pairs(nameEspConnections) do
+            conn:Disconnect()
+        end
+        if espUpdateConnection then
+            espUpdateConnection:Disconnect()
+        end
+        if espPlayerAddedConnection then
+            espPlayerAddedConnection:Disconnect()
+        end
+        for _, conn in pairs(espConnections) do
+            conn:Disconnect()
+        end
+    end
+end)
