@@ -167,6 +167,8 @@ local orbitBodyGyro = nil
 local orbitSpeed = 3
 local orbitRadius = 8
 local orbitMode = "Move"
+local orbitType = "Normal"
+local orbitHeight = 5
 local espEnabled = false
 local boxEspEnabled = false
 local nameEspEnabled = false
@@ -305,7 +307,7 @@ local function stopOrbit()
     end
 end
 
-local function startOrbit()
+local function startOrbit(targetPlayer)
     if orbitActive then
         stopOrbit()
         return
@@ -313,7 +315,7 @@ local function startOrbit()
     
     if flying then return end
     
-    local target = getClosestPlayerToCursor()
+    local target = targetPlayer or getClosestPlayerToCursor()
     if not target or not target.Character then return end
     
     local targetChar = target.Character
@@ -333,14 +335,13 @@ local function startOrbit()
     
     localHum.PlatformStand = true
     
-    -- Teleport instantly behind the target
     local targetFacing = targetRoot.CFrame.LookVector
     targetFacing = Vector3.new(targetFacing.X, 0, targetFacing.Z)
     if targetFacing.Magnitude < 0.01 then targetFacing = Vector3.new(0, 0, -1) end
     targetFacing = targetFacing.Unit
     
-    local behindPos = targetRoot.Position - targetFacing * orbitRadius * 0.7
-    behindPos = Vector3.new(behindPos.X, targetRoot.Position.Y, behindPos.Z)
+    local yOffset = (orbitType == "Up") and orbitHeight or 0
+    local behindPos = targetRoot.Position - targetFacing * orbitRadius * 0.7 + Vector3.new(0, yOffset, 0)
     localRoot.CFrame = CFrame.lookAt(behindPos, targetRoot.Position)
     
     if orbitBodyGyro then orbitBodyGyro:Destroy() end
@@ -396,13 +397,13 @@ local function startOrbit()
         
         local targetRight = Vector3.new(targetFacing.Z, 0, -targetFacing.X).Unit
         
+        local yOffset = (orbitType == "Up") and orbitHeight or 0
+        
         local orbitPos = tRoot.Position 
             - targetFacing * orbitRadius * 0.7
             + targetRight * swingAngle * orbitRadius
+            + Vector3.new(0, yOffset, 0)
         
-        orbitPos = Vector3.new(orbitPos.X, tRoot.Position.Y, orbitPos.Z)
-        
-        -- Instant teleport to orbit position
         lRoot.CFrame = CFrame.lookAt(orbitPos, tRoot.Position)
         
         orbitBodyGyro.CFrame = CFrame.lookAt(lRoot.Position, tRoot.Position)
@@ -941,18 +942,21 @@ function buildContent()
         phdr.TextXAlignment = Enum.TextXAlignment.Left; phdr.Font = Enum.Font.SourceSansBold; phdr.ZIndex = 5; phdr.Parent = panel
         local pdiv = Instance.new("Frame"); pdiv.Size = UDim2.new(1,-16,0,1); pdiv.Position = UDim2.new(0,8,0,32)
         pdiv.BackgroundColor3 = COLORS.Border; pdiv.BorderSizePixel = 0; pdiv.ZIndex = 5; pdiv.Parent = panel
-        local sf = Instance.new("ScrollingFrame"); sf.Size = UDim2.new(1,-16,1,-64); sf.Position = UDim2.new(0,8,0,36)
+        local sf = Instance.new("ScrollingFrame"); sf.Size = UDim2.new(1,-16,1,-100); sf.Position = UDim2.new(0,8,0,36)
         sf.BackgroundTransparency = 1; sf.BorderSizePixel = 0; sf.ScrollBarThickness = 4
         sf.ScrollBarImageColor3 = COLORS.ControlBorder; sf.CanvasSize = UDim2.new(0,0,0,0)
         sf.ClipsDescendants = true; sf.ZIndex = 5; sf.Parent = panel
         local ab = Instance.new("Frame"); ab.Size = UDim2.new(1,-16,0,32); ab.Position = UDim2.new(0,8,1,-36)
         ab.BackgroundTransparency = 1; ab.ZIndex = 5; ab.Parent = panel
-        local teleBtn = Instance.new("TextButton"); teleBtn.Size = UDim2.new(0,140,1,-4); teleBtn.Position = UDim2.new(0.5,-150,0.5,-14)
+        local teleBtn = Instance.new("TextButton"); teleBtn.Size = UDim2.new(0,90,1,-4); teleBtn.Position = UDim2.new(0,0,0.5,-14)
         teleBtn.BackgroundTransparency = 1; teleBtn.Text = "Teleport"; teleBtn.TextColor3 = COLORS.White; teleBtn.TextSize = 12
         teleBtn.Font = Enum.Font.SourceSans; teleBtn.ZIndex = 5; teleBtn.Parent = ab
-        local specBtn = Instance.new("TextButton"); specBtn.Size = UDim2.new(0,140,1,-4); specBtn.Position = UDim2.new(0.5,10,0.5,-14)
+        local specBtn = Instance.new("TextButton"); specBtn.Size = UDim2.new(0,90,1,-4); specBtn.Position = UDim2.new(0,100,0.5,-14)
         specBtn.BackgroundTransparency = 1; specBtn.Text = "Spectate"; specBtn.TextColor3 = COLORS.White; specBtn.TextSize = 12
         specBtn.Font = Enum.Font.SourceSans; specBtn.ZIndex = 5; specBtn.Parent = ab
+        local orbitBtn = Instance.new("TextButton"); orbitBtn.Size = UDim2.new(0,90,1,-4); orbitBtn.Position = UDim2.new(0,200,0.5,-14)
+        orbitBtn.BackgroundTransparency = 1; orbitBtn.Text = "Orbit"; orbitBtn.TextColor3 = COLORS.White; orbitBtn.TextSize = 12
+        orbitBtn.Font = Enum.Font.SourceSans; orbitBtn.ZIndex = 5; orbitBtn.Parent = ab
         
         local playerBtns = {}
         local function refreshPlayerList()
@@ -974,8 +978,14 @@ function buildContent()
                 row.MouseButton1Click:Connect(function() selectedPlayer = plr; refreshPlayerList() end)
                 table.insert(playerBtns, row)
             end
-            specBtn.Text = isSpectating and "Unspectate" or (selectedPlayer and "Spectate "..selectedPlayer.DisplayName or "Spectate")
-            teleBtn.Text = selectedPlayer and "Teleport to "..selectedPlayer.DisplayName or "Teleport"
+            -- Update orbit button text based on whether orbiting selected player
+            if orbitActive and orbitTarget == selectedPlayer then
+                orbitBtn.Text = "Unorbit"
+            else
+                orbitBtn.Text = "Orbit"
+            end
+            specBtn.Text = isSpectating and "Unspectate" or "Spectate"
+            teleBtn.Text = "Teleport"
         end
         
         teleBtn.MouseButton1Click:Connect(function()
@@ -987,6 +997,15 @@ function buildContent()
         end)
         specBtn.MouseButton1Click:Connect(function()
             if isSpectating then stopSpectating() elseif selectedPlayer then startSpectating(selectedPlayer) end
+            refreshPlayerList()
+        end)
+        orbitBtn.MouseButton1Click:Connect(function()
+            if not selectedPlayer then return end
+            if orbitActive and orbitTarget == selectedPlayer then
+                stopOrbit()  -- This will teleport back to original position
+            elseif orbitEnabled then
+                startOrbit(selectedPlayer)
+            end
             refreshPlayerList()
         end)
         refreshPlayerList()
@@ -1049,9 +1068,9 @@ function buildContent()
             ddBtn.BackgroundColor3 = COLORS.ControlBg; ddBtn.BorderSizePixel = 1; ddBtn.BorderColor3 = COLORS.ControlBorder
             ddBtn.Text = fovTarget.."  ▼"; ddBtn.TextColor3 = COLORS.White; ddBtn.TextSize = 14; ddBtn.Font = Enum.Font.SourceSans
             ddBtn.TextXAlignment = Enum.TextXAlignment.Left; ddBtn.ZIndex = 6; ddBtn.Parent = tRow
-            local ddList = Instance.new("Frame"); ddList.Size = UDim2.new(0,90,0,0); ddList.Position = UDim2.new(1,-90,0.5,13)
+            local ddList = Instance.new("Frame"); ddList.Size = UDim2.new(0,90,0,0); ddList.Position = UDim2.new(1,-90,0,26)
             ddList.BackgroundColor3 = COLORS.ControlBg; ddList.BorderSizePixel = 1; ddList.BorderColor3 = COLORS.ControlBorder
-            ddList.Visible = false; ddList.ZIndex = 10; ddList.Parent = tRow
+            ddList.Visible = false; ddList.ZIndex = 10; ddList.ClipsDescendants = true; ddList.Parent = tRow
             local headOpt = Instance.new("TextButton"); headOpt.Size = UDim2.new(1,0,0,26)
             headOpt.BackgroundColor3 = COLORS.ControlBg; headOpt.BorderSizePixel = 0; headOpt.Text = "Head"
             headOpt.TextColor3 = COLORS.White; headOpt.TextSize = 14; headOpt.Font = Enum.Font.SourceSans; headOpt.ZIndex = 11; headOpt.Parent = ddList
@@ -1059,8 +1078,8 @@ function buildContent()
             torsoOpt.BackgroundColor3 = COLORS.ControlBg; torsoOpt.BorderSizePixel = 0; torsoOpt.Text = "Torso"
             torsoOpt.TextColor3 = COLORS.White; torsoOpt.TextSize = 14; torsoOpt.Font = Enum.Font.SourceSans; torsoOpt.ZIndex = 11; torsoOpt.Parent = ddList
             local ddOpen = false
-            local function closeDD() ddOpen = false; ddList.Visible = false; ddList.Size = UDim2.new(0,90,0,0); ddBtn.Text = fovTarget.."  ▼" end
-            local function openDD() ddOpen = true; ddList.Visible = true; ddList.Size = UDim2.new(0,90,0,52); ddBtn.Text = fovTarget.."  ▲" end
+            local function closeDD() ddOpen = false; ddList.Visible = false; ddList.Size = UDim2.new(0,90,0,0); ddBtn.ZIndex = 6; ddBtn.Text = fovTarget.."  ▼" end
+            local function openDD() ddOpen = true; ddList.Visible = true; ddList.Size = UDim2.new(0,90,0,52); ddBtn.ZIndex = 10; ddBtn.Text = fovTarget.."  ▲" end
             ddBtn.MouseButton1Click:Connect(function() if ddOpen then closeDD() else openDD() end end)
             headOpt.MouseButton1Click:Connect(function() fovTarget = "Head"; closeDD() end)
             torsoOpt.MouseButton1Click:Connect(function() fovTarget = "Torso"; closeDD() end)
@@ -1267,40 +1286,8 @@ function buildContent()
             end
             orbClick.MouseButton1Click:Connect(toggleOrb)
             orbCB.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then toggleOrb() end end)
-            yp = yp+42
             
-            -- Orbit Config
-            local ocRow = Instance.new("Frame"); ocRow.Size = UDim2.new(1,-16,0,38); ocRow.Position = UDim2.new(0,8,0,yp)
-            ocRow.BackgroundTransparency = 1; ocRow.ZIndex = 5; ocRow.Parent = lp
-            local ocLbl = Instance.new("TextLabel"); ocLbl.Size = UDim2.new(0,100,1,0)
-            ocLbl.BackgroundTransparency = 1; ocLbl.Text = "Orbit Config"; ocLbl.TextColor3 = COLORS.White; ocLbl.TextSize = 18
-            ocLbl.TextXAlignment = Enum.TextXAlignment.Left; ocLbl.Font = Enum.Font.SourceSansBold; ocLbl.ZIndex = 5; ocLbl.Parent = ocRow
-            
-            local ocDdBtn = Instance.new("TextButton"); ocDdBtn.Size = UDim2.new(0,90,0,26); ocDdBtn.Position = UDim2.new(1,-90,0.5,-13)
-            ocDdBtn.BackgroundColor3 = COLORS.ControlBg; ocDdBtn.BorderSizePixel = 1; ocDdBtn.BorderColor3 = COLORS.ControlBorder
-            ocDdBtn.Text = orbitMode.."  ▼"; ocDdBtn.TextColor3 = COLORS.White; ocDdBtn.TextSize = 14; ocDdBtn.Font = Enum.Font.SourceSans
-            ocDdBtn.TextXAlignment = Enum.TextXAlignment.Left; ocDdBtn.ZIndex = 6; ocDdBtn.Parent = ocRow
-            
-            local ocDdList = Instance.new("Frame"); ocDdList.Size = UDim2.new(0,90,0,0); ocDdList.Position = UDim2.new(1,-90,0.5,13)
-            ocDdList.BackgroundColor3 = COLORS.ControlBg; ocDdList.BorderSizePixel = 1; ocDdList.BorderColor3 = COLORS.ControlBorder
-            ocDdList.Visible = false; ocDdList.ZIndex = 10; ocDdList.Parent = ocRow
-            
-            local moveOpt = Instance.new("TextButton"); moveOpt.Size = UDim2.new(1,0,0,26)
-            moveOpt.BackgroundColor3 = COLORS.ControlBg; moveOpt.BorderSizePixel = 0; moveOpt.Text = "Move"
-            moveOpt.TextColor3 = COLORS.White; moveOpt.TextSize = 14; moveOpt.Font = Enum.Font.SourceSans; moveOpt.ZIndex = 11; moveOpt.Parent = ocDdList
-            
-            local stayOpt = Instance.new("TextButton"); stayOpt.Size = UDim2.new(1,0,0,26); stayOpt.Position = UDim2.new(0,0,0,26)
-            stayOpt.BackgroundColor3 = COLORS.ControlBg; stayOpt.BorderSizePixel = 0; stayOpt.Text = "Stay"
-            stayOpt.TextColor3 = COLORS.White; stayOpt.TextSize = 14; stayOpt.Font = Enum.Font.SourceSans; stayOpt.ZIndex = 11; stayOpt.Parent = ocDdList
-            
-            local ocDdOpen = false
-            local function closeOCDD() ocDdOpen = false; ocDdList.Visible = false; ocDdList.Size = UDim2.new(0,90,0,0); ocDdBtn.Text = orbitMode.."  ▼" end
-            local function openOCDD() ocDdOpen = true; ocDdList.Visible = true; ocDdList.Size = UDim2.new(0,90,0,52); ocDdBtn.Text = orbitMode.."  ▲" end
-            
-            ocDdBtn.MouseButton1Click:Connect(function() if ocDdOpen then closeOCDD() else openOCDD() end end)
-            moveOpt.MouseButton1Click:Connect(function() orbitMode = "Move"; closeOCDD() end)
-            stayOpt.MouseButton1Click:Connect(function() orbitMode = "Stay"; closeOCDD() end)
-            
+            -- Right panel: Fly speed + Orbit Range + Config/Type side by side
             local ryp = 8
             local fsLbl2 = Instance.new("TextLabel"); fsLbl2.Size = UDim2.new(1,-16,0,24); fsLbl2.Position = UDim2.new(0,8,0,ryp)
             fsLbl2.BackgroundTransparency = 1; fsLbl2.Text = "Fly speed"; fsLbl2.TextColor3 = COLORS.White; fsLbl2.TextSize = 16
@@ -1329,6 +1316,105 @@ function buildContent()
             end
             fsKnob2.MouseButton1Down:Connect(startFSDrag2)
             fsTrack2.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then updateFS2(i); startFSDrag2() end end)
+            ryp = ryp+52
+            
+            -- Orbit Range slider
+            local orLbl = Instance.new("TextLabel"); orLbl.Size = UDim2.new(1,-16,0,24); orLbl.Position = UDim2.new(0,8,0,ryp)
+            orLbl.BackgroundTransparency = 1; orLbl.Text = "Orbit Range"; orLbl.TextColor3 = COLORS.White; orLbl.TextSize = 16
+            orLbl.TextXAlignment = Enum.TextXAlignment.Left; orLbl.Font = Enum.Font.SourceSansBold; orLbl.ZIndex = 5; orLbl.Parent = rp
+            
+            local orVal = Instance.new("TextLabel"); orVal.Size = UDim2.new(0,50,0,24); orVal.Position = UDim2.new(1,-58,0,ryp)
+            orVal.BackgroundTransparency = 1; orVal.Text = tostring(orbitHeight); orVal.TextColor3 = COLORS.White; orVal.TextSize = 16
+            orVal.TextXAlignment = Enum.TextXAlignment.Right; orVal.Font = Enum.Font.SourceSansBold; orVal.ZIndex = 5; orVal.Parent = rp
+            
+            local orTrack = Instance.new("Frame"); orTrack.Size = UDim2.new(1,-16,0,6); orTrack.Position = UDim2.new(0,8,0,ryp+30)
+            orTrack.BackgroundColor3 = Color3.fromHex("333333"); orTrack.BorderSizePixel = 0; orTrack.ZIndex = 5; orTrack.Parent = rp
+            local orFill = Instance.new("Frame"); orFill.Size = UDim2.new((orbitHeight+10)/110,0,1,0)
+            orFill.BackgroundColor3 = COLORS.White; orFill.BorderSizePixel = 0; orFill.ZIndex = 5; orFill.Parent = orTrack
+            local orKnob = Instance.new("TextButton"); orKnob.Size = UDim2.new(0,20,0,20); orKnob.Position = UDim2.new((orbitHeight+10)/110,-10,0.5,-10)
+            orKnob.BackgroundColor3 = COLORS.White; orKnob.BorderSizePixel = 0; orKnob.Text = ""; orKnob.ZIndex = 5; orKnob.Parent = orTrack
+            Instance.new("UICorner", orKnob).CornerRadius = UDim.new(1,0)
+            
+            local orDrag = false; local orDC = nil; local orEC = nil
+            local function updateOR(i)
+                if not orTrack.Parent then return end
+                local p = math.clamp((i.Position.X-orTrack.AbsolutePosition.X)/orTrack.AbsoluteSize.X,0,1)
+                orbitHeight = math.round(-10 + p * 110)
+                orFill.Size = UDim2.new(p,0,1,0); orKnob.Position = UDim2.new(p,-10,0.5,-10)
+                orVal.Text = tostring(orbitHeight)
+            end
+            local function startORDrag()
+                orDrag = true; if orDC then orDC:Disconnect() end; if orEC then orEC:Disconnect() end
+                orDC = UserInputService.InputChanged:Connect(function(i) if orDrag and i.UserInputType == Enum.UserInputType.MouseMovement then updateOR(i) end end)
+                orEC = UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then orDrag = false; orDC:Disconnect(); orEC:Disconnect() end end)
+            end
+            orKnob.MouseButton1Down:Connect(startORDrag)
+            orTrack.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then updateOR(i); startORDrag() end end)
+            ryp = ryp+52
+            
+            -- Orbit Config and Orbit Type side by side (below Orbit Range)
+            local comboRow = Instance.new("Frame"); comboRow.Size = UDim2.new(1,-16,0,38); comboRow.Position = UDim2.new(0,8,0,ryp)
+            comboRow.BackgroundTransparency = 1; comboRow.ZIndex = 5; comboRow.Parent = rp
+            
+            -- Orbit Config (left side)
+            local ocLbl = Instance.new("TextLabel"); ocLbl.Size = UDim2.new(0,45,1,0); ocLbl.Position = UDim2.new(0,0,0,0)
+            ocLbl.BackgroundTransparency = 1; ocLbl.Text = "Config"; ocLbl.TextColor3 = COLORS.White; ocLbl.TextSize = 13
+            ocLbl.TextXAlignment = Enum.TextXAlignment.Left; ocLbl.Font = Enum.Font.SourceSansBold; ocLbl.ZIndex = 5; ocLbl.Parent = comboRow
+            
+            local ocDdBtn = Instance.new("TextButton"); ocDdBtn.Size = UDim2.new(0,50,0,22); ocDdBtn.Position = UDim2.new(0,48,0.5,-11)
+            ocDdBtn.BackgroundColor3 = COLORS.ControlBg; ocDdBtn.BorderSizePixel = 1; ocDdBtn.BorderColor3 = COLORS.ControlBorder
+            ocDdBtn.Text = orbitMode; ocDdBtn.TextColor3 = COLORS.White; ocDdBtn.TextSize = 11; ocDdBtn.Font = Enum.Font.SourceSans
+            ocDdBtn.TextXAlignment = Enum.TextXAlignment.Center; ocDdBtn.ZIndex = 6; ocDdBtn.Parent = comboRow
+            
+            local ocDdList = Instance.new("Frame"); ocDdList.Size = UDim2.new(0,50,0,0); ocDdList.Position = UDim2.new(0,48,0,22)
+            ocDdList.BackgroundColor3 = COLORS.ControlBg; ocDdList.BorderSizePixel = 1; ocDdList.BorderColor3 = COLORS.ControlBorder
+            ocDdList.Visible = false; ocDdList.ZIndex = 10; ocDdList.ClipsDescendants = true; ocDdList.Parent = comboRow
+            
+            local moveOpt = Instance.new("TextButton"); moveOpt.Size = UDim2.new(1,0,0,22)
+            moveOpt.BackgroundColor3 = COLORS.ControlBg; moveOpt.BorderSizePixel = 0; moveOpt.Text = "Move"
+            moveOpt.TextColor3 = COLORS.White; moveOpt.TextSize = 11; moveOpt.Font = Enum.Font.SourceSans; moveOpt.ZIndex = 11; moveOpt.Parent = ocDdList
+            
+            local stayOpt = Instance.new("TextButton"); stayOpt.Size = UDim2.new(1,0,0,22); stayOpt.Position = UDim2.new(0,0,0,22)
+            stayOpt.BackgroundColor3 = COLORS.ControlBg; stayOpt.BorderSizePixel = 0; stayOpt.Text = "Stay"
+            stayOpt.TextColor3 = COLORS.White; stayOpt.TextSize = 11; stayOpt.Font = Enum.Font.SourceSans; stayOpt.ZIndex = 11; stayOpt.Parent = ocDdList
+            
+            local ocDdOpen = false
+            local function closeOCDD() ocDdOpen = false; ocDdList.Visible = false; ocDdList.Size = UDim2.new(0,50,0,0); ocDdBtn.ZIndex = 6; ocDdBtn.Text = orbitMode end
+            local function openOCDD() ocDdOpen = true; ocDdList.Visible = true; ocDdList.Size = UDim2.new(0,50,0,44); ocDdBtn.ZIndex = 10; ocDdBtn.Text = orbitMode end
+            
+            ocDdBtn.MouseButton1Click:Connect(function() if ocDdOpen then closeOCDD() else openOCDD() end end)
+            moveOpt.MouseButton1Click:Connect(function() orbitMode = "Move"; closeOCDD() end)
+            stayOpt.MouseButton1Click:Connect(function() orbitMode = "Stay"; closeOCDD() end)
+            
+            -- Orbit Type (right side)
+            local otLbl = Instance.new("TextLabel"); otLbl.Size = UDim2.new(0,35,1,0); otLbl.Position = UDim2.new(0,108,0,0)
+            otLbl.BackgroundTransparency = 1; otLbl.Text = "Type"; otLbl.TextColor3 = COLORS.White; otLbl.TextSize = 13
+            otLbl.TextXAlignment = Enum.TextXAlignment.Left; otLbl.Font = Enum.Font.SourceSansBold; otLbl.ZIndex = 5; otLbl.Parent = comboRow
+            
+            local otDdBtn = Instance.new("TextButton"); otDdBtn.Size = UDim2.new(0,50,0,22); otDdBtn.Position = UDim2.new(0,146,0.5,-11)
+            otDdBtn.BackgroundColor3 = COLORS.ControlBg; otDdBtn.BorderSizePixel = 1; otDdBtn.BorderColor3 = COLORS.ControlBorder
+            otDdBtn.Text = orbitType; otDdBtn.TextColor3 = COLORS.White; otDdBtn.TextSize = 11; otDdBtn.Font = Enum.Font.SourceSans
+            otDdBtn.TextXAlignment = Enum.TextXAlignment.Center; otDdBtn.ZIndex = 6; otDdBtn.Parent = comboRow
+            
+            local otDdList = Instance.new("Frame"); otDdList.Size = UDim2.new(0,50,0,0); otDdList.Position = UDim2.new(0,146,0,22)
+            otDdList.BackgroundColor3 = COLORS.ControlBg; otDdList.BorderSizePixel = 1; otDdList.BorderColor3 = COLORS.ControlBorder
+            otDdList.Visible = false; otDdList.ZIndex = 10; otDdList.ClipsDescendants = true; otDdList.Parent = comboRow
+            
+            local normalOpt = Instance.new("TextButton"); normalOpt.Size = UDim2.new(1,0,0,22)
+            normalOpt.BackgroundColor3 = COLORS.ControlBg; normalOpt.BorderSizePixel = 0; normalOpt.Text = "Normal"
+            normalOpt.TextColor3 = COLORS.White; normalOpt.TextSize = 11; normalOpt.Font = Enum.Font.SourceSans; normalOpt.ZIndex = 11; normalOpt.Parent = otDdList
+            
+            local upOpt = Instance.new("TextButton"); upOpt.Size = UDim2.new(1,0,0,22); upOpt.Position = UDim2.new(0,0,0,22)
+            upOpt.BackgroundColor3 = COLORS.ControlBg; upOpt.BorderSizePixel = 0; upOpt.Text = "Up"
+            upOpt.TextColor3 = COLORS.White; upOpt.TextSize = 11; upOpt.Font = Enum.Font.SourceSans; upOpt.ZIndex = 11; upOpt.Parent = otDdList
+            
+            local otDdOpen = false
+            local function closeOTDD() otDdOpen = false; otDdList.Visible = false; otDdList.Size = UDim2.new(0,50,0,0); otDdBtn.ZIndex = 6; otDdBtn.Text = orbitType end
+            local function openOTDD() otDdOpen = true; otDdList.Visible = true; otDdList.Size = UDim2.new(0,50,0,44); otDdBtn.ZIndex = 10; otDdBtn.Text = orbitType end
+            
+            otDdBtn.MouseButton1Click:Connect(function() if otDdOpen then closeOTDD() else openOTDD() end end)
+            normalOpt.MouseButton1Click:Connect(function() orbitType = "Normal"; orbitHeight = 0; closeOTDD() end)
+            upOpt.MouseButton1Click:Connect(function() orbitType = "Up"; orbitHeight = 5; closeOTDD() end)
             
         elseif selectedCategory == "Settings" then
             local yp = 12
