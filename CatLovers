@@ -158,6 +158,9 @@ mainFrame.Parent = screenGui
 
 -- === STATE ===
 local noClipEnabled = false
+local speedEnabled = false
+local speedValue = 30
+local speedBodyVelocity = nil
 local orbitEnabled = false
 local orbitActive = false
 local orbitTarget = nil
@@ -166,7 +169,7 @@ local orbitConnection = nil
 local orbitBodyGyro = nil
 local orbitSpeed = 3
 local orbitRadius = 8
-local orbitMode = "Move"
+local orbitMode = "Move"      -- "Move", "Stay"
 local orbitType = "Normal"
 local orbitHeight = 5
 local espEnabled = false
@@ -189,6 +192,10 @@ local selectedCategory = "Aiming"
 local selectedPlayer = nil
 local isSpectating = false
 local spectateTarget = nil
+local teamCheckEnabled = false       -- for Visuals (ESP)
+local aimTeamCheckEnabled = false   -- for Aiming (FOV)
+local orbitTeamCheckEnabled = false -- for Orbit
+local speedKeybind = nil
 
 -- Whitelist
 local whitelistedPlayers = {}
@@ -203,6 +210,7 @@ local espPlayerAddedConnection = nil
 local boxEspUpdateConnection = nil
 local fovDrawConnection = nil
 local playerListConnection = nil
+local nameEspPlayerAddedConnection = nil  -- for Name ESP new players
 local espObjects = {}
 local espConnections = {}
 local boxEspObjects = {}
@@ -245,6 +253,7 @@ local function getClosestPlayerInFOV(mp, fr)
     local best, bestDist = nil, fr
     for _, plr in ipairs(Players:GetPlayers()) do
         if plr ~= player and plr.Character and not isWhitelisted(plr) then
+            if aimTeamCheckEnabled and plr.Team == player.Team then continue end
             local hum = plr.Character:FindFirstChild("Humanoid")
             if hum and hum.Health > 0 then
                 local ap = fovTarget == "Torso" and (plr.Character:FindFirstChild("UpperTorso") or plr.Character:FindFirstChild("Torso")) or plr.Character:FindFirstChild("Head")
@@ -331,6 +340,7 @@ local function startOrbit(targetPlayer)
     
     local target = targetPlayer or getClosestPlayerToCursor()
     if not target or not target.Character or isWhitelisted(target) then return end
+    if orbitTeamCheckEnabled and target.Team == player.Team then return end
     
     local targetChar = target.Character
     local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
@@ -370,7 +380,10 @@ local function startOrbit(targetPlayer)
     local angle = math.pi
     
     orbitConnection = RunService.Heartbeat:Connect(function(dt)
-        if not orbitActive or not orbitTarget or not orbitTarget.Character then
+        if not orbitActive then return end
+        
+        -- Check if target still valid (for manual mode)
+        if not orbitTarget or not orbitTarget.Character then
             stopOrbit()
             return
         end
@@ -464,9 +477,34 @@ UserInputService.InputBegan:Connect(function(i)
     end
 end)
 
--- === ESP ===
+-- === SPEED HACK (velocity-based) ===
+local function startSpeed()
+    if speedEnabled then return end
+    speedEnabled = true
+    local char = player.Character
+    if not char then return end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    if speedBodyVelocity then speedBodyVelocity:Destroy() end
+    speedBodyVelocity = Instance.new("BodyVelocity")
+    speedBodyVelocity.MaxForce = Vector3.new(400000, 0, 400000)  -- no vertical force
+    speedBodyVelocity.Velocity = Vector3.new(0, 0, 0)
+    speedBodyVelocity.P = 1000
+    speedBodyVelocity.Parent = root
+end
+
+local function stopSpeed()
+    speedEnabled = false
+    if speedBodyVelocity then
+        speedBodyVelocity:Destroy()
+        speedBodyVelocity = nil
+    end
+end
+
+-- === ESP (with team check) ===
 local function createESPBox(tp)
     if isWhitelisted(tp) then return end
+    if teamCheckEnabled and tp.Team == player.Team then return end
     if espObjects[tp] then espObjects[tp]:Destroy() end
     local hl = Instance.new("Highlight")
     hl.FillColor = COLORS.ESP; hl.FillTransparency = 1; hl.OutlineColor = COLORS.ESP
@@ -475,20 +513,33 @@ local function createESPBox(tp)
     espObjects[tp] = hl
     if espConnections[tp] then espConnections[tp]:Disconnect() end
     espConnections[tp] = tp.CharacterAdded:Connect(function(nc)
-        if espEnabled and espObjects[tp] and not isWhitelisted(tp) then espObjects[tp].Adornee = nc; espObjects[tp].Parent = nc end
+        if espEnabled and espObjects[tp] and not isWhitelisted(tp) then
+            if teamCheckEnabled and tp.Team == player.Team then
+                espObjects[tp]:Destroy()
+                espObjects[tp] = nil
+                return
+            end
+            espObjects[tp].Adornee = nc; espObjects[tp].Parent = nc
+        end
     end)
 end
 
 local function toggleESP(state)
     espEnabled = state
     if state then
-        for _,p in ipairs(Players:GetPlayers()) do if p ~= player and p.Character and not isWhitelisted(p) then createESPBox(p) end end
+        for _,p in ipairs(Players:GetPlayers()) do if p ~= player and p.Character and not isWhitelisted(p) then
+            if teamCheckEnabled and p.Team == player.Team then continue end
+            createESPBox(p)
+        end end
         if espUpdateConnection then espUpdateConnection:Disconnect() end
         espUpdateConnection = RunService.Heartbeat:Connect(function()
             if not espEnabled then return end
             for _,p in ipairs(Players:GetPlayers()) do
                 if p ~= player and p.Character then
                     if isWhitelisted(p) then
+                        if espObjects[p] then espObjects[p]:Destroy(); espObjects[p] = nil end
+                        if espConnections[p] then espConnections[p]:Disconnect(); espConnections[p] = nil end
+                    elseif teamCheckEnabled and p.Team == player.Team then
                         if espObjects[p] then espObjects[p]:Destroy(); espObjects[p] = nil end
                         if espConnections[p] then espConnections[p]:Disconnect(); espConnections[p] = nil end
                     elseif not espObjects[p] then
@@ -500,8 +551,14 @@ local function toggleESP(state)
         if espPlayerAddedConnection then espPlayerAddedConnection:Disconnect() end
         espPlayerAddedConnection = Players.PlayerAdded:Connect(function(np)
             if espEnabled and np ~= player then
-                np.CharacterAdded:Connect(function() if espEnabled and not isWhitelisted(np) then createESPBox(np) end end)
-                if np.Character and not isWhitelisted(np) then createESPBox(np) end
+                np.CharacterAdded:Connect(function() if espEnabled and not isWhitelisted(np) then
+                    if teamCheckEnabled and np.Team == player.Team then return end
+                    createESPBox(np)
+                end end)
+                if np.Character and not isWhitelisted(np) then
+                    if teamCheckEnabled and np.Team == player.Team then return end
+                    createESPBox(np)
+                end
             end
         end)
     else
@@ -517,6 +574,7 @@ end
 -- === BOX ESP ===
 local function createBoxESP(tp)
     if isWhitelisted(tp) then return end
+    if teamCheckEnabled and tp.Team == player.Team then return end
     if boxEspObjects[tp] then for _,d in ipairs(boxEspObjects[tp]) do pcall(function() d:Remove() end) end end
     local lines = {}
     for _=1,12 do
@@ -525,12 +583,15 @@ local function createBoxESP(tp)
     end
     boxEspObjects[tp] = lines
     if boxEspConnections[tp] then boxEspConnections[tp]:Disconnect() end
-    boxEspConnections[tp] = tp.CharacterAdded:Connect(function() task.wait(0.1); if boxEspEnabled and not isWhitelisted(tp) then createBoxESP(tp) end end)
+    boxEspConnections[tp] = tp.CharacterAdded:Connect(function() task.wait(0.1); if boxEspEnabled and not isWhitelisted(tp) then
+        if teamCheckEnabled and tp.Team == player.Team then return end
+        createBoxESP(tp)
+    end end)
 end
 
 local function updateBoxESP()
     for plr,lines in pairs(boxEspObjects) do
-        if isWhitelisted(plr) then
+        if isWhitelisted(plr) or (teamCheckEnabled and plr.Team == player.Team) then
             for _,l in ipairs(lines) do pcall(function() l:Remove() end) end
             boxEspObjects[plr] = nil
             if boxEspConnections[plr] then boxEspConnections[plr]:Disconnect(); boxEspConnections[plr] = nil end
@@ -558,7 +619,10 @@ end
 local function toggleBoxESP(state)
     boxEspEnabled = state
     if state then
-        for _,p in ipairs(Players:GetPlayers()) do if p ~= player and p.Character and not isWhitelisted(p) then createBoxESP(p) end end
+        for _,p in ipairs(Players:GetPlayers()) do if p ~= player and p.Character and not isWhitelisted(p) then
+            if teamCheckEnabled and p.Team == player.Team then continue end
+            createBoxESP(p)
+        end end
         if boxEspUpdateConnection then boxEspUpdateConnection:Disconnect() end
         boxEspUpdateConnection = RunService.RenderStepped:Connect(updateBoxESP)
     else
@@ -571,6 +635,7 @@ end
 -- === NAME ESP ===
 local function createNameESP(tp)
     if isWhitelisted(tp) then return end
+    if teamCheckEnabled and tp.Team == player.Team then return end
     if nameEspBillboards[tp] then nameEspBillboards[tp]:Destroy(); nameEspBillboards[tp] = nil end
     if nameEspConnections[tp] then nameEspConnections[tp]:Disconnect(); nameEspConnections[tp] = nil end
     local char = tp.Character; if not char then return end
@@ -585,7 +650,10 @@ local function createNameESP(tp)
     textLabel.TextSize = nameEspSize; textLabel.Font = Enum.Font.SourceSansBold
     textLabel.TextStrokeTransparency = 0; textLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0); textLabel.Parent = billboard
     nameEspBillboards[tp] = billboard
-    nameEspConnections[tp] = tp.CharacterAdded:Connect(function() task.wait(0.1); if nameEspEnabled and not isWhitelisted(tp) then createNameESP(tp) end end)
+    nameEspConnections[tp] = tp.CharacterAdded:Connect(function() task.wait(0.1); if nameEspEnabled and not isWhitelisted(tp) then
+        if teamCheckEnabled and tp.Team == player.Team then return end
+        createNameESP(tp)
+    end end)
 end
 
 local function updateNameESPSize(ns)
@@ -601,12 +669,30 @@ end
 local function toggleNameESP(state)
     nameEspEnabled = state
     if state then
-        for _,p in ipairs(Players:GetPlayers()) do if p ~= player and p.Character and not isWhitelisted(p) then createNameESP(p) end end
+        for _,p in ipairs(Players:GetPlayers()) do if p ~= player and p.Character and not isWhitelisted(p) then
+            if teamCheckEnabled and p.Team == player.Team then continue end
+            createNameESP(p)
+        end end
+        -- Handle new players joining
+        if nameEspPlayerAddedConnection then nameEspPlayerAddedConnection:Disconnect() end
+        nameEspPlayerAddedConnection = Players.PlayerAdded:Connect(function(np)
+            if nameEspEnabled and np ~= player then
+                np.CharacterAdded:Connect(function() if nameEspEnabled and not isWhitelisted(np) then
+                    if teamCheckEnabled and np.Team == player.Team then return end
+                    createNameESP(np)
+                end end)
+                if np.Character and not isWhitelisted(np) then
+                    if teamCheckEnabled and np.Team == player.Team then return end
+                    createNameESP(np)
+                end
+            end
+        end)
     else
         for _, billboard in pairs(nameEspBillboards) do if billboard then billboard:Destroy() end end
         nameEspBillboards = {}
         for _,c in pairs(nameEspConnections) do c:Disconnect() end
         nameEspConnections = {}
+        if nameEspPlayerAddedConnection then nameEspPlayerAddedConnection:Disconnect(); nameEspPlayerAddedConnection = nil end
     end
 end
 
@@ -679,6 +765,11 @@ local function startFOVAimbot()
         end
         
         if not fovLockedTarget or not fovLockedTarget.Character or isWhitelisted(fovLockedTarget) then
+            stopFOVAimbot()
+            return
+        end
+        
+        if aimTeamCheckEnabled and fovLockedTarget.Team == player.Team then
             stopFOVAimbot()
             return
         end
@@ -789,7 +880,76 @@ local function stopFly()
     end
 end
 
+-- === TEAM CHECK TOGGLE (Visuals) ===
+local function toggleTeamCheck(state)
+    teamCheckEnabled = state
+    -- Reapply all active ESP features with new filter
+    if espEnabled then
+        toggleESP(false)
+        toggleESP(true)
+    end
+    if boxEspEnabled then
+        toggleBoxESP(false)
+        toggleBoxESP(true)
+    end
+    if nameEspEnabled then
+        toggleNameESP(false)
+        toggleNameESP(true)
+    end
+end
+
+-- === SPEED KEYBIND TOGGLE (global function) ===
+local speedCB = nil
+
+local function toggleSpeedGlobal()
+    speedEnabled = not speedEnabled
+    if speedEnabled then startSpeed() else stopSpeed() end
+    if speedCB then
+        speedCB.BackgroundColor3 = speedEnabled and COLORS.ActiveWhite or COLORS.ControlBg
+    end
+end
+
+-- === MAIN HEARTBEAT (for movement) ===
 RunService.Heartbeat:Connect(function(dt)
+    -- Speed hack (velocity-based, no fly, no orbit)
+    if speedEnabled and not flying and not orbitActive then
+        local char = player.Character
+        if char then
+            local root = char:FindFirstChild("HumanoidRootPart")
+            if root then
+                if not speedBodyVelocity or not speedBodyVelocity.Parent then
+                    if speedBodyVelocity then speedBodyVelocity:Destroy() end
+                    speedBodyVelocity = Instance.new("BodyVelocity")
+                    speedBodyVelocity.MaxForce = Vector3.new(400000, 0, 400000)
+                    speedBodyVelocity.P = 1000
+                    speedBodyVelocity.Parent = root
+                end
+                local camLook = camera.CFrame.LookVector
+                local forward = Vector3.new(camLook.X, 0, camLook.Z)
+                if forward.Magnitude < 0.01 then forward = Vector3.new(0, 0, 1) end
+                forward = forward.Unit
+                local right = camera.CFrame.RightVector
+                right = Vector3.new(right.X, 0, right.Z)
+                if right.Magnitude < 0.01 then right = Vector3.new(1, 0, 0) end
+                right = right.Unit
+                local moveDir = Vector3.new(0,0,0)
+                if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + forward end
+                if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - forward end
+                if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - right end
+                if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + right end
+                if moveDir.Magnitude > 0 then
+                    speedBodyVelocity.Velocity = moveDir.Unit * speedValue
+                else
+                    speedBodyVelocity.Velocity = Vector3.new(0,0,0)
+                end
+            end
+        end
+    elseif not speedEnabled and speedBodyVelocity then
+        speedBodyVelocity:Destroy()
+        speedBodyVelocity = nil
+    end
+
+    -- Fly
     if not flying or orbitActive then return end
     
     local char = player.Character
@@ -866,20 +1026,6 @@ local function startSpectating(tp)
     stopSpectating(); isSpectating = true; spectateTarget = tp
     camera.CameraType = Enum.CameraType.Follow; camera.CameraSubject = tr
 end
-
--- === PLAYER ADDED HANDLERS ===
-Players.PlayerAdded:Connect(function(np)
-    if np ~= player then
-        if boxEspEnabled and not isWhitelisted(np) then
-            np.CharacterAdded:Connect(function() if boxEspEnabled and not isWhitelisted(np) then createBoxESP(np) end end)
-            if np.Character then createBoxESP(np) end
-        end
-        if nameEspEnabled and not isWhitelisted(np) then
-            np.CharacterAdded:Connect(function() if nameEspEnabled and not isWhitelisted(np) then createNameESP(np) end end)
-            if np.Character then createNameESP(np) end
-        end
-    end
-end)
 
 -- === DRAG ===
 local dragData = nil
@@ -965,6 +1111,7 @@ end
 
 -- === CONTENT BUILDER ===
 local currentContent = nil
+local activeTextBox = nil
 
 local function createPanel(parent, x, y, w, h)
     local p = Instance.new("Frame"); p.Size = UDim2.new(0,w,0,h); p.Position = UDim2.new(0,x,0,y)
@@ -1195,6 +1342,57 @@ function buildContent()
             ddBtn.MouseButton1Click:Connect(function() if ddOpen then closeDD() else openDD() end end)
             headOpt.MouseButton1Click:Connect(function() fovTarget = "Head"; closeDD() end)
             torsoOpt.MouseButton1Click:Connect(function() fovTarget = "Torso"; closeDD() end)
+            yp = yp + 48
+            
+            -- Divider and Aim Team Check
+            local divAim = Instance.new("Frame")
+            divAim.Size = UDim2.new(1, -16, 0, 1)
+            divAim.Position = UDim2.new(0, 8, 0, yp)
+            divAim.BackgroundColor3 = Color3.fromHex("555555")
+            divAim.BorderSizePixel = 0
+            divAim.ZIndex = 5
+            divAim.Parent = lp
+            yp = yp + 10
+            
+            local aimTeamRow = Instance.new("Frame")
+            aimTeamRow.Size = UDim2.new(1, -16, 0, 38)
+            aimTeamRow.Position = UDim2.new(0, 8, 0, yp)
+            aimTeamRow.BackgroundTransparency = 1
+            aimTeamRow.ZIndex = 5
+            aimTeamRow.Parent = lp
+            
+            local aimTeamCB = createCircleCB(aimTeamRow, 22, UDim2.new(0, 0, 0.5, -11))
+            aimTeamCB.BackgroundColor3 = aimTeamCheckEnabled and COLORS.ActiveWhite or COLORS.ControlBg
+            
+            local aimTeamLbl = Instance.new("TextLabel")
+            aimTeamLbl.Size = UDim2.new(0, 100, 1, 0)
+            aimTeamLbl.Position = UDim2.new(0, 30, 0, 0)
+            aimTeamLbl.BackgroundTransparency = 1
+            aimTeamLbl.Text = "Team check"
+            aimTeamLbl.TextColor3 = COLORS.White
+            aimTeamLbl.TextSize = 18
+            aimTeamLbl.TextXAlignment = Enum.TextXAlignment.Left
+            aimTeamLbl.Font = Enum.Font.SourceSansBold
+            aimTeamLbl.ZIndex = 5
+            aimTeamLbl.Parent = aimTeamRow
+            
+            local aimTeamClick = Instance.new("TextButton")
+            aimTeamClick.Size = UDim2.new(1, 0, 1, 0)
+            aimTeamClick.BackgroundTransparency = 1
+            aimTeamClick.Text = ""
+            aimTeamClick.ZIndex = 5
+            aimTeamClick.Parent = aimTeamRow
+            
+            local function toggleAimTeam()
+                aimTeamCheckEnabled = not aimTeamCheckEnabled
+                aimTeamCB.BackgroundColor3 = aimTeamCheckEnabled and COLORS.ActiveWhite or COLORS.ControlBg
+                -- If toggling on and currently locked onto a teammate, stop aimbot
+                if aimTeamCheckEnabled and fovLockedTarget and fovLockedTarget.Team == player.Team then
+                    stopFOVAimbot()
+                end
+            end
+            aimTeamClick.MouseButton1Click:Connect(toggleAimTeam)
+            aimTeamCB.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then toggleAimTeam() end end)
             
             local ryp = 8
             local frLbl = Instance.new("TextLabel"); frLbl.Size = UDim2.new(1,-16,0,24); frLbl.Position = UDim2.new(0,8,0,ryp)
@@ -1308,7 +1506,36 @@ function buildContent()
             end
             nameClick.MouseButton1Click:Connect(toggleN)
             nameCB.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then toggleN() end end)
+            yp = yp+42
             
+            -- Divider and Team check (Visuals)
+            local dividerV = Instance.new("Frame")
+            dividerV.Size = UDim2.new(1, -16, 0, 1)
+            dividerV.Position = UDim2.new(0, 8, 0, yp)
+            dividerV.BackgroundColor3 = Color3.fromHex("555555")
+            dividerV.BorderSizePixel = 0
+            dividerV.ZIndex = 5
+            dividerV.Parent = lp
+            yp = yp + 10
+            
+            local teamRow = Instance.new("Frame"); teamRow.Size = UDim2.new(1,-16,0,38); teamRow.Position = UDim2.new(0,8,0,yp)
+            teamRow.BackgroundTransparency = 1; teamRow.ZIndex = 5; teamRow.Parent = lp
+            local teamCB = createCircleCB(teamRow, 22, UDim2.new(0,0,0.5,-11))
+            teamCB.BackgroundColor3 = teamCheckEnabled and COLORS.ActiveWhite or COLORS.ControlBg
+            local teamLbl = Instance.new("TextLabel"); teamLbl.Size = UDim2.new(0,100,1,0); teamLbl.Position = UDim2.new(0,30,0,0)
+            teamLbl.BackgroundTransparency = 1; teamLbl.Text = "Team check"; teamLbl.TextColor3 = COLORS.White; teamLbl.TextSize = 18
+            teamLbl.TextXAlignment = Enum.TextXAlignment.Left; teamLbl.Font = Enum.Font.SourceSansBold; teamLbl.ZIndex = 5; teamLbl.Parent = teamRow
+            local teamClick = Instance.new("TextButton"); teamClick.Size = UDim2.new(1,0,1,0); teamClick.BackgroundTransparency = 1
+            teamClick.Text = ""; teamClick.ZIndex = 5; teamClick.Parent = teamRow
+            local function toggleTeam()
+                teamCheckEnabled = not teamCheckEnabled
+                teamCB.BackgroundColor3 = teamCheckEnabled and COLORS.ActiveWhite or COLORS.ControlBg
+                toggleTeamCheck(teamCheckEnabled)
+            end
+            teamClick.MouseButton1Click:Connect(toggleTeam)
+            teamCB.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then toggleTeam() end end)
+            
+            -- Right panel (Name Size slider)
             local ryp = 8
             local nsLbl = Instance.new("TextLabel"); nsLbl.Size = UDim2.new(1,-16,0,24); nsLbl.Position = UDim2.new(0,8,0,ryp)
             nsLbl.BackgroundTransparency = 1; nsLbl.Text = "Name Size"; nsLbl.TextColor3 = COLORS.White; nsLbl.TextSize = 16
@@ -1374,6 +1601,61 @@ function buildContent()
             end
             ncClick.MouseButton1Click:Connect(toggleNC)
             ncCB.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then toggleNC() end end)
+            yp = yp+42
+            
+            -- Speed row (with keybind text box)
+            local speedRow = Instance.new("Frame"); speedRow.Size = UDim2.new(1,-16,0,38); speedRow.Position = UDim2.new(0,8,0,yp)
+            speedRow.BackgroundTransparency = 1; speedRow.ZIndex = 5; speedRow.Parent = lp
+            local speedCB2 = createCircleCB(speedRow, 22, UDim2.new(0,0,0.5,-11))
+            speedCB2.BackgroundColor3 = speedEnabled and COLORS.ActiveWhite or COLORS.ControlBg
+            speedCB = speedCB2  -- store reference for keybind toggle
+            local speedLbl = Instance.new("TextLabel"); speedLbl.Size = UDim2.new(0,80,1,0); speedLbl.Position = UDim2.new(0,30,0,0)
+            speedLbl.BackgroundTransparency = 1; speedLbl.Text = "Speed"; speedLbl.TextColor3 = COLORS.White; speedLbl.TextSize = 18
+            speedLbl.TextXAlignment = Enum.TextXAlignment.Left; speedLbl.Font = Enum.Font.SourceSansBold; speedLbl.ZIndex = 5; speedLbl.Parent = speedRow
+            local speedClick = Instance.new("TextButton"); speedClick.Size = UDim2.new(1,0,1,0); speedClick.BackgroundTransparency = 1
+            speedClick.Text = ""; speedClick.ZIndex = 5; speedClick.Parent = speedRow
+            local function toggleSpeedUI()
+                toggleSpeedGlobal()
+                speedCB2.BackgroundColor3 = speedEnabled and COLORS.ActiveWhite or COLORS.ControlBg
+            end
+            speedClick.MouseButton1Click:Connect(toggleSpeedUI)
+            speedCB2.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then toggleSpeedUI() end end)
+            
+            -- Keybind text box
+            local speedKeyBindBox = Instance.new("TextBox")
+            speedKeyBindBox.Size = UDim2.new(0, 28, 0, 22)
+            speedKeyBindBox.Position = UDim2.new(0, 120, 0.5, -11)  -- beside label
+            speedKeyBindBox.BackgroundColor3 = COLORS.ControlBg
+            speedKeyBindBox.BorderSizePixel = 1
+            speedKeyBindBox.BorderColor3 = COLORS.ControlBorder
+            speedKeyBindBox.Text = speedKeybind or ""
+            speedKeyBindBox.TextColor3 = COLORS.White
+            speedKeyBindBox.TextSize = 14
+            speedKeyBindBox.Font = Enum.Font.SourceSansBold
+            speedKeyBindBox.ZIndex = 5
+            speedKeyBindBox.Parent = speedRow
+            speedKeyBindBox.ClearTextOnFocus = false
+            
+            local function onSpeedKeyBindLostFocus()
+                local txt = speedKeyBindBox.Text:gsub("%s", "")
+                if #txt == 1 then
+                    speedKeybind = txt:upper()  -- store uppercase letter
+                    speedKeyBindBox.Text = speedKeybind
+                else
+                    speedKeybind = nil
+                    speedKeyBindBox.Text = ""
+                end
+            end
+            
+            speedKeyBindBox.FocusLost:Connect(onSpeedKeyBindLostFocus)
+            
+            speedKeyBindBox.Focused:Connect(function()
+                activeTextBox = speedKeyBindBox
+            end)
+            speedKeyBindBox.FocusLost:Connect(function()
+                if activeTextBox == speedKeyBindBox then activeTextBox = nil end
+            end)
+            
             yp = yp+48
             
             -- Divider
@@ -1398,8 +1680,30 @@ function buildContent()
             end
             orbClick.MouseButton1Click:Connect(toggleOrb)
             orbCB.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then toggleOrb() end end)
+            yp = yp+42
             
-            -- Right panel: Fly speed + Orbit Range + Config/Type side by side
+            -- Orbit Team Check (no divider)
+            local orbTeamRow = Instance.new("Frame"); orbTeamRow.Size = UDim2.new(1,-16,0,38); orbTeamRow.Position = UDim2.new(0,8,0,yp)
+            orbTeamRow.BackgroundTransparency = 1; orbTeamRow.ZIndex = 5; orbTeamRow.Parent = lp
+            local orbTeamCB = createCircleCB(orbTeamRow, 22, UDim2.new(0,0,0.5,-11))
+            orbTeamCB.BackgroundColor3 = orbitTeamCheckEnabled and COLORS.ActiveWhite or COLORS.ControlBg
+            local orbTeamLbl = Instance.new("TextLabel"); orbTeamLbl.Size = UDim2.new(0,120,1,0); orbTeamLbl.Position = UDim2.new(0,30,0,0)
+            orbTeamLbl.BackgroundTransparency = 1; orbTeamLbl.Text = "Team check (for orbit)"; orbTeamLbl.TextColor3 = COLORS.White; orbTeamLbl.TextSize = 18
+            orbTeamLbl.TextXAlignment = Enum.TextXAlignment.Left; orbTeamLbl.Font = Enum.Font.SourceSansBold; orbTeamLbl.ZIndex = 5; orbTeamLbl.Parent = orbTeamRow
+            local orbTeamClick = Instance.new("TextButton"); orbTeamClick.Size = UDim2.new(1,0,1,0); orbTeamClick.BackgroundTransparency = 1
+            orbTeamClick.Text = ""; orbTeamClick.ZIndex = 5; orbTeamClick.Parent = orbTeamRow
+            local function toggleOrbTeam()
+                orbitTeamCheckEnabled = not orbitTeamCheckEnabled
+                orbTeamCB.BackgroundColor3 = orbitTeamCheckEnabled and COLORS.ActiveWhite or COLORS.ControlBg
+                -- If currently orbiting a teammate and we enable team check, stop orbiting
+                if orbitTeamCheckEnabled and orbitActive and orbitTarget and orbitTarget.Team == player.Team then
+                    stopOrbit()
+                end
+            end
+            orbTeamClick.MouseButton1Click:Connect(toggleOrbTeam)
+            orbTeamCB.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then toggleOrbTeam() end end)
+            
+            -- Right panel: Fly speed + Speed slider + Orbit Range + Config/Type combos
             local ryp = 8
             local fsLbl2 = Instance.new("TextLabel"); fsLbl2.Size = UDim2.new(1,-16,0,24); fsLbl2.Position = UDim2.new(0,8,0,ryp)
             fsLbl2.BackgroundTransparency = 1; fsLbl2.Text = "Fly speed"; fsLbl2.TextColor3 = COLORS.White; fsLbl2.TextSize = 16
@@ -1428,6 +1732,37 @@ function buildContent()
             end
             fsKnob2.MouseButton1Down:Connect(startFSDrag2)
             fsTrack2.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then updateFS2(i); startFSDrag2() end end)
+            ryp = ryp+52
+            
+            -- Speed slider (for the Speed hack)
+            local spLbl = Instance.new("TextLabel"); spLbl.Size = UDim2.new(1,-16,0,24); spLbl.Position = UDim2.new(0,8,0,ryp)
+            spLbl.BackgroundTransparency = 1; spLbl.Text = "Speed"; spLbl.TextColor3 = COLORS.White; spLbl.TextSize = 16
+            spLbl.TextXAlignment = Enum.TextXAlignment.Left; spLbl.Font = Enum.Font.SourceSansBold; spLbl.ZIndex = 5; spLbl.Parent = rp
+            local spVal = Instance.new("TextLabel"); spVal.Size = UDim2.new(0,50,0,24); spVal.Position = UDim2.new(1,-58,0,ryp)
+            spVal.BackgroundTransparency = 1; spVal.Text = tostring(speedValue); spVal.TextColor3 = COLORS.White; spVal.TextSize = 16
+            spVal.TextXAlignment = Enum.TextXAlignment.Right; spVal.Font = Enum.Font.SourceSansBold; spVal.ZIndex = 5; spVal.Parent = rp
+            local spTrack = Instance.new("Frame"); spTrack.Size = UDim2.new(1,-16,0,6); spTrack.Position = UDim2.new(0,8,0,ryp+30)
+            spTrack.BackgroundColor3 = Color3.fromHex("333333"); spTrack.BorderSizePixel = 0; spTrack.ZIndex = 5; spTrack.Parent = rp
+            local spFill = Instance.new("Frame"); spFill.Size = UDim2.new((speedValue-30)/270,0,1,0)
+            spFill.BackgroundColor3 = COLORS.White; spFill.BorderSizePixel = 0; spFill.ZIndex = 5; spFill.Parent = spTrack
+            local spKnob = Instance.new("TextButton"); spKnob.Size = UDim2.new(0,20,0,20); spKnob.Position = UDim2.new((speedValue-30)/270,-10,0.5,-10)
+            spKnob.BackgroundColor3 = COLORS.White; spKnob.BorderSizePixel = 0; spKnob.Text = ""; spKnob.ZIndex = 5; spKnob.Parent = spTrack
+            Instance.new("UICorner", spKnob).CornerRadius = UDim.new(1,0)
+            local spDrag = false; local spDC = nil; local spEC = nil
+            local function updateSP(i)
+                if not spTrack.Parent then return end
+                local p = math.clamp((i.Position.X-spTrack.AbsolutePosition.X)/spTrack.AbsoluteSize.X,0,1)
+                speedValue = math.round(30 + p * 270)
+                spFill.Size = UDim2.new(p,0,1,0); spKnob.Position = UDim2.new(p,-10,0.5,-10)
+                spVal.Text = tostring(speedValue)
+            end
+            local function startSPDrag()
+                spDrag = true; if spDC then spDC:Disconnect() end; if spEC then spEC:Disconnect() end
+                spDC = UserInputService.InputChanged:Connect(function(i) if spDrag and i.UserInputType == Enum.UserInputType.MouseMovement then updateSP(i) end end)
+                spEC = UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then spDrag = false; spDC:Disconnect(); spEC:Disconnect() end end)
+            end
+            spKnob.MouseButton1Down:Connect(startSPDrag)
+            spTrack.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then updateSP(i); startSPDrag() end end)
             ryp = ryp+52
             
             -- Orbit Range slider
@@ -1464,11 +1799,11 @@ function buildContent()
             orTrack.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then updateOR(i); startORDrag() end end)
             ryp = ryp+52
             
-            -- Orbit Config and Orbit Type side by side (below Orbit Range)
+            -- Orbit Config and Orbit Type side by side (below Orbit Range) - Auto removed
             local comboRow = Instance.new("Frame"); comboRow.Size = UDim2.new(1,-16,0,38); comboRow.Position = UDim2.new(0,8,0,ryp)
             comboRow.BackgroundTransparency = 1; comboRow.ZIndex = 5; comboRow.Parent = rp
             
-            -- Orbit Config (left side)
+            -- Orbit Config (left side) - only Move and Stay
             local ocLbl = Instance.new("TextLabel"); ocLbl.Size = UDim2.new(0,45,1,0); ocLbl.Position = UDim2.new(0,0,0,0)
             ocLbl.BackgroundTransparency = 1; ocLbl.Text = "Config"; ocLbl.TextColor3 = COLORS.White; ocLbl.TextSize = 13
             ocLbl.TextXAlignment = Enum.TextXAlignment.Left; ocLbl.Font = Enum.Font.SourceSansBold; ocLbl.ZIndex = 5; ocLbl.Parent = comboRow
@@ -1573,9 +1908,10 @@ function buildContent()
     end
 end
 
--- === INSERT KEY TOGGLE ===
+-- === KEYBINDS (including speed keybind and Enter support) ===
 UserInputService.InputBegan:Connect(function(i, gp)
     if gp then return end
+    -- Insert key toggles GUI
     if i.KeyCode == Enum.KeyCode.Insert then
         guiHidden = not guiHidden
         mainFrame.Visible = not guiHidden
@@ -1593,6 +1929,16 @@ UserInputService.InputBegan:Connect(function(i, gp)
             end
         end
     end
+    
+    -- Speed keybind
+    if speedKeybind and i.KeyCode.Name == speedKeybind then
+        toggleSpeedGlobal()
+    end
+    
+    -- Enter key to confirm speed keybind TextBox (if focused)
+    if i.KeyCode == Enum.KeyCode.Return and activeTextBox then
+        activeTextBox:ReleaseFocus()
+    end
 end)
 
 -- Initial build with Aiming selected
@@ -1606,6 +1952,11 @@ player.CharacterAdded:Connect(function()
         flying = false
         task.wait(0.3)
         startFly()
+    end
+    if speedEnabled then
+        stopSpeed()
+        task.wait(0.1)
+        startSpeed()
     end
     if orbitActive then stopOrbit() end
     if isSpectating then stopSpectating() end
@@ -1629,9 +1980,11 @@ screenGui.AncestryChanged:Connect(function()
         for _,c in pairs(nameEspConnections) do c:Disconnect() end
         if espUpdateConnection then espUpdateConnection:Disconnect() end
         if espPlayerAddedConnection then espPlayerAddedConnection:Disconnect() end
+        if nameEspPlayerAddedConnection then nameEspPlayerAddedConnection:Disconnect() end
         for _,c in pairs(espConnections) do c:Disconnect() end
         if flyBodyVelocity then flyBodyVelocity:Destroy() end
         if flyBodyGyro then flyBodyGyro:Destroy() end
         if orbitBodyGyro then orbitBodyGyro:Destroy() end
+        if speedBodyVelocity then speedBodyVelocity:Destroy() end
     end
 end)
