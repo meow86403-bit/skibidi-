@@ -190,6 +190,13 @@ local selectedPlayer = nil
 local isSpectating = false
 local spectateTarget = nil
 
+-- Whitelist
+local whitelistedPlayers = {}
+
+local function isWhitelisted(plr)
+    return table.find(whitelistedPlayers, plr) ~= nil
+end
+
 -- === CONNECTIONS/DRAWINGS ===
 local espUpdateConnection = nil
 local espPlayerAddedConnection = nil
@@ -216,7 +223,7 @@ local function getClosestPlayerToCursor()
     local mp = UserInputService:GetMouseLocation()
     local best, bestDist = nil, 200
     for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= player and plr.Character then
+        if plr ~= player and plr.Character and not isWhitelisted(plr) then
             local hum = plr.Character:FindFirstChild("Humanoid")
             local head = plr.Character:FindFirstChild("Head")
             if hum and hum.Health > 0 and head then
@@ -237,7 +244,7 @@ end
 local function getClosestPlayerInFOV(mp, fr)
     local best, bestDist = nil, fr
     for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= player and plr.Character then
+        if plr ~= player and plr.Character and not isWhitelisted(plr) then
             local hum = plr.Character:FindFirstChild("Humanoid")
             if hum and hum.Health > 0 then
                 local ap = fovTarget == "Torso" and (plr.Character:FindFirstChild("UpperTorso") or plr.Character:FindFirstChild("Torso")) or plr.Character:FindFirstChild("Head")
@@ -304,6 +311,13 @@ local function stopOrbit()
             end
             orbitOriginalPos = nil
         end
+        
+        -- Reset camera to default
+        local hum2 = char:FindFirstChild("Humanoid")
+        if hum2 then
+            camera.CameraSubject = hum2
+        end
+        camera.CameraType = Enum.CameraType.Custom
     end
 end
 
@@ -316,7 +330,7 @@ local function startOrbit(targetPlayer)
     if flying then return end
     
     local target = targetPlayer or getClosestPlayerToCursor()
-    if not target or not target.Character then return end
+    if not target or not target.Character or isWhitelisted(target) then return end
     
     local targetChar = target.Character
     local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
@@ -343,6 +357,9 @@ local function startOrbit(targetPlayer)
     local yOffset = (orbitType == "Up") and orbitHeight or 0
     local behindPos = targetRoot.Position - targetFacing * orbitRadius * 0.7 + Vector3.new(0, yOffset, 0)
     localRoot.CFrame = CFrame.lookAt(behindPos, targetRoot.Position)
+    
+    camera.CameraSubject = localHum
+    camera.CameraType = Enum.CameraType.Custom
     
     if orbitBodyGyro then orbitBodyGyro:Destroy() end
     orbitBodyGyro = Instance.new("BodyGyro")
@@ -376,37 +393,62 @@ local function startOrbit(targetPlayer)
             return
         end
         
-        angle = angle + orbitSpeed * dt
-        if angle > math.pi * 2 then
-            angle = angle - math.pi * 2
-        end
+        local orbitPos
         
-        local swingAngle
-        if orbitMode == "Stay" then
-            swingAngle = 0
+        if orbitType == "Crazy" then
+            local randomAngleH = math.random() * math.pi * 2
+            local randomAngleV = (math.random() - 0.5) * math.pi
+            local randomRadius = orbitRadius * (0.3 + math.random())
+            local randomY = math.sin(randomAngleV) * orbitRadius * 0.8
+            
+            local offsetX = math.cos(randomAngleH) * randomRadius
+            local offsetZ = math.sin(randomAngleH) * randomRadius
+            
+            orbitPos = tRoot.Position + Vector3.new(offsetX, randomY, offsetZ)
+            
+            if math.random() < 0.2 then
+                orbitPos = tRoot.Position - Vector3.new(offsetX, randomY, offsetZ)
+            end
         else
-            swingAngle = math.sin(angle) * 0.9
+            angle = angle + orbitSpeed * dt
+            if angle > math.pi * 2 then
+                angle = angle - math.pi * 2
+            end
+            
+            local swingAngle
+            if orbitMode == "Stay" then
+                swingAngle = 0
+            else
+                swingAngle = math.sin(angle) * 0.9
+            end
+            
+            local targetFacing = tRoot.CFrame.LookVector
+            targetFacing = Vector3.new(targetFacing.X, 0, targetFacing.Z)
+            if targetFacing.Magnitude < 0.01 then
+                targetFacing = Vector3.new(0, 0, -1)
+            end
+            targetFacing = targetFacing.Unit
+            
+            local targetRight = Vector3.new(targetFacing.Z, 0, -targetFacing.X).Unit
+            
+            local yOffset = (orbitType == "Up") and orbitHeight or 0
+            
+            orbitPos = tRoot.Position 
+                - targetFacing * orbitRadius * 0.7
+                + targetRight * swingAngle * orbitRadius
+                + Vector3.new(0, yOffset, 0)
         end
-        
-        local targetFacing = tRoot.CFrame.LookVector
-        targetFacing = Vector3.new(targetFacing.X, 0, targetFacing.Z)
-        if targetFacing.Magnitude < 0.01 then
-            targetFacing = Vector3.new(0, 0, -1)
-        end
-        targetFacing = targetFacing.Unit
-        
-        local targetRight = Vector3.new(targetFacing.Z, 0, -targetFacing.X).Unit
-        
-        local yOffset = (orbitType == "Up") and orbitHeight or 0
-        
-        local orbitPos = tRoot.Position 
-            - targetFacing * orbitRadius * 0.7
-            + targetRight * swingAngle * orbitRadius
-            + Vector3.new(0, yOffset, 0)
         
         lRoot.CFrame = CFrame.lookAt(orbitPos, tRoot.Position)
         
-        orbitBodyGyro.CFrame = CFrame.lookAt(lRoot.Position, tRoot.Position)
+        local head = lChar:FindFirstChild("Head")
+        if head then
+            camera.CFrame = CFrame.lookAt(head.Position, tRoot.Position)
+        end
+        
+        if orbitBodyGyro then
+            orbitBodyGyro.CFrame = CFrame.lookAt(lRoot.Position, tRoot.Position)
+        end
     end)
 end
 
@@ -424,6 +466,7 @@ end)
 
 -- === ESP ===
 local function createESPBox(tp)
+    if isWhitelisted(tp) then return end
     if espObjects[tp] then espObjects[tp]:Destroy() end
     local hl = Instance.new("Highlight")
     hl.FillColor = COLORS.ESP; hl.FillTransparency = 1; hl.OutlineColor = COLORS.ESP
@@ -432,24 +475,33 @@ local function createESPBox(tp)
     espObjects[tp] = hl
     if espConnections[tp] then espConnections[tp]:Disconnect() end
     espConnections[tp] = tp.CharacterAdded:Connect(function(nc)
-        if espEnabled and espObjects[tp] then espObjects[tp].Adornee = nc; espObjects[tp].Parent = nc end
+        if espEnabled and espObjects[tp] and not isWhitelisted(tp) then espObjects[tp].Adornee = nc; espObjects[tp].Parent = nc end
     end)
 end
 
 local function toggleESP(state)
     espEnabled = state
     if state then
-        for _,p in ipairs(Players:GetPlayers()) do if p ~= player and p.Character then createESPBox(p) end end
+        for _,p in ipairs(Players:GetPlayers()) do if p ~= player and p.Character and not isWhitelisted(p) then createESPBox(p) end end
         if espUpdateConnection then espUpdateConnection:Disconnect() end
         espUpdateConnection = RunService.Heartbeat:Connect(function()
             if not espEnabled then return end
-            for _,p in ipairs(Players:GetPlayers()) do if p ~= player and p.Character and not espObjects[p] then createESPBox(p) end end
+            for _,p in ipairs(Players:GetPlayers()) do
+                if p ~= player and p.Character then
+                    if isWhitelisted(p) then
+                        if espObjects[p] then espObjects[p]:Destroy(); espObjects[p] = nil end
+                        if espConnections[p] then espConnections[p]:Disconnect(); espConnections[p] = nil end
+                    elseif not espObjects[p] then
+                        createESPBox(p)
+                    end
+                end
+            end
         end)
         if espPlayerAddedConnection then espPlayerAddedConnection:Disconnect() end
         espPlayerAddedConnection = Players.PlayerAdded:Connect(function(np)
             if espEnabled and np ~= player then
-                np.CharacterAdded:Connect(function() if espEnabled then createESPBox(np) end end)
-                if np.Character then createESPBox(np) end
+                np.CharacterAdded:Connect(function() if espEnabled and not isWhitelisted(np) then createESPBox(np) end end)
+                if np.Character and not isWhitelisted(np) then createESPBox(np) end
             end
         end)
     else
@@ -464,6 +516,7 @@ end
 
 -- === BOX ESP ===
 local function createBoxESP(tp)
+    if isWhitelisted(tp) then return end
     if boxEspObjects[tp] then for _,d in ipairs(boxEspObjects[tp]) do pcall(function() d:Remove() end) end end
     local lines = {}
     for _=1,12 do
@@ -472,11 +525,17 @@ local function createBoxESP(tp)
     end
     boxEspObjects[tp] = lines
     if boxEspConnections[tp] then boxEspConnections[tp]:Disconnect() end
-    boxEspConnections[tp] = tp.CharacterAdded:Connect(function() task.wait(0.1); if boxEspEnabled then createBoxESP(tp) end end)
+    boxEspConnections[tp] = tp.CharacterAdded:Connect(function() task.wait(0.1); if boxEspEnabled and not isWhitelisted(tp) then createBoxESP(tp) end end)
 end
 
 local function updateBoxESP()
     for plr,lines in pairs(boxEspObjects) do
+        if isWhitelisted(plr) then
+            for _,l in ipairs(lines) do pcall(function() l:Remove() end) end
+            boxEspObjects[plr] = nil
+            if boxEspConnections[plr] then boxEspConnections[plr]:Disconnect(); boxEspConnections[plr] = nil end
+            continue
+        end
         local c = plr.Character
         if not c then for _,l in ipairs(lines) do l.Visible = false end continue end
         local head = c:FindFirstChild("Head"); local root = c:FindFirstChild("HumanoidRootPart")
@@ -499,7 +558,7 @@ end
 local function toggleBoxESP(state)
     boxEspEnabled = state
     if state then
-        for _,p in ipairs(Players:GetPlayers()) do if p ~= player and p.Character then createBoxESP(p) end end
+        for _,p in ipairs(Players:GetPlayers()) do if p ~= player and p.Character and not isWhitelisted(p) then createBoxESP(p) end end
         if boxEspUpdateConnection then boxEspUpdateConnection:Disconnect() end
         boxEspUpdateConnection = RunService.RenderStepped:Connect(updateBoxESP)
     else
@@ -511,6 +570,7 @@ end
 
 -- === NAME ESP ===
 local function createNameESP(tp)
+    if isWhitelisted(tp) then return end
     if nameEspBillboards[tp] then nameEspBillboards[tp]:Destroy(); nameEspBillboards[tp] = nil end
     if nameEspConnections[tp] then nameEspConnections[tp]:Disconnect(); nameEspConnections[tp] = nil end
     local char = tp.Character; if not char then return end
@@ -525,7 +585,7 @@ local function createNameESP(tp)
     textLabel.TextSize = nameEspSize; textLabel.Font = Enum.Font.SourceSansBold
     textLabel.TextStrokeTransparency = 0; textLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0); textLabel.Parent = billboard
     nameEspBillboards[tp] = billboard
-    nameEspConnections[tp] = tp.CharacterAdded:Connect(function() task.wait(0.1); if nameEspEnabled then createNameESP(tp) end end)
+    nameEspConnections[tp] = tp.CharacterAdded:Connect(function() task.wait(0.1); if nameEspEnabled and not isWhitelisted(tp) then createNameESP(tp) end end)
 end
 
 local function updateNameESPSize(ns)
@@ -541,7 +601,7 @@ end
 local function toggleNameESP(state)
     nameEspEnabled = state
     if state then
-        for _,p in ipairs(Players:GetPlayers()) do if p ~= player and p.Character then createNameESP(p) end end
+        for _,p in ipairs(Players:GetPlayers()) do if p ~= player and p.Character and not isWhitelisted(p) then createNameESP(p) end end
     else
         for _, billboard in pairs(nameEspBillboards) do if billboard then billboard:Destroy() end end
         nameEspBillboards = {}
@@ -618,7 +678,7 @@ local function startFOVAimbot()
             return
         end
         
-        if not fovLockedTarget or not fovLockedTarget.Character then
+        if not fovLockedTarget or not fovLockedTarget.Character or isWhitelisted(fovLockedTarget) then
             stopFOVAimbot()
             return
         end
@@ -810,12 +870,12 @@ end
 -- === PLAYER ADDED HANDLERS ===
 Players.PlayerAdded:Connect(function(np)
     if np ~= player then
-        if boxEspEnabled then
-            np.CharacterAdded:Connect(function() if boxEspEnabled then createBoxESP(np) end end)
+        if boxEspEnabled and not isWhitelisted(np) then
+            np.CharacterAdded:Connect(function() if boxEspEnabled and not isWhitelisted(np) then createBoxESP(np) end end)
             if np.Character then createBoxESP(np) end
         end
-        if nameEspEnabled then
-            np.CharacterAdded:Connect(function() if nameEspEnabled then createNameESP(np) end end)
+        if nameEspEnabled and not isWhitelisted(np) then
+            np.CharacterAdded:Connect(function() if nameEspEnabled and not isWhitelisted(np) then createNameESP(np) end end)
             if np.Character then createNameESP(np) end
         end
     end
@@ -948,19 +1008,30 @@ function buildContent()
         sf.ClipsDescendants = true; sf.ZIndex = 5; sf.Parent = panel
         local ab = Instance.new("Frame"); ab.Size = UDim2.new(1,-16,0,32); ab.Position = UDim2.new(0,8,1,-36)
         ab.BackgroundTransparency = 1; ab.ZIndex = 5; ab.Parent = panel
-        local teleBtn = Instance.new("TextButton"); teleBtn.Size = UDim2.new(0,90,1,-4); teleBtn.Position = UDim2.new(0,0,0.5,-14)
-        teleBtn.BackgroundTransparency = 1; teleBtn.Text = "Teleport"; teleBtn.TextColor3 = COLORS.White; teleBtn.TextSize = 12
+        
+        local teleBtn = Instance.new("TextButton"); teleBtn.Size = UDim2.new(0,70,1,-4); teleBtn.Position = UDim2.new(0,0,0.5,-14)
+        teleBtn.BackgroundTransparency = 1; teleBtn.Text = "Teleport"; teleBtn.TextColor3 = COLORS.White; teleBtn.TextSize = 11
         teleBtn.Font = Enum.Font.SourceSans; teleBtn.ZIndex = 5; teleBtn.Parent = ab
-        local specBtn = Instance.new("TextButton"); specBtn.Size = UDim2.new(0,90,1,-4); specBtn.Position = UDim2.new(0,100,0.5,-14)
-        specBtn.BackgroundTransparency = 1; specBtn.Text = "Spectate"; specBtn.TextColor3 = COLORS.White; specBtn.TextSize = 12
+        local specBtn = Instance.new("TextButton"); specBtn.Size = UDim2.new(0,70,1,-4); specBtn.Position = UDim2.new(0,75,0.5,-14)
+        specBtn.BackgroundTransparency = 1; specBtn.Text = "Spectate"; specBtn.TextColor3 = COLORS.White; specBtn.TextSize = 11
         specBtn.Font = Enum.Font.SourceSans; specBtn.ZIndex = 5; specBtn.Parent = ab
-        local orbitBtn = Instance.new("TextButton"); orbitBtn.Size = UDim2.new(0,90,1,-4); orbitBtn.Position = UDim2.new(0,200,0.5,-14)
-        orbitBtn.BackgroundTransparency = 1; orbitBtn.Text = "Orbit"; orbitBtn.TextColor3 = COLORS.White; orbitBtn.TextSize = 12
+        local orbitBtn = Instance.new("TextButton"); orbitBtn.Size = UDim2.new(0,70,1,-4); orbitBtn.Position = UDim2.new(0,150,0.5,-14)
+        orbitBtn.BackgroundTransparency = 1; orbitBtn.Text = "Orbit"; orbitBtn.TextColor3 = COLORS.White; orbitBtn.TextSize = 11
         orbitBtn.Font = Enum.Font.SourceSans; orbitBtn.ZIndex = 5; orbitBtn.Parent = ab
+        local whitelistBtn = Instance.new("TextButton"); whitelistBtn.Size = UDim2.new(0,70,1,-4); whitelistBtn.Position = UDim2.new(0,225,0.5,-14)
+        whitelistBtn.BackgroundTransparency = 1; whitelistBtn.Text = "Whitelist"; whitelistBtn.TextColor3 = COLORS.White; whitelistBtn.TextSize = 11
+        whitelistBtn.Font = Enum.Font.SourceSans; whitelistBtn.ZIndex = 5; whitelistBtn.Parent = ab
         
         local playerBtns = {}
+        local wlLabels = {}
+        
         local function refreshPlayerList()
-            for _,b in ipairs(playerBtns) do b:Destroy() end; playerBtns = {}
+            for _, row in ipairs(playerBtns) do
+                row:Destroy()
+            end
+            playerBtns = {}
+            wlLabels = {}
+            
             local vp = {}; for _,p in ipairs(Players:GetPlayers()) do if p ~= player then table.insert(vp,p) end end
             sf.CanvasSize = UDim2.new(0,0,0,#vp*52+10)
             for i,plr in ipairs(vp) do
@@ -969,23 +1040,39 @@ function buildContent()
                 row.BorderSizePixel = (selectedPlayer==plr) and 2 or 1
                 row.BorderColor3 = (selectedPlayer==plr) and COLORS.HighlightBorder or COLORS.Border
                 row.Text = ""; row.ZIndex = 5; row.Parent = sf
-                local dl = Instance.new("TextLabel"); dl.Size = UDim2.new(1,-12,0,20); dl.Position = UDim2.new(0,6,0,4)
+                
+                local dl = Instance.new("TextLabel"); dl.Size = UDim2.new(1,-70,0,20); dl.Position = UDim2.new(0,6,0,4)
                 dl.BackgroundTransparency = 1; dl.Text = plr.DisplayName; dl.TextColor3 = COLORS.White; dl.TextSize = 13
                 dl.TextXAlignment = Enum.TextXAlignment.Left; dl.Font = Enum.Font.SourceSansBold; dl.ZIndex = 5; dl.Parent = row
-                local ul2 = Instance.new("TextLabel"); ul2.Size = UDim2.new(1,-12,0,16); ul2.Position = UDim2.new(0,6,0,26)
+                local ul2 = Instance.new("TextLabel"); ul2.Size = UDim2.new(1,-70,0,16); ul2.Position = UDim2.new(0,6,0,26)
                 ul2.BackgroundTransparency = 1; ul2.Text = plr.Name; ul2.TextColor3 = COLORS.TertiaryText; ul2.TextSize = 11
                 ul2.TextXAlignment = Enum.TextXAlignment.Left; ul2.Font = Enum.Font.SourceSans; ul2.ZIndex = 5; ul2.Parent = row
-                row.MouseButton1Click:Connect(function() selectedPlayer = plr; refreshPlayerList() end)
+                
+                local wlLabel = Instance.new("TextLabel"); wlLabel.Size = UDim2.new(0,70,0,16); wlLabel.Position = UDim2.new(1,-70,0,26)
+                wlLabel.BackgroundTransparency = 1; wlLabel.Text = "(Whitelisted)"; wlLabel.TextColor3 = Color3.fromRGB(0,255,0); wlLabel.TextSize = 11
+                wlLabel.TextXAlignment = Enum.TextXAlignment.Right; wlLabel.Font = Enum.Font.SourceSans; wlLabel.ZIndex = 5
+                wlLabel.Visible = isWhitelisted(plr); wlLabel.Parent = row
+                wlLabels[plr] = wlLabel
+                
+                row.MouseButton1Click:Connect(function()
+                    selectedPlayer = plr
+                    refreshPlayerList()
+                end)
                 table.insert(playerBtns, row)
             end
-            -- Update orbit button text based on whether orbiting selected player
+            
+            specBtn.Text = isSpectating and "Unspectate" or "Spectate"
+            teleBtn.Text = "Teleport"
             if orbitActive and orbitTarget == selectedPlayer then
                 orbitBtn.Text = "Unorbit"
             else
                 orbitBtn.Text = "Orbit"
             end
-            specBtn.Text = isSpectating and "Unspectate" or "Spectate"
-            teleBtn.Text = "Teleport"
+            if selectedPlayer and isWhitelisted(selectedPlayer) then
+                whitelistBtn.Text = "Unwhitelist"
+            else
+                whitelistBtn.Text = "Whitelist"
+            end
         end
         
         teleBtn.MouseButton1Click:Connect(function()
@@ -1002,16 +1089,41 @@ function buildContent()
         orbitBtn.MouseButton1Click:Connect(function()
             if not selectedPlayer then return end
             if orbitActive and orbitTarget == selectedPlayer then
-                stopOrbit()  -- This will teleport back to original position
-            elseif orbitEnabled then
+                stopOrbit()
+            elseif orbitEnabled and not isWhitelisted(selectedPlayer) then
                 startOrbit(selectedPlayer)
+            end
+            refreshPlayerList()
+        end)
+        whitelistBtn.MouseButton1Click:Connect(function()
+            if not selectedPlayer then return end
+            if isWhitelisted(selectedPlayer) then
+                local idx = table.find(whitelistedPlayers, selectedPlayer)
+                if idx then table.remove(whitelistedPlayers, idx) end
+                if espEnabled then createESPBox(selectedPlayer) end
+                if boxEspEnabled then createBoxESP(selectedPlayer) end
+                if nameEspEnabled then createNameESP(selectedPlayer) end
+            else
+                table.insert(whitelistedPlayers, selectedPlayer)
+                if espObjects[selectedPlayer] then espObjects[selectedPlayer]:Destroy(); espObjects[selectedPlayer] = nil end
+                if espConnections[selectedPlayer] then espConnections[selectedPlayer]:Disconnect(); espConnections[selectedPlayer] = nil end
+                if boxEspObjects[selectedPlayer] then for _,l in ipairs(boxEspObjects[selectedPlayer]) do pcall(function() l:Remove() end) end; boxEspObjects[selectedPlayer] = nil end
+                if boxEspConnections[selectedPlayer] then boxEspConnections[selectedPlayer]:Disconnect(); boxEspConnections[selectedPlayer] = nil end
+                if nameEspBillboards[selectedPlayer] then nameEspBillboards[selectedPlayer]:Destroy(); nameEspBillboards[selectedPlayer] = nil end
+                if nameEspConnections[selectedPlayer] then nameEspConnections[selectedPlayer]:Disconnect(); nameEspConnections[selectedPlayer] = nil end
+                if orbitActive and orbitTarget == selectedPlayer then stopOrbit() end
+                if fovLockedTarget == selectedPlayer then stopFOVAimbot() end
             end
             refreshPlayerList()
         end)
         refreshPlayerList()
         if playerListConnection then playerListConnection:Disconnect() end
         playerListConnection = Players.PlayerAdded:Connect(refreshPlayerList)
-        Players.PlayerRemoving:Connect(refreshPlayerList)
+        Players.PlayerRemoving:Connect(function(p)
+            local idx = table.find(whitelistedPlayers, p)
+            if idx then table.remove(whitelistedPlayers, idx) end
+            refreshPlayerList()
+        end)
     else
         local lw = 200; local rw = 200; local gap = 16
         local lp = createPanel(container, 0, yOff, lw, ph)
@@ -1386,7 +1498,7 @@ function buildContent()
             moveOpt.MouseButton1Click:Connect(function() orbitMode = "Move"; closeOCDD() end)
             stayOpt.MouseButton1Click:Connect(function() orbitMode = "Stay"; closeOCDD() end)
             
-            -- Orbit Type (right side)
+            -- Orbit Type (right side) with Crazy
             local otLbl = Instance.new("TextLabel"); otLbl.Size = UDim2.new(0,35,1,0); otLbl.Position = UDim2.new(0,108,0,0)
             otLbl.BackgroundTransparency = 1; otLbl.Text = "Type"; otLbl.TextColor3 = COLORS.White; otLbl.TextSize = 13
             otLbl.TextXAlignment = Enum.TextXAlignment.Left; otLbl.Font = Enum.Font.SourceSansBold; otLbl.ZIndex = 5; otLbl.Parent = comboRow
@@ -1408,13 +1520,18 @@ function buildContent()
             upOpt.BackgroundColor3 = COLORS.ControlBg; upOpt.BorderSizePixel = 0; upOpt.Text = "Up"
             upOpt.TextColor3 = COLORS.White; upOpt.TextSize = 11; upOpt.Font = Enum.Font.SourceSans; upOpt.ZIndex = 11; upOpt.Parent = otDdList
             
+            local crazyOpt = Instance.new("TextButton"); crazyOpt.Size = UDim2.new(1,0,0,22); crazyOpt.Position = UDim2.new(0,0,0,44)
+            crazyOpt.BackgroundColor3 = COLORS.ControlBg; crazyOpt.BorderSizePixel = 0; crazyOpt.Text = "Crazy"
+            crazyOpt.TextColor3 = COLORS.White; crazyOpt.TextSize = 11; crazyOpt.Font = Enum.Font.SourceSans; crazyOpt.ZIndex = 11; crazyOpt.Parent = otDdList
+            
             local otDdOpen = false
             local function closeOTDD() otDdOpen = false; otDdList.Visible = false; otDdList.Size = UDim2.new(0,50,0,0); otDdBtn.ZIndex = 6; otDdBtn.Text = orbitType end
-            local function openOTDD() otDdOpen = true; otDdList.Visible = true; otDdList.Size = UDim2.new(0,50,0,44); otDdBtn.ZIndex = 10; otDdBtn.Text = orbitType end
+            local function openOTDD() otDdOpen = true; otDdList.Visible = true; otDdList.Size = UDim2.new(0,50,0,66); otDdBtn.ZIndex = 10; otDdBtn.Text = orbitType end
             
             otDdBtn.MouseButton1Click:Connect(function() if otDdOpen then closeOTDD() else openOTDD() end end)
             normalOpt.MouseButton1Click:Connect(function() orbitType = "Normal"; orbitHeight = 0; closeOTDD() end)
             upOpt.MouseButton1Click:Connect(function() orbitType = "Up"; orbitHeight = 5; closeOTDD() end)
+            crazyOpt.MouseButton1Click:Connect(function() orbitType = "Crazy"; closeOTDD() end)
             
         elseif selectedCategory == "Settings" then
             local yp = 12
