@@ -196,6 +196,7 @@ local teamCheckEnabled = false       -- for Visuals (ESP)
 local aimTeamCheckEnabled = false   -- for Aiming (FOV)
 local orbitTeamCheckEnabled = false -- for Orbit
 local speedKeybind = nil
+local guiToggleKeybind = nil        -- custom GUI toggle key (empty = Insert)
 
 -- Whitelist
 local whitelistedPlayers = {}
@@ -208,9 +209,10 @@ end
 local espUpdateConnection = nil
 local espPlayerAddedConnection = nil
 local boxEspUpdateConnection = nil
+local boxEspPlayerAddedConnection = nil
 local fovDrawConnection = nil
 local playerListConnection = nil
-local nameEspPlayerAddedConnection = nil  -- for Name ESP new players
+local nameEspPlayerAddedConnection = nil
 local espObjects = {}
 local espConnections = {}
 local boxEspObjects = {}
@@ -220,6 +222,46 @@ local nameEspConnections = {}
 local fovCircle = nil
 local flyBodyVelocity = nil
 local flyBodyGyro = nil
+
+-- 1-second interval update for ESP
+local espIntervalThread = nil
+local espIntervalStop = false
+
+local function espIntervalUpdate()
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= player and not isWhitelisted(p) then
+            if teamCheckEnabled and p.Team == player.Team then continue end
+            if espEnabled and p.Character and not espObjects[p] then
+                createESPBox(p)
+            end
+            if boxEspEnabled and p.Character and not boxEspObjects[p] then
+                createBoxESP(p)
+            end
+            if nameEspEnabled and p.Character and not nameEspBillboards[p] then
+                createNameESP(p)
+            end
+        end
+    end
+end
+
+local function ensureEspInterval()
+    if (espEnabled or boxEspEnabled or nameEspEnabled) then
+        if not espIntervalThread then
+            espIntervalStop = false
+            espIntervalThread = task.spawn(function()
+                while not espIntervalStop do
+                    espIntervalUpdate()
+                    task.wait(1)
+                end
+            end)
+        end
+    else
+        if espIntervalThread then
+            espIntervalStop = true
+            espIntervalThread = nil
+        end
+    end
+end
 
 -- === UTILITY ===
 local function worldToScreen(worldPos)
@@ -321,7 +363,6 @@ local function stopOrbit()
             orbitOriginalPos = nil
         end
         
-        -- Reset camera to default
         local hum2 = char:FindFirstChild("Humanoid")
         if hum2 then
             camera.CameraSubject = hum2
@@ -382,7 +423,6 @@ local function startOrbit(targetPlayer)
     orbitConnection = RunService.Heartbeat:Connect(function(dt)
         if not orbitActive then return end
         
-        -- Check if target still valid (for manual mode)
         if not orbitTarget or not orbitTarget.Character then
             stopOrbit()
             return
@@ -487,7 +527,7 @@ local function startSpeed()
     if not root then return end
     if speedBodyVelocity then speedBodyVelocity:Destroy() end
     speedBodyVelocity = Instance.new("BodyVelocity")
-    speedBodyVelocity.MaxForce = Vector3.new(400000, 0, 400000)  -- no vertical force
+    speedBodyVelocity.MaxForce = Vector3.new(400000, 0, 400000)
     speedBodyVelocity.Velocity = Vector3.new(0, 0, 0)
     speedBodyVelocity.P = 1000
     speedBodyVelocity.Parent = root
@@ -569,6 +609,7 @@ local function toggleESP(state)
         if espUpdateConnection then espUpdateConnection:Disconnect(); espUpdateConnection = nil end
         if espPlayerAddedConnection then espPlayerAddedConnection:Disconnect(); espPlayerAddedConnection = nil end
     end
+    ensureEspInterval()
 end
 
 -- === BOX ESP ===
@@ -625,11 +666,28 @@ local function toggleBoxESP(state)
         end end
         if boxEspUpdateConnection then boxEspUpdateConnection:Disconnect() end
         boxEspUpdateConnection = RunService.RenderStepped:Connect(updateBoxESP)
+        if boxEspPlayerAddedConnection then boxEspPlayerAddedConnection:Disconnect() end
+        boxEspPlayerAddedConnection = Players.PlayerAdded:Connect(function(np)
+            if boxEspEnabled and np ~= player then
+                np.CharacterAdded:Connect(function()
+                    if boxEspEnabled and not isWhitelisted(np) then
+                        if teamCheckEnabled and np.Team == player.Team then return end
+                        createBoxESP(np)
+                    end
+                end)
+                if np.Character and not isWhitelisted(np) then
+                    if teamCheckEnabled and np.Team == player.Team then return end
+                    createBoxESP(np)
+                end
+            end
+        end)
     else
         for _,lines in pairs(boxEspObjects) do for _,l in ipairs(lines) do pcall(function() l:Remove() end) end end
         boxEspObjects = {}; for _,c in pairs(boxEspConnections) do c:Disconnect() end; boxEspConnections = {}
         if boxEspUpdateConnection then boxEspUpdateConnection:Disconnect(); boxEspUpdateConnection = nil end
+        if boxEspPlayerAddedConnection then boxEspPlayerAddedConnection:Disconnect(); boxEspPlayerAddedConnection = nil end
     end
+    ensureEspInterval()
 end
 
 -- === NAME ESP ===
@@ -673,7 +731,6 @@ local function toggleNameESP(state)
             if teamCheckEnabled and p.Team == player.Team then continue end
             createNameESP(p)
         end end
-        -- Handle new players joining
         if nameEspPlayerAddedConnection then nameEspPlayerAddedConnection:Disconnect() end
         nameEspPlayerAddedConnection = Players.PlayerAdded:Connect(function(np)
             if nameEspEnabled and np ~= player then
@@ -694,6 +751,7 @@ local function toggleNameESP(state)
         nameEspConnections = {}
         if nameEspPlayerAddedConnection then nameEspPlayerAddedConnection:Disconnect(); nameEspPlayerAddedConnection = nil end
     end
+    ensureEspInterval()
 end
 
 -- === FOV ===
@@ -883,7 +941,6 @@ end
 -- === TEAM CHECK TOGGLE (Visuals) ===
 local function toggleTeamCheck(state)
     teamCheckEnabled = state
-    -- Reapply all active ESP features with new filter
     if espEnabled then
         toggleESP(false)
         toggleESP(true)
@@ -1084,6 +1141,7 @@ local sidebarItems = {
     {name="Character", category="Character"},
     {name="Settings", category="Settings"},
     {name="Players", category="Players"},
+    {name="Configs", category="Configs"},
 }
 
 local categoryBtns = {}
@@ -1107,6 +1165,109 @@ for i,item in ipairs(sidebarItems) do
         end
         buildContent()
     end)
+end
+
+-- === CONFIGS SYSTEM (persistent) ===
+local CONFIGS_FILE = "CatLoversConfigs.json"
+local configs = {}           -- array of {name, data}
+local selectedConfigIndex = nil
+
+local function saveConfigsToFile()
+    local success, err = pcall(function()
+        local json = game:GetService("HttpService"):JSONEncode(configs)
+        writefile(CONFIGS_FILE, json)
+    end)
+    if not success then
+        warn("Failed to save configs:", err)
+    end
+end
+
+local function loadConfigsFromFile()
+    local success, data = pcall(function()
+        return readfile(CONFIGS_FILE)
+    end)
+    if success and data then
+        local ok, decoded = pcall(function()
+            return game:GetService("HttpService"):JSONDecode(data)
+        end)
+        if ok and decoded then
+            configs = decoded
+        else
+            configs = {}
+        end
+    else
+        configs = {}
+    end
+end
+
+-- Load existing configs on startup
+loadConfigsFromFile()
+
+local function getCurrentConfigData()
+    return {
+        noClipEnabled = noClipEnabled,
+        speedEnabled = speedEnabled,
+        speedValue = speedValue,
+        orbitEnabled = orbitEnabled,
+        orbitMode = orbitMode,
+        orbitType = orbitType,
+        orbitHeight = orbitHeight,
+        espEnabled = espEnabled,
+        boxEspEnabled = boxEspEnabled,
+        nameEspEnabled = nameEspEnabled,
+        nameEspSize = nameEspSize,
+        drawFovEnabled = drawFovEnabled,
+        fovVisible = fovVisible,
+        fovRadius = fovRadius,
+        fovTarget = fovTarget,
+        fovAimbotSmoothness = fovAimbotSmoothness,
+        flying = flying,
+        flySpeed = flySpeed,
+        teamCheckEnabled = teamCheckEnabled,
+        aimTeamCheckEnabled = aimTeamCheckEnabled,
+        orbitTeamCheckEnabled = orbitTeamCheckEnabled,
+        speedKeybind = speedKeybind,
+        guiToggleKeybind = guiToggleKeybind,
+    }
+end
+
+local function applyConfigData(data)
+    noClipEnabled = data.noClipEnabled or false
+    speedEnabled = data.speedEnabled or false
+    speedValue = data.speedValue or 30
+    orbitEnabled = data.orbitEnabled or false
+    orbitMode = data.orbitMode or "Move"
+    orbitType = data.orbitType or "Normal"
+    orbitHeight = data.orbitHeight or 5
+    espEnabled = data.espEnabled or false
+    boxEspEnabled = data.boxEspEnabled or false
+    nameEspEnabled = data.nameEspEnabled or false
+    nameEspSize = data.nameEspSize or 14
+    drawFovEnabled = data.drawFovEnabled or false
+    fovVisible = data.fovVisible ~= false
+    fovRadius = data.fovRadius or 100
+    fovTarget = data.fovTarget or "Head"
+    fovAimbotSmoothness = data.fovAimbotSmoothness or 5
+    flying = data.flying or false
+    flySpeed = data.flySpeed or 50
+    teamCheckEnabled = data.teamCheckEnabled or false
+    aimTeamCheckEnabled = data.aimTeamCheckEnabled or false
+    orbitTeamCheckEnabled = data.orbitTeamCheckEnabled or false
+    speedKeybind = data.speedKeybind
+    guiToggleKeybind = data.guiToggleKeybind
+
+    -- Apply the toggles that have immediate effects
+    if flying then startFly() else stopFly() end
+    if speedEnabled then startSpeed() else stopSpeed() end
+    if noClipEnabled then applyNoClip(true) else applyNoClip(false) end
+    toggleESP(espEnabled)
+    toggleBoxESP(boxEspEnabled)
+    toggleNameESP(nameEspEnabled)
+    toggleDrawFOV(drawFovEnabled)
+    toggleFOVVisible(fovVisible)
+    if orbitActive and not orbitEnabled then stopOrbit() end
+    -- Refresh UI
+    buildContent()
 end
 
 -- === CONTENT BUILDER ===
@@ -1271,6 +1432,146 @@ function buildContent()
             if idx then table.remove(whitelistedPlayers, idx) end
             refreshPlayerList()
         end)
+    elseif selectedCategory == "Configs" then
+        local panel = createPanel(container, 0, yOff, pw, ph)
+        local topBar = Instance.new("Frame")
+        topBar.Size = UDim2.new(1,-16,0,36)
+        topBar.Position = UDim2.new(0,8,0,6)
+        topBar.BackgroundColor3 = COLORS.PanelBg
+        topBar.BackgroundTransparency = 0.7
+        topBar.BorderSizePixel = 1
+        topBar.BorderColor3 = COLORS.Border
+        topBar.ZIndex = 5
+        topBar.Parent = panel
+        local topLabel = Instance.new("TextLabel")
+        topLabel.Size = UDim2.new(1,0,1,0)
+        topLabel.Position = UDim2.new(0,8,0,0)
+        topLabel.BackgroundTransparency = 1
+        topLabel.Text = "Configs"
+        topLabel.TextColor3 = COLORS.White
+        topLabel.TextSize = 14
+        topLabel.TextXAlignment = Enum.TextXAlignment.Left
+        topLabel.Font = Enum.Font.SourceSansBold
+        topLabel.ZIndex = 5
+        topLabel.Parent = topBar
+
+        -- Config list (scrolling)
+        local configList = Instance.new("ScrollingFrame")
+        configList.Size = UDim2.new(1,-16,1,-100)
+        configList.Position = UDim2.new(0,8,0,48)
+        configList.BackgroundTransparency = 1
+        configList.BorderSizePixel = 0
+        configList.ScrollBarThickness = 4
+        configList.ScrollBarImageColor3 = COLORS.ControlBorder
+        configList.CanvasSize = UDim2.new(0,0,0,0)
+        configList.ClipsDescendants = true
+        configList.ZIndex = 5
+        configList.Parent = panel
+
+        -- Buttons at the bottom (left, middle, right)
+        local btnBar = Instance.new("Frame")
+        btnBar.Size = UDim2.new(1,-16,0,32)
+        btnBar.Position = UDim2.new(0,8,1,-36)
+        btnBar.BackgroundTransparency = 1
+        btnBar.ZIndex = 5
+        btnBar.Parent = panel
+
+        local saveBtn = Instance.new("TextButton")
+        saveBtn.Size = UDim2.new(0,90,1,-4)
+        saveBtn.Position = UDim2.new(0,0,0.5,-14)
+        saveBtn.BackgroundTransparency = 1
+        saveBtn.Text = "Save config"
+        saveBtn.TextColor3 = COLORS.White
+        saveBtn.TextSize = 13
+        saveBtn.Font = Enum.Font.SourceSans
+        saveBtn.ZIndex = 5
+        saveBtn.Parent = btnBar
+
+        local loadBtn = Instance.new("TextButton")
+        loadBtn.Size = UDim2.new(0,90,1,-4)
+        loadBtn.Position = UDim2.new(0.33,0,0.5,-14)  -- middle
+        loadBtn.BackgroundTransparency = 1
+        loadBtn.Text = "Load config"
+        loadBtn.TextColor3 = COLORS.White
+        loadBtn.TextSize = 13
+        loadBtn.Font = Enum.Font.SourceSans
+        loadBtn.ZIndex = 5
+        loadBtn.Parent = btnBar
+
+        local delBtn = Instance.new("TextButton")
+        delBtn.Size = UDim2.new(0,90,1,-4)
+        delBtn.Position = UDim2.new(0.66,0,0.5,-14)  -- right
+        delBtn.BackgroundTransparency = 1
+        delBtn.Text = "Del config"
+        delBtn.TextColor3 = Color3.fromRGB(255,0,0)
+        delBtn.TextSize = 13
+        delBtn.Font = Enum.Font.SourceSans
+        delBtn.ZIndex = 5
+        delBtn.Parent = btnBar
+
+        local configRows = {}
+        local function refreshConfigList()
+            for _, row in ipairs(configRows) do
+                row:Destroy()
+            end
+            configRows = {}
+            configList.CanvasSize = UDim2.new(0,0,0,#configs*42+10)
+            for i, cfg in ipairs(configs) do
+                local row = Instance.new("TextButton")
+                row.Size = UDim2.new(1,0,0,38)
+                row.Position = UDim2.new(0,0,0,(i-1)*42)
+                row.BackgroundColor3 = (selectedConfigIndex == i) and COLORS.SelectedBg or COLORS.PanelBg
+                row.BorderSizePixel = (selectedConfigIndex == i) and 2 or 1
+                row.BorderColor3 = (selectedConfigIndex == i) and COLORS.HighlightBorder or COLORS.Border
+                row.Text = ""
+                row.ZIndex = 5
+                row.Parent = configList
+
+                local nameLabel = Instance.new("TextLabel")
+                nameLabel.Size = UDim2.new(1,-12,1,0)
+                nameLabel.Position = UDim2.new(0,6,0,0)
+                nameLabel.BackgroundTransparency = 1
+                nameLabel.Text = cfg.name or "Config " .. i
+                nameLabel.TextColor3 = COLORS.White
+                nameLabel.TextSize = 13
+                nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+                nameLabel.Font = Enum.Font.SourceSansBold
+                nameLabel.ZIndex = 5
+                nameLabel.Parent = row
+
+                row.MouseButton1Click:Connect(function()
+                    selectedConfigIndex = i
+                    refreshConfigList()
+                end)
+                table.insert(configRows, row)
+            end
+        end
+
+        saveBtn.MouseButton1Click:Connect(function()
+            local data = getCurrentConfigData()
+            local name = "Config #" .. (#configs + 1)
+            table.insert(configs, {name = name, data = data})
+            saveConfigsToFile()
+            refreshConfigList()
+        end)
+
+        loadBtn.MouseButton1Click:Connect(function()
+            if not selectedConfigIndex then return end
+            local cfg = configs[selectedConfigIndex]
+            if cfg and cfg.data then
+                applyConfigData(cfg.data)
+            end
+        end)
+
+        delBtn.MouseButton1Click:Connect(function()
+            if not selectedConfigIndex then return end
+            table.remove(configs, selectedConfigIndex)
+            selectedConfigIndex = nil
+            saveConfigsToFile()
+            refreshConfigList()
+        end)
+
+        refreshConfigList()
     else
         local lw = 200; local rw = 200; local gap = 16
         local lp = createPanel(container, 0, yOff, lw, ph)
@@ -1318,42 +1619,6 @@ function buildContent()
             div.BackgroundColor3 = Color3.fromHex("555555"); div.BorderSizePixel = 0; div.ZIndex = 5; div.Parent = lp
             yp = yp+10
             
-            local tRow = Instance.new("Frame"); tRow.Size = UDim2.new(1,-16,0,38); tRow.Position = UDim2.new(0,8,0,yp)
-            tRow.BackgroundTransparency = 1; tRow.ZIndex = 5; tRow.Parent = lp
-            local tLbl = Instance.new("TextLabel"); tLbl.Size = UDim2.new(0,80,1,0)
-            tLbl.BackgroundTransparency = 1; tLbl.Text = "FOV Target"; tLbl.TextColor3 = COLORS.White; tLbl.TextSize = 18
-            tLbl.TextXAlignment = Enum.TextXAlignment.Left; tLbl.Font = Enum.Font.SourceSansBold; tLbl.ZIndex = 5; tLbl.Parent = tRow
-            local ddBtn = Instance.new("TextButton"); ddBtn.Size = UDim2.new(0,90,0,26); ddBtn.Position = UDim2.new(1,-90,0.5,-13)
-            ddBtn.BackgroundColor3 = COLORS.ControlBg; ddBtn.BorderSizePixel = 1; ddBtn.BorderColor3 = COLORS.ControlBorder
-            ddBtn.Text = fovTarget.."  ▼"; ddBtn.TextColor3 = COLORS.White; ddBtn.TextSize = 14; ddBtn.Font = Enum.Font.SourceSans
-            ddBtn.TextXAlignment = Enum.TextXAlignment.Left; ddBtn.ZIndex = 6; ddBtn.Parent = tRow
-            local ddList = Instance.new("Frame"); ddList.Size = UDim2.new(0,90,0,0); ddList.Position = UDim2.new(1,-90,0,26)
-            ddList.BackgroundColor3 = COLORS.ControlBg; ddList.BorderSizePixel = 1; ddList.BorderColor3 = COLORS.ControlBorder
-            ddList.Visible = false; ddList.ZIndex = 10; ddList.ClipsDescendants = true; ddList.Parent = tRow
-            local headOpt = Instance.new("TextButton"); headOpt.Size = UDim2.new(1,0,0,26)
-            headOpt.BackgroundColor3 = COLORS.ControlBg; headOpt.BorderSizePixel = 0; headOpt.Text = "Head"
-            headOpt.TextColor3 = COLORS.White; headOpt.TextSize = 14; headOpt.Font = Enum.Font.SourceSans; headOpt.ZIndex = 11; headOpt.Parent = ddList
-            local torsoOpt = Instance.new("TextButton"); torsoOpt.Size = UDim2.new(1,0,0,26); torsoOpt.Position = UDim2.new(0,0,0,26)
-            torsoOpt.BackgroundColor3 = COLORS.ControlBg; torsoOpt.BorderSizePixel = 0; torsoOpt.Text = "Torso"
-            torsoOpt.TextColor3 = COLORS.White; torsoOpt.TextSize = 14; torsoOpt.Font = Enum.Font.SourceSans; torsoOpt.ZIndex = 11; torsoOpt.Parent = ddList
-            local ddOpen = false
-            local function closeDD() ddOpen = false; ddList.Visible = false; ddList.Size = UDim2.new(0,90,0,0); ddBtn.ZIndex = 6; ddBtn.Text = fovTarget.."  ▼" end
-            local function openDD() ddOpen = true; ddList.Visible = true; ddList.Size = UDim2.new(0,90,0,52); ddBtn.ZIndex = 10; ddBtn.Text = fovTarget.."  ▲" end
-            ddBtn.MouseButton1Click:Connect(function() if ddOpen then closeDD() else openDD() end end)
-            headOpt.MouseButton1Click:Connect(function() fovTarget = "Head"; closeDD() end)
-            torsoOpt.MouseButton1Click:Connect(function() fovTarget = "Torso"; closeDD() end)
-            yp = yp + 48
-            
-            -- Divider and Aim Team Check
-            local divAim = Instance.new("Frame")
-            divAim.Size = UDim2.new(1, -16, 0, 1)
-            divAim.Position = UDim2.new(0, 8, 0, yp)
-            divAim.BackgroundColor3 = Color3.fromHex("555555")
-            divAim.BorderSizePixel = 0
-            divAim.ZIndex = 5
-            divAim.Parent = lp
-            yp = yp + 10
-            
             local aimTeamRow = Instance.new("Frame")
             aimTeamRow.Size = UDim2.new(1, -16, 0, 38)
             aimTeamRow.Position = UDim2.new(0, 8, 0, yp)
@@ -1386,13 +1651,38 @@ function buildContent()
             local function toggleAimTeam()
                 aimTeamCheckEnabled = not aimTeamCheckEnabled
                 aimTeamCB.BackgroundColor3 = aimTeamCheckEnabled and COLORS.ActiveWhite or COLORS.ControlBg
-                -- If toggling on and currently locked onto a teammate, stop aimbot
                 if aimTeamCheckEnabled and fovLockedTarget and fovLockedTarget.Team == player.Team then
                     stopFOVAimbot()
                 end
             end
             aimTeamClick.MouseButton1Click:Connect(toggleAimTeam)
             aimTeamCB.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then toggleAimTeam() end end)
+            yp = yp + 48
+            
+            local tRow = Instance.new("Frame"); tRow.Size = UDim2.new(1,-16,0,38); tRow.Position = UDim2.new(0,8,0,yp)
+            tRow.BackgroundTransparency = 1; tRow.ZIndex = 5; tRow.Parent = lp
+            local tLbl = Instance.new("TextLabel"); tLbl.Size = UDim2.new(0,80,1,0)
+            tLbl.BackgroundTransparency = 1; tLbl.Text = "FOV Target"; tLbl.TextColor3 = COLORS.White; tLbl.TextSize = 18
+            tLbl.TextXAlignment = Enum.TextXAlignment.Left; tLbl.Font = Enum.Font.SourceSansBold; tLbl.ZIndex = 5; tLbl.Parent = tRow
+            local ddBtn = Instance.new("TextButton"); ddBtn.Size = UDim2.new(0,90,0,26); ddBtn.Position = UDim2.new(1,-90,0.5,-13)
+            ddBtn.BackgroundColor3 = COLORS.ControlBg; ddBtn.BorderSizePixel = 1; ddBtn.BorderColor3 = COLORS.ControlBorder
+            ddBtn.Text = fovTarget.."  ▼"; ddBtn.TextColor3 = COLORS.White; ddBtn.TextSize = 14; ddBtn.Font = Enum.Font.SourceSans
+            ddBtn.TextXAlignment = Enum.TextXAlignment.Left; ddBtn.ZIndex = 6; ddBtn.Parent = tRow
+            local ddList = Instance.new("Frame"); ddList.Size = UDim2.new(0,90,0,0); ddList.Position = UDim2.new(1,-90,0,26)
+            ddList.BackgroundColor3 = COLORS.ControlBg; ddList.BorderSizePixel = 1; ddList.BorderColor3 = COLORS.ControlBorder
+            ddList.Visible = false; ddList.ZIndex = 10; ddList.ClipsDescendants = true; ddList.Parent = tRow
+            local headOpt = Instance.new("TextButton"); headOpt.Size = UDim2.new(1,0,0,26)
+            headOpt.BackgroundColor3 = COLORS.ControlBg; headOpt.BorderSizePixel = 0; headOpt.Text = "Head"
+            headOpt.TextColor3 = COLORS.White; headOpt.TextSize = 14; headOpt.Font = Enum.Font.SourceSans; headOpt.ZIndex = 11; headOpt.Parent = ddList
+            local torsoOpt = Instance.new("TextButton"); torsoOpt.Size = UDim2.new(1,0,0,26); torsoOpt.Position = UDim2.new(0,0,0,26)
+            torsoOpt.BackgroundColor3 = COLORS.ControlBg; torsoOpt.BorderSizePixel = 0; torsoOpt.Text = "Torso"
+            torsoOpt.TextColor3 = COLORS.White; torsoOpt.TextSize = 14; torsoOpt.Font = Enum.Font.SourceSans; torsoOpt.ZIndex = 11; torsoOpt.Parent = ddList
+            local ddOpen = false
+            local function closeDD() ddOpen = false; ddList.Visible = false; ddList.Size = UDim2.new(0,90,0,0); ddBtn.ZIndex = 6; ddBtn.Text = fovTarget.."  ▼" end
+            local function openDD() ddOpen = true; ddList.Visible = true; ddList.Size = UDim2.new(0,90,0,52); ddBtn.ZIndex = 10; ddBtn.Text = fovTarget.."  ▲" end
+            ddBtn.MouseButton1Click:Connect(function() if ddOpen then closeDD() else openDD() end end)
+            headOpt.MouseButton1Click:Connect(function() fovTarget = "Head"; closeDD() end)
+            torsoOpt.MouseButton1Click:Connect(function() fovTarget = "Torso"; closeDD() end)
             
             local ryp = 8
             local frLbl = Instance.new("TextLabel"); frLbl.Size = UDim2.new(1,-16,0,24); frLbl.Position = UDim2.new(0,8,0,ryp)
@@ -1508,7 +1798,6 @@ function buildContent()
             nameCB.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then toggleN() end end)
             yp = yp+42
             
-            -- Divider and Team check (Visuals)
             local dividerV = Instance.new("Frame")
             dividerV.Size = UDim2.new(1, -16, 0, 1)
             dividerV.Position = UDim2.new(0, 8, 0, yp)
@@ -1535,7 +1824,6 @@ function buildContent()
             teamClick.MouseButton1Click:Connect(toggleTeam)
             teamCB.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then toggleTeam() end end)
             
-            -- Right panel (Name Size slider)
             local ryp = 8
             local nsLbl = Instance.new("TextLabel"); nsLbl.Size = UDim2.new(1,-16,0,24); nsLbl.Position = UDim2.new(0,8,0,ryp)
             nsLbl.BackgroundTransparency = 1; nsLbl.Text = "Name Size"; nsLbl.TextColor3 = COLORS.White; nsLbl.TextSize = 16
@@ -1603,12 +1891,11 @@ function buildContent()
             ncCB.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then toggleNC() end end)
             yp = yp+42
             
-            -- Speed row (with keybind text box)
             local speedRow = Instance.new("Frame"); speedRow.Size = UDim2.new(1,-16,0,38); speedRow.Position = UDim2.new(0,8,0,yp)
             speedRow.BackgroundTransparency = 1; speedRow.ZIndex = 5; speedRow.Parent = lp
             local speedCB2 = createCircleCB(speedRow, 22, UDim2.new(0,0,0.5,-11))
             speedCB2.BackgroundColor3 = speedEnabled and COLORS.ActiveWhite or COLORS.ControlBg
-            speedCB = speedCB2  -- store reference for keybind toggle
+            speedCB = speedCB2
             local speedLbl = Instance.new("TextLabel"); speedLbl.Size = UDim2.new(0,80,1,0); speedLbl.Position = UDim2.new(0,30,0,0)
             speedLbl.BackgroundTransparency = 1; speedLbl.Text = "Speed"; speedLbl.TextColor3 = COLORS.White; speedLbl.TextSize = 18
             speedLbl.TextXAlignment = Enum.TextXAlignment.Left; speedLbl.Font = Enum.Font.SourceSansBold; speedLbl.ZIndex = 5; speedLbl.Parent = speedRow
@@ -1621,10 +1908,9 @@ function buildContent()
             speedClick.MouseButton1Click:Connect(toggleSpeedUI)
             speedCB2.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then toggleSpeedUI() end end)
             
-            -- Keybind text box
             local speedKeyBindBox = Instance.new("TextBox")
             speedKeyBindBox.Size = UDim2.new(0, 28, 0, 22)
-            speedKeyBindBox.Position = UDim2.new(0, 120, 0.5, -11)  -- beside label
+            speedKeyBindBox.Position = UDim2.new(0, 120, 0.5, -11)
             speedKeyBindBox.BackgroundColor3 = COLORS.ControlBg
             speedKeyBindBox.BorderSizePixel = 1
             speedKeyBindBox.BorderColor3 = COLORS.ControlBorder
@@ -1639,7 +1925,7 @@ function buildContent()
             local function onSpeedKeyBindLostFocus()
                 local txt = speedKeyBindBox.Text:gsub("%s", "")
                 if #txt == 1 then
-                    speedKeybind = txt:upper()  -- store uppercase letter
+                    speedKeybind = txt:upper()
                     speedKeyBindBox.Text = speedKeybind
                 else
                     speedKeybind = nil
@@ -1648,7 +1934,6 @@ function buildContent()
             end
             
             speedKeyBindBox.FocusLost:Connect(onSpeedKeyBindLostFocus)
-            
             speedKeyBindBox.Focused:Connect(function()
                 activeTextBox = speedKeyBindBox
             end)
@@ -1658,12 +1943,10 @@ function buildContent()
             
             yp = yp+48
             
-            -- Divider
             local div2 = Instance.new("Frame"); div2.Size = UDim2.new(1,-16,0,1); div2.Position = UDim2.new(0,8,0,yp)
             div2.BackgroundColor3 = Color3.fromHex("555555"); div2.BorderSizePixel = 0; div2.ZIndex = 5; div2.Parent = lp
             yp = yp+10
             
-            -- Orbit
             local orbRow = Instance.new("Frame"); orbRow.Size = UDim2.new(1,-16,0,38); orbRow.Position = UDim2.new(0,8,0,yp)
             orbRow.BackgroundTransparency = 1; orbRow.ZIndex = 5; orbRow.Parent = lp
             local orbCB = createCircleCB(orbRow, 22, UDim2.new(0,0,0.5,-11))
@@ -1682,7 +1965,6 @@ function buildContent()
             orbCB.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then toggleOrb() end end)
             yp = yp+42
             
-            -- Orbit Team Check (no divider)
             local orbTeamRow = Instance.new("Frame"); orbTeamRow.Size = UDim2.new(1,-16,0,38); orbTeamRow.Position = UDim2.new(0,8,0,yp)
             orbTeamRow.BackgroundTransparency = 1; orbTeamRow.ZIndex = 5; orbTeamRow.Parent = lp
             local orbTeamCB = createCircleCB(orbTeamRow, 22, UDim2.new(0,0,0.5,-11))
@@ -1695,7 +1977,6 @@ function buildContent()
             local function toggleOrbTeam()
                 orbitTeamCheckEnabled = not orbitTeamCheckEnabled
                 orbTeamCB.BackgroundColor3 = orbitTeamCheckEnabled and COLORS.ActiveWhite or COLORS.ControlBg
-                -- If currently orbiting a teammate and we enable team check, stop orbiting
                 if orbitTeamCheckEnabled and orbitActive and orbitTarget and orbitTarget.Team == player.Team then
                     stopOrbit()
                 end
@@ -1703,7 +1984,6 @@ function buildContent()
             orbTeamClick.MouseButton1Click:Connect(toggleOrbTeam)
             orbTeamCB.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then toggleOrbTeam() end end)
             
-            -- Right panel: Fly speed + Speed slider + Orbit Range + Config/Type combos
             local ryp = 8
             local fsLbl2 = Instance.new("TextLabel"); fsLbl2.Size = UDim2.new(1,-16,0,24); fsLbl2.Position = UDim2.new(0,8,0,ryp)
             fsLbl2.BackgroundTransparency = 1; fsLbl2.Text = "Fly speed"; fsLbl2.TextColor3 = COLORS.White; fsLbl2.TextSize = 16
@@ -1734,7 +2014,6 @@ function buildContent()
             fsTrack2.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then updateFS2(i); startFSDrag2() end end)
             ryp = ryp+52
             
-            -- Speed slider (for the Speed hack)
             local spLbl = Instance.new("TextLabel"); spLbl.Size = UDim2.new(1,-16,0,24); spLbl.Position = UDim2.new(0,8,0,ryp)
             spLbl.BackgroundTransparency = 1; spLbl.Text = "Speed"; spLbl.TextColor3 = COLORS.White; spLbl.TextSize = 16
             spLbl.TextXAlignment = Enum.TextXAlignment.Left; spLbl.Font = Enum.Font.SourceSansBold; spLbl.ZIndex = 5; spLbl.Parent = rp
@@ -1765,7 +2044,6 @@ function buildContent()
             spTrack.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then updateSP(i); startSPDrag() end end)
             ryp = ryp+52
             
-            -- Orbit Range slider
             local orLbl = Instance.new("TextLabel"); orLbl.Size = UDim2.new(1,-16,0,24); orLbl.Position = UDim2.new(0,8,0,ryp)
             orLbl.BackgroundTransparency = 1; orLbl.Text = "Orbit Range"; orLbl.TextColor3 = COLORS.White; orLbl.TextSize = 16
             orLbl.TextXAlignment = Enum.TextXAlignment.Left; orLbl.Font = Enum.Font.SourceSansBold; orLbl.ZIndex = 5; orLbl.Parent = rp
@@ -1799,11 +2077,9 @@ function buildContent()
             orTrack.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then updateOR(i); startORDrag() end end)
             ryp = ryp+52
             
-            -- Orbit Config and Orbit Type side by side (below Orbit Range) - Auto removed
             local comboRow = Instance.new("Frame"); comboRow.Size = UDim2.new(1,-16,0,38); comboRow.Position = UDim2.new(0,8,0,ryp)
             comboRow.BackgroundTransparency = 1; comboRow.ZIndex = 5; comboRow.Parent = rp
             
-            -- Orbit Config (left side) - only Move and Stay
             local ocLbl = Instance.new("TextLabel"); ocLbl.Size = UDim2.new(0,45,1,0); ocLbl.Position = UDim2.new(0,0,0,0)
             ocLbl.BackgroundTransparency = 1; ocLbl.Text = "Config"; ocLbl.TextColor3 = COLORS.White; ocLbl.TextSize = 13
             ocLbl.TextXAlignment = Enum.TextXAlignment.Left; ocLbl.Font = Enum.Font.SourceSansBold; ocLbl.ZIndex = 5; ocLbl.Parent = comboRow
@@ -1833,7 +2109,6 @@ function buildContent()
             moveOpt.MouseButton1Click:Connect(function() orbitMode = "Move"; closeOCDD() end)
             stayOpt.MouseButton1Click:Connect(function() orbitMode = "Stay"; closeOCDD() end)
             
-            -- Orbit Type (right side) with Crazy
             local otLbl = Instance.new("TextLabel"); otLbl.Size = UDim2.new(0,35,1,0); otLbl.Position = UDim2.new(0,108,0,0)
             otLbl.BackgroundTransparency = 1; otLbl.Text = "Type"; otLbl.TextColor3 = COLORS.White; otLbl.TextSize = 13
             otLbl.TextXAlignment = Enum.TextXAlignment.Left; otLbl.Font = Enum.Font.SourceSansBold; otLbl.ZIndex = 5; otLbl.Parent = comboRow
@@ -1904,15 +2179,67 @@ function buildContent()
             end
             snowClick.MouseButton1Click:Connect(toggleSnowCB)
             snowCB.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then toggleSnowCB() end end)
+
+            local guiToggleRow = Instance.new("Frame")
+            guiToggleRow.Size = UDim2.new(1, -16, 0, 38)
+            guiToggleRow.Position = UDim2.new(0, 8, 0, 12)
+            guiToggleRow.BackgroundTransparency = 1
+            guiToggleRow.ZIndex = 5
+            guiToggleRow.Parent = rp
+
+            local guiToggleLbl = Instance.new("TextLabel")
+            guiToggleLbl.Size = UDim2.new(0, 100, 1, 0)
+            guiToggleLbl.Position = UDim2.new(0, 0, 0, 0)
+            guiToggleLbl.BackgroundTransparency = 1
+            guiToggleLbl.Text = "GUI toggle"
+            guiToggleLbl.TextColor3 = COLORS.White
+            guiToggleLbl.TextSize = 14
+            guiToggleLbl.TextXAlignment = Enum.TextXAlignment.Left
+            guiToggleLbl.Font = Enum.Font.SourceSansBold
+            guiToggleLbl.ZIndex = 5
+            guiToggleLbl.Parent = guiToggleRow
+
+            local guiToggleBox = Instance.new("TextBox")
+            guiToggleBox.Size = UDim2.new(0, 80, 0, 22)
+            guiToggleBox.Position = UDim2.new(0, 105, 0.5, -11)
+            guiToggleBox.BackgroundColor3 = COLORS.ControlBg
+            guiToggleBox.BorderSizePixel = 1
+            guiToggleBox.BorderColor3 = COLORS.ControlBorder
+            guiToggleBox.Text = guiToggleKeybind or ""
+            guiToggleBox.TextColor3 = COLORS.White
+            guiToggleBox.TextSize = 14
+            guiToggleBox.Font = Enum.Font.SourceSansBold
+            guiToggleBox.ZIndex = 5
+            guiToggleBox.Parent = guiToggleRow
+            guiToggleBox.ClearTextOnFocus = false
+
+            local function onGuiToggleLostFocus()
+                local txt = guiToggleBox.Text:gsub("%s", "")
+                if txt ~= "" then
+                    guiToggleKeybind = txt
+                    guiToggleBox.Text = txt
+                else
+                    guiToggleKeybind = nil
+                    guiToggleBox.Text = ""
+                end
+            end
+
+            guiToggleBox.FocusLost:Connect(onGuiToggleLostFocus)
+            guiToggleBox.Focused:Connect(function()
+                activeTextBox = guiToggleBox
+            end)
+            guiToggleBox.FocusLost:Connect(function()
+                if activeTextBox == guiToggleBox then activeTextBox = nil end
+            end)
         end
     end
 end
 
--- === KEYBINDS (including speed keybind and Enter support) ===
+-- === KEYBINDS (including speed keybind and custom GUI toggle) ===
 UserInputService.InputBegan:Connect(function(i, gp)
     if gp then return end
-    -- Insert key toggles GUI
-    if i.KeyCode == Enum.KeyCode.Insert then
+    local toggleKey = guiToggleKeybind and guiToggleKeybind ~= "" and guiToggleKeybind or "Insert"
+    if i.KeyCode.Name == toggleKey then
         guiHidden = not guiHidden
         mainFrame.Visible = not guiHidden
         
@@ -1930,12 +2257,10 @@ UserInputService.InputBegan:Connect(function(i, gp)
         end
     end
     
-    -- Speed keybind
     if speedKeybind and i.KeyCode.Name == speedKeybind then
         toggleSpeedGlobal()
     end
     
-    -- Enter key to confirm speed keybind TextBox (if focused)
     if i.KeyCode == Enum.KeyCode.Return and activeTextBox then
         activeTextBox:ReleaseFocus()
     end
@@ -1981,10 +2306,15 @@ screenGui.AncestryChanged:Connect(function()
         if espUpdateConnection then espUpdateConnection:Disconnect() end
         if espPlayerAddedConnection then espPlayerAddedConnection:Disconnect() end
         if nameEspPlayerAddedConnection then nameEspPlayerAddedConnection:Disconnect() end
+        if boxEspPlayerAddedConnection then boxEspPlayerAddedConnection:Disconnect() end
         for _,c in pairs(espConnections) do c:Disconnect() end
         if flyBodyVelocity then flyBodyVelocity:Destroy() end
         if flyBodyGyro then flyBodyGyro:Destroy() end
         if orbitBodyGyro then orbitBodyGyro:Destroy() end
         if speedBodyVelocity then speedBodyVelocity:Destroy() end
+        if espIntervalThread then
+            espIntervalStop = true
+            espIntervalThread = nil
+        end
     end
 end)
