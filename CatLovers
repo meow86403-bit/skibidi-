@@ -196,6 +196,7 @@ local teamCheckEnabled = false       -- for Visuals (ESP)
 local aimTeamCheckEnabled = false   -- for Aiming (FOV)
 local orbitTeamCheckEnabled = false -- for Orbit
 local speedKeybind = nil
+local flyKeybind = nil              -- NEW: keybind for Fly
 local guiToggleKeybind = nil        -- custom GUI toggle key (empty = Insert)
 
 -- Whitelist
@@ -966,6 +967,16 @@ local function toggleSpeedGlobal()
     end
 end
 
+-- === FLY TOGGLE (used for keybind) ===
+local flyCB_ui = nil   -- will store the fly checkbox for UI update
+
+local function toggleFlyGlobal()
+    if flying then stopFly() else startFly() end
+    if flyCB_ui then
+        flyCB_ui.BackgroundColor3 = flying and COLORS.ActiveWhite or COLORS.ControlBg
+    end
+end
+
 -- === MAIN HEARTBEAT (for movement) ===
 RunService.Heartbeat:Connect(function(dt)
     -- Speed hack (velocity-based, no fly, no orbit)
@@ -1227,6 +1238,7 @@ local function getCurrentConfigData()
         aimTeamCheckEnabled = aimTeamCheckEnabled,
         orbitTeamCheckEnabled = orbitTeamCheckEnabled,
         speedKeybind = speedKeybind,
+        flyKeybind = flyKeybind,            -- added
         guiToggleKeybind = guiToggleKeybind,
     }
 end
@@ -1254,6 +1266,7 @@ local function applyConfigData(data)
     aimTeamCheckEnabled = data.aimTeamCheckEnabled or false
     orbitTeamCheckEnabled = data.orbitTeamCheckEnabled or false
     speedKeybind = data.speedKeybind
+    flyKeybind = data.flyKeybind                -- added
     guiToggleKeybind = data.guiToggleKeybind
 
     -- Apply the toggles that have immediate effects
@@ -1856,17 +1869,50 @@ function buildContent()
             
         elseif selectedCategory == "Character" then
             local yp = 12
+            -- Fly row (with keybind)
             local flyRow = Instance.new("Frame"); flyRow.Size = UDim2.new(1,-16,0,38); flyRow.Position = UDim2.new(0,8,0,yp)
             flyRow.BackgroundTransparency = 1; flyRow.ZIndex = 5; flyRow.Parent = lp
             local flyCB = createCircleCB(flyRow, 22, UDim2.new(0,0,0.5,-11))
             flyCB.BackgroundColor3 = flying and COLORS.ActiveWhite or COLORS.ControlBg
+            flyCB_ui = flyCB   -- store reference for keybind
             local flyLbl = Instance.new("TextLabel"); flyLbl.Size = UDim2.new(0,80,1,0); flyLbl.Position = UDim2.new(0,30,0,0)
             flyLbl.BackgroundTransparency = 1; flyLbl.Text = "Fly"; flyLbl.TextColor3 = COLORS.White; flyLbl.TextSize = 18
             flyLbl.TextXAlignment = Enum.TextXAlignment.Left; flyLbl.Font = Enum.Font.SourceSansBold; flyLbl.ZIndex = 5; flyLbl.Parent = flyRow
+            -- Fly keybind text box
+            local flyKeyBindBox = Instance.new("TextBox")
+            flyKeyBindBox.Size = UDim2.new(0, 28, 0, 22)
+            flyKeyBindBox.Position = UDim2.new(0, 120, 0.5, -11)
+            flyKeyBindBox.BackgroundColor3 = COLORS.ControlBg
+            flyKeyBindBox.BorderSizePixel = 1
+            flyKeyBindBox.BorderColor3 = COLORS.ControlBorder
+            flyKeyBindBox.Text = flyKeybind or ""
+            flyKeyBindBox.TextColor3 = COLORS.White
+            flyKeyBindBox.TextSize = 14
+            flyKeyBindBox.Font = Enum.Font.SourceSansBold
+            flyKeyBindBox.ZIndex = 6   -- above click area
+            flyKeyBindBox.Parent = flyRow
+            flyKeyBindBox.ClearTextOnFocus = false
+            local function onFlyKeyBindLostFocus()
+                local txt = flyKeyBindBox.Text:gsub("%s", "")
+                if #txt == 1 then
+                    flyKeybind = txt:upper()
+                    flyKeyBindBox.Text = flyKeybind
+                else
+                    flyKeybind = nil
+                    flyKeyBindBox.Text = ""
+                end
+            end
+            flyKeyBindBox.FocusLost:Connect(onFlyKeyBindLostFocus)
+            flyKeyBindBox.Focused:Connect(function()
+                activeTextBox = flyKeyBindBox
+            end)
+            flyKeyBindBox.FocusLost:Connect(function()
+                if activeTextBox == flyKeyBindBox then activeTextBox = nil end
+            end)
             local flyClick = Instance.new("TextButton"); flyClick.Size = UDim2.new(1,0,1,0); flyClick.BackgroundTransparency = 1
             flyClick.Text = ""; flyClick.ZIndex = 5; flyClick.Parent = flyRow
             local function toggleFlyBtn()
-                if flying then stopFly() else startFly() end
+                toggleFlyGlobal()
                 flyCB.BackgroundColor3 = flying and COLORS.ActiveWhite or COLORS.ControlBg
             end
             flyClick.MouseButton1Click:Connect(toggleFlyBtn)
@@ -1918,7 +1964,7 @@ function buildContent()
             speedKeyBindBox.TextColor3 = COLORS.White
             speedKeyBindBox.TextSize = 14
             speedKeyBindBox.Font = Enum.Font.SourceSansBold
-            speedKeyBindBox.ZIndex = 5
+            speedKeyBindBox.ZIndex = 6
             speedKeyBindBox.Parent = speedRow
             speedKeyBindBox.ClearTextOnFocus = false
             
@@ -2235,9 +2281,10 @@ function buildContent()
     end
 end
 
--- === KEYBINDS (including speed keybind and custom GUI toggle) ===
+-- === KEYBINDS (including speed, fly, and custom GUI toggle) ===
 UserInputService.InputBegan:Connect(function(i, gp)
     if gp then return end
+    -- Custom GUI toggle key
     local toggleKey = guiToggleKeybind and guiToggleKeybind ~= "" and guiToggleKeybind or "Insert"
     if i.KeyCode.Name == toggleKey then
         guiHidden = not guiHidden
@@ -2257,10 +2304,17 @@ UserInputService.InputBegan:Connect(function(i, gp)
         end
     end
     
+    -- Speed keybind
     if speedKeybind and i.KeyCode.Name == speedKeybind then
         toggleSpeedGlobal()
     end
     
+    -- Fly keybind
+    if flyKeybind and i.KeyCode.Name == flyKeybind then
+        toggleFlyGlobal()
+    end
+    
+    -- Enter key to confirm active TextBox
     if i.KeyCode == Enum.KeyCode.Return and activeTextBox then
         activeTextBox:ReleaseFocus()
     end
